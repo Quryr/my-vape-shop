@@ -294,9 +294,11 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // АВТОРИЗАЦИЯ - Фикс для отображения щита админа
         const MY_ADMIN_ID = 1262669099;
         const userData = tg.initDataUnsafe?.user;
-        const isAdmin = userData && userData.id === MY_ADMIN_ID;
+        // Используем нестрогое сравнение и проверку на тип, чтобы точно сработало в боте
+        const isAdmin = userData && (userData.id == MY_ADMIN_ID || String(userData.id) == String(MY_ADMIN_ID));
 
         const themes = ['toxic', 'ice', 'magma'];
         let currentThemeIndex = 0;
@@ -323,7 +325,12 @@
         let dbProducts = [];
 
         function init() {
-            if (isAdmin) document.getElementById('adminBtn').style.display = 'flex';
+            // Принудительно показываем щит для админа
+            if (isAdmin) {
+                const btn = document.getElementById('adminBtn');
+                if(btn) btn.style.display = 'flex';
+            }
+            
             if (window.fs) {
                 const q = window.fs.query(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'));
                 window.fs.onSnapshot(q, (snap) => {
@@ -504,7 +511,7 @@
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
 
-            // Структурированный объект для бота
+            // ФИКС: Ключи синхронизированы с бэкендом (Python скриптом)
             const orderDetails = {
                 action: "NEW_ORDER",
                 order_key: currentOrderKey,
@@ -513,14 +520,14 @@
                 client: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    contact: document.getElementById('order_contact').value,
+                    username_or_contact: document.getElementById('order_contact').value, // Было contact, стало username_or_contact
                     place: document.getElementById('order_location').value,
                     time: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
             
-            // Отправляем данные боту. Бот получит этот JSON в событии web_app_data
+            // Отправляем данные боту
             setTimeout(() => {
                 tg.sendData(JSON.stringify(orderDetails)); 
                 tg.close();
@@ -530,6 +537,7 @@
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
         window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
 
+        // Запуск приложения
         init();
     </script>
 </body>
