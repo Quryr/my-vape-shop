@@ -122,6 +122,20 @@
         }
         .bottom-sheet.active { transform: translateY(0); }
         .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; }
+        
+        /* Custom File Input */
+        .file-upload-container {
+            width: 100%; background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 14px; padding: 15px; text-align: center; margin-bottom: 15px;
+            cursor: pointer; position: relative;
+        }
+        .file-upload-container:active { background: rgba(255,255,255,0.08); }
+        .file-upload-preview {
+            width: 60px; height: 60px; border-radius: 10px; object-fit: cover; margin: 10px auto;
+            display: none; border: 1px solid var(--brand-color);
+        }
+        #p_file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
         .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; }
 
         body.admin-mode .delete-card-btn { display: flex; }
@@ -146,7 +160,6 @@
             VAPE CLOUD
         </div>
         <div class="header-btns">
-            <!-- Кнопка добавления (только в админ-режиме) -->
             <button class="icon-btn" id="addBtn" onclick="openAdminForm()">
                 <i data-lucide="plus" size="22"></i>
             </button>
@@ -196,15 +209,22 @@
             <option value="Pod-системы">Pod-системы</option>
             <option value="Расходники">Расходники</option>
         </select>
-        <input type="text" id="p_img" class="form-input" placeholder="URL картинки">
-        <button class="checkout-btn" onclick="adminAddProduct()">Добавить карточку</button>
+        
+        <!-- Выбор фото из галереи -->
+        <div class="file-upload-container">
+            <i data-lucide="image" size="24" style="color:var(--brand-color)"></i>
+            <div style="font-size: 13px; margin-top: 5px; color:var(--text-muted)" id="uploadText">Выбрать фото из галереи</div>
+            <img id="imagePreview" class="file-upload-preview">
+            <input type="file" id="p_file" accept="image/*" onchange="handleImageSelect(event)">
+        </div>
+
+        <button class="checkout-btn" id="saveProductBtn" onclick="adminAddProduct()">Добавить карточку</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // АВТОРИЗАЦИЯ
         const MY_ADMIN_ID = 1262669099;
         const userData = tg.initDataUnsafe?.user;
         const isAdmin = userData && userData.id === MY_ADMIN_ID;
@@ -214,6 +234,7 @@
         let activeCategory = 'Все';
         let isAdminMode = false;
         let cart = {};
+        let selectedBase64 = '';
 
         let initialProducts = [
             { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
@@ -239,7 +260,7 @@
                 window.fs.onSnapshot(q, (snap) => {
                     dbProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                     renderAll();
-                }, (err) => console.log("Cloud sync error"));
+                });
             } else {
                 renderAll();
             }
@@ -255,10 +276,7 @@
             const allItems = [...initialProducts, ...dbProducts];
             const categories = ['Все', ...new Set(allItems.map(p => p.category))];
             const container = document.getElementById('categories');
-            
-            container.innerHTML = categories.map(cat => `
-                <button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>
-            `).join('');
+            container.innerHTML = categories.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
 
         function renderProducts() {
@@ -296,7 +314,6 @@
             isAdminMode = !isAdminMode;
             document.body.classList.toggle('admin-mode');
             document.getElementById('adminBtn').classList.toggle('active');
-            // Показываем кнопку ПЛЮС только в режиме админа
             document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
             renderAll();
         }
@@ -306,13 +323,36 @@
             document.getElementById('overlay').classList.add('active');
         }
 
+        // Обработка выбора изображения
+        window.handleImageSelect = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedBase64 = e.target.result;
+                const preview = document.getElementById('imagePreview');
+                const uploadText = document.getElementById('uploadText');
+                
+                preview.src = selectedBase64;
+                preview.style.display = 'block';
+                uploadText.innerText = 'Фото выбрано';
+                tg.HapticFeedback.selectionChanged();
+            };
+            reader.readAsDataURL(file);
+        };
+
         async function adminAddProduct() {
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
-            const img = document.getElementById('p_img').value || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
+            const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
 
             if (!name || !price) return;
+
+            const btn = document.getElementById('saveProductBtn');
+            btn.disabled = true;
+            btn.innerText = 'Сохранение...';
             
             if (window.fs) {
                 await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), {
@@ -322,11 +362,20 @@
                 initialProducts.push({ id: Date.now(), name, price, category, img });
                 renderAll();
             }
+            
+            btn.disabled = false;
+            btn.innerText = 'Добавить карточку';
+            resetAdminForm();
             closeSheets();
-            // Очистка полей
+        }
+
+        function resetAdminForm() {
             document.getElementById('p_name').value = '';
             document.getElementById('p_price').value = '';
-            document.getElementById('p_img').value = '';
+            document.getElementById('p_file').value = '';
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
+            selectedBase64 = '';
         }
 
         async function deleteItem(id, isDb) {
@@ -354,7 +403,6 @@
             const count = items.reduce((a, b) => a + b.qty, 0);
             const total = items.reduce((a, b) => a + (b.price * b.qty), 0);
             const fab = document.getElementById('cartFab');
-            
             fab.classList.toggle('visible', count > 0 && !isAdminMode);
             document.getElementById('cartCount').innerText = `${count} ТОВ.`;
             document.getElementById('cartTotal').innerText = `${total} ₽`;
@@ -390,24 +438,9 @@
             }
         }
 
-        function toggleCart(s) {
-            document.getElementById('cartSheet').classList.toggle('active', s);
-            document.getElementById('overlay').classList.toggle('active', s);
-            document.body.style.overflow = s ? 'hidden' : '';
-        }
-
-        function closeSheets() {
-            document.getElementById('cartSheet').classList.remove('active');
-            document.getElementById('adminForm').classList.remove('active');
-            document.getElementById('overlay').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        function checkout() {
-            tg.HapticFeedback.notificationOccurred('success');
-            tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() }));
-            tg.close();
-        }
+        function toggleCart(s) { document.getElementById('cartSheet').classList.toggle('active', s); document.getElementById('overlay').classList.toggle('active', s); document.body.style.overflow = s ? 'hidden' : ''; }
+        function closeSheets() { document.getElementById('cartSheet').classList.remove('active'); document.getElementById('adminForm').classList.remove('active'); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; }
+        function checkout() { tg.HapticFeedback.notificationOccurred('success'); tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() })); tg.close(); }
 
         init();
     </script>
