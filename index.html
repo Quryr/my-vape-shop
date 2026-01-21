@@ -14,7 +14,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            /* Default Theme: Toxic */
             --brand-color: #00ff88;
             --brand-glow: rgba(0, 255, 136, 0.4);
             --bg-dark: #050505;
@@ -39,13 +38,15 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
             font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            margin: 0;
             background-color: var(--bg-dark);
             color: var(--text-main);
-            overflow-x: hidden;
+            overflow-x: hidden; /* Защита от горизонтального скролла */
+            width: 100vw;
             min-height: 100vh;
         }
 
@@ -63,49 +64,49 @@
 
         .orb {
             position: absolute;
-            width: 350px;
-            height: 350px;
+            width: 300px;
+            height: 300px;
             border-radius: 50%;
             filter: blur(80px);
-            opacity: 0.35;
+            opacity: 0.3;
             transition: background var(--transition);
         }
 
         .orb-1 {
             background: var(--brand-color);
-            top: -100px;
+            top: -50px;
             right: -50px;
             animation: float 20s infinite alternate;
         }
 
         .orb-2 {
-            background: #4a00ff; /* Secondary accent */
-            bottom: -100px;
+            background: #4a00ff;
+            bottom: -50px;
             left: -50px;
             animation: float 25s infinite alternate-reverse;
         }
 
         @keyframes float {
             0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(50px, 100px) scale(1.2); }
-            100% { transform: translate(-30px, 50px) scale(0.9); }
+            50% { transform: translate(30px, 50px) scale(1.1); }
+            100% { transform: translate(-20px, 30px) scale(0.9); }
         }
 
-        /* Header */
         header {
-            padding: 20px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            background: rgba(5, 5, 5, 0.6);
             border-bottom: 1px solid var(--glass-border);
         }
 
         .logo {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             letter-spacing: -0.5px;
             display: flex;
@@ -121,13 +122,17 @@
             border-radius: 12px;
             cursor: pointer;
             transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Categories */
         .categories-container {
-            padding: 20px 0;
+            padding: 12px 0;
             overflow-x: auto;
             white-space: nowrap;
+            scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -135,60 +140,59 @@
 
         .categories-inner {
             display: inline-flex;
-            gap: 12px;
-            padding: 10px 20px 30px 20px; /* Large bottom padding for glow visibility */
+            gap: 10px;
+            padding: 10px 20px 25px 20px;
         }
 
         .category-btn {
             background: var(--glass);
-            border: 1px solid var(--glass-border);
+            border: none;
             color: var(--text-muted);
-            padding: 10px 20px;
+            padding: 10px 18px;
             border-radius: 20px;
             font-size: 14px;
             font-weight: 500;
             position: relative;
             transition: var(--transition);
-            border: none;
             outline: none;
         }
 
         .category-btn.active {
             color: var(--text-main);
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
         }
 
-        /* Neon Glow Hack */
         .category-btn.active::after {
             content: '';
             position: absolute;
             inset: 0;
             border-radius: 20px;
             background: var(--brand-color);
-            filter: blur(20px);
-            opacity: 0.6;
+            filter: blur(15px);
+            opacity: 0.5;
             z-index: -1;
-            transition: var(--transition);
         }
 
-        /* Products Grid */
+        /* Products Grid Fix */
         .products-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            padding: 0 20px 100px 20px;
+            grid-template-columns: repeat(2, 1fr); /* Ровно две колонки */
+            gap: 12px;
+            padding: 0 16px 120px 16px;
+            width: 100%;
         }
 
         .product-card {
             background: var(--glass);
             border: 1px solid var(--glass-border);
-            backdrop-filter: blur(15px);
-            border-radius: 24px;
-            padding: 12px;
+            backdrop-filter: blur(10px);
+            border-radius: 22px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            animation: fadeIn 0.5s ease forwards;
+            gap: 8px;
+            animation: fadeIn 0.4s ease forwards;
+            min-width: 0; /* Важно для сжатия контента внутри грида */
         }
 
         @keyframes fadeIn {
@@ -198,30 +202,31 @@
 
         .product-img {
             width: 100%;
-            aspect-ratio: 1;
-            border-radius: 18px;
+            aspect-ratio: 1/1;
+            border-radius: 16px;
             background: rgba(255,255,255,0.03);
-            object-fit: contain;
-            padding: 10px;
+            object-fit: cover;
+            padding: 6px;
         }
 
         .product-info {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
+            padding: 0 4px;
         }
 
         .product-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             color: var(--text-main);
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap;
         }
 
         .product-price {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--brand-color);
         }
@@ -230,46 +235,41 @@
             background: var(--text-main);
             color: var(--bg-dark);
             border: none;
-            padding: 10px;
+            padding: 12px;
             border-radius: 14px;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             width: 100%;
-            transition: var(--transition);
             cursor: pointer;
+            transition: var(--transition);
         }
 
-        .add-btn:active {
-            transform: scale(0.95);
-            opacity: 0.8;
-        }
+        .add-btn:active { transform: scale(0.96); opacity: 0.9; }
 
         /* Cart FAB */
         .cart-fab {
             position: fixed;
-            bottom: 25px;
+            bottom: 20px;
             left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            width: calc(100% - 40px);
-            max-width: 400px;
+            transform: translateX(-50%) translateY(120px);
+            width: calc(100% - 32px);
+            max-width: 450px;
             background: var(--brand-color);
             color: var(--bg-dark);
-            height: 60px;
-            border-radius: 20px;
+            height: 64px;
+            border-radius: 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
             font-weight: 700;
-            box-shadow: 0 10px 30px var(--brand-glow);
+            box-shadow: 0 10px 40px var(--brand-glow);
             z-index: 200;
             cursor: pointer;
-            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        .cart-fab.visible {
-            transform: translateX(-50%) translateY(0);
-        }
+        .cart-fab.visible { transform: translateX(-50%) translateY(0); }
 
         /* Bottom Sheet */
         .overlay {
@@ -278,18 +278,15 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(5px);
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
             z-index: 300;
             opacity: 0;
             visibility: hidden;
             transition: var(--transition);
         }
 
-        .overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
+        .overlay.active { opacity: 1; visibility: visible; }
 
         .bottom-sheet {
             position: fixed;
@@ -298,31 +295,22 @@
             width: 100%;
             background: #0d0d0d;
             border-top: 1px solid var(--glass-border);
-            border-radius: 30px 30px 0 0;
+            border-radius: 28px 28px 0 0;
             z-index: 301;
             transform: translateY(100%);
-            transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-            max-height: 85vh;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            max-height: 80vh;
             display: flex;
             flex-direction: column;
             padding: 20px;
         }
 
-        .bottom-sheet.active {
-            transform: translateY(0);
-        }
-
-        .sheet-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+        .bottom-sheet.active { transform: translateY(0); }
 
         .sheet-handle {
             width: 40px;
             height: 4px;
-            background: var(--glass-border);
+            background: rgba(255,255,255,0.15);
             border-radius: 2px;
             margin: -10px auto 15px auto;
         }
@@ -332,36 +320,38 @@
             flex-grow: 1;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin: 10px 0 20px 0;
         }
 
         .cart-item {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
             background: var(--glass);
-            padding: 12px;
+            padding: 10px;
             border-radius: 18px;
+            border: 1px solid var(--glass-border);
         }
 
         .cart-item img {
-            width: 50px;
-            height: 50px;
+            width: 45px;
+            height: 45px;
             border-radius: 10px;
+            object-fit: cover;
             background: rgba(255,255,255,0.05);
         }
 
-        .cart-item-info { flex-grow: 1; }
-        .cart-item-name { font-size: 14px; font-weight: 500; }
-        .cart-item-price { color: var(--brand-color); font-weight: 600; font-size: 14px; }
+        .cart-item-info { flex-grow: 1; min-width: 0; }
+        .cart-item-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cart-item-price { color: var(--brand-color); font-weight: 700; font-size: 14px; }
 
         .qty-controls {
             display: flex;
             align-items: center;
-            gap: 12px;
-            background: rgba(255,255,255,0.05);
-            padding: 5px 10px;
+            gap: 10px;
+            background: rgba(255,255,255,0.06);
+            padding: 4px 10px;
             border-radius: 12px;
         }
 
@@ -369,7 +359,7 @@
             background: none;
             border: none;
             color: var(--text-main);
-            padding: 5px;
+            padding: 4px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -381,12 +371,19 @@
             border: none;
             width: 100%;
             padding: 18px;
-            border-radius: 20px;
+            border-radius: 18px;
             font-weight: 700;
             font-size: 16px;
             cursor: pointer;
+            box-shadow: 0 4px 20px var(--brand-glow);
         }
 
+        /* Mobile specific font tweaks */
+        @media (max-width: 360px) {
+            .product-name { font-size: 12px; }
+            .product-price { font-size: 14px; }
+            .products-grid { gap: 8px; padding: 0 12px 100px 12px; }
+        }
     </style>
 </head>
 <body class="theme-toxic">
@@ -398,90 +395,66 @@
 
     <header>
         <div class="logo">
-            <i data-lucide="zap" fill="var(--brand-color)" color="var(--brand-color)"></i>
+            <i data-lucide="zap" fill="var(--brand-color)" color="var(--brand-color)" size="22"></i>
             VAPE CLOUD
         </div>
         <button class="theme-toggle" onclick="toggleTheme()">
-            <i data-lucide="aperture" size="20"></i>
+            <i data-lucide="palette" size="20"></i>
         </button>
     </header>
 
     <div class="categories-container">
-        <div class="categories-inner" id="categories">
-            <!-- Dynamic Categories -->
-        </div>
+        <div class="categories-inner" id="categories"></div>
     </div>
 
-    <div class="products-grid" id="products">
-        <!-- Dynamic Products -->
-    </div>
+    <div class="products-grid" id="products"></div>
 
-    <!-- Cart FAB -->
     <div class="cart-fab" id="cartFab" onclick="toggleCart(true)">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <i data-lucide="shopping-bag" size="20"></i>
+            <i data-lucide="shopping-cart" size="20"></i>
             <span id="cartCount">0 ТОВАРОВ</span>
         </div>
         <span id="cartTotal">0 ₽</span>
     </div>
 
-    <!-- Bottom Sheet Cart -->
     <div class="overlay" id="overlay" onclick="toggleCart(false)"></div>
     <div class="bottom-sheet" id="bottomSheet">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
-            <h2 style="margin: 0; font-size: 20px;">Ваша корзина</h2>
-            <button class="theme-toggle" onclick="toggleCart(false)">
-                <i data-lucide="x" size="20"></i>
+            <h2 style="margin: 0; font-size: 18px;">Корзина</h2>
+            <button class="theme-toggle" style="padding: 6px;" onclick="toggleCart(false)">
+                <i data-lucide="x" size="18"></i>
             </button>
         </div>
-        <div class="cart-list" id="cartList">
-            <!-- Cart Items -->
-        </div>
+        <div class="cart-list" id="cartList"></div>
         <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
     </div>
 
     <script>
-        // Init Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.expand();
 
         const themes = ['toxic', 'ice', 'magma'];
         let currentThemeIndex = 0;
 
-        // Expanded products from the provided price list structure
+        // Content based on your price list
         const products = [
-            // Одноразки
             { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
             { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?auto=format&fit=crop&q=80&w=200' },
             { id: 3, category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
             { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-            { id: 16, category: 'Одноразки', name: 'Chill Up 3500', price: 600, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
-
-            // Жидкости
             { id: 5, category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
             { id: 6, category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?auto=format&fit=crop&q=80&w=200' },
             { id: 7, category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
-            { id: 8, category: 'Жидкости', name: 'Rick and Morty (Salt)', price: 550, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?auto=format&fit=crop&q=80&w=200' },
-            { id: 17, category: 'Жидкости', name: 'Angry Vape 30ml', price: 350, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
-
-            // Pod-системы
-            { id: 9, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
-            { id: 10, category: 'Pod-системы', name: 'GeekVape Aegis Q', price: 2100, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-            { id: 11, category: 'Pod-системы', name: 'Santi (Smoant)', price: 1950, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' },
-            { id: 12, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
-            { id: 18, category: 'Pod-системы', name: 'Nevoks Feelin A1', price: 2300, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-
-            // Расходники
-            { id: 13, category: 'Расходники', name: 'Картридж XROS (0.6/0.8)', price: 350, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' },
-            { id: 14, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-            { id: 15, category: 'Расходники', name: 'Картридж Charon Baby', price: 300, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' },
+            { id: 8, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
+            { id: 9, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' },
+            { id: 10, category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
+            { id: 11, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' }
         ];
 
         let cart = {};
         let activeCategory = 'Все';
 
-        // Functions
         function init() {
             renderCategories();
             renderProducts();
@@ -550,25 +523,22 @@
 
             if (totalCount > 0) {
                 fab.classList.add('visible');
-                countSpan.innerText = `${totalCount} ${getWord(totalCount, ['ТОВАР', 'ТОВАРА', 'ТОВАРОВ'])}`;
+                countSpan.innerText = `${totalCount} ТОВ.`;
                 totalSpan.innerText = `${totalPrice} ₽`;
             } else {
                 fab.classList.remove('visible');
                 toggleCart(false);
             }
-
             renderCartItems();
         }
 
         function renderCartItems() {
             const container = document.getElementById('cartList');
             const items = Object.values(cart);
-            
             if (items.length === 0) {
-                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Корзина пуста</div>`;
+                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted); font-size: 14px;">Пусто</div>`;
                 return;
             }
-
             container.innerHTML = items.map(item => `
                 <div class="cart-item">
                     <img src="${item.img}">
@@ -577,13 +547,9 @@
                         <div class="cart-item-price">${item.price * item.qty} ₽</div>
                     </div>
                     <div class="qty-controls">
-                        <button class="qty-btn" onclick="changeQty(${item.id}, -1)">
-                            <i data-lucide="minus" size="16"></i>
-                        </button>
-                        <span style="font-weight: 600; min-width: 20px; text-align: center;">${item.qty}</span>
-                        <button class="qty-btn" onclick="changeQty(${item.id}, 1)">
-                            <i data-lucide="plus" size="16"></i>
-                        </button>
+                        <button class="qty-btn" onclick="changeQty(${item.id}, -1)"><i data-lucide="minus" size="14"></i></button>
+                        <span style="font-weight: 600; min-width: 15px; text-align: center; font-size: 14px;">${item.qty}</span>
+                        <button class="qty-btn" onclick="changeQty(${item.id}, 1)"><i data-lucide="plus" size="14"></i></button>
                     </div>
                 </div>
             `).join('');
@@ -605,29 +571,19 @@
             if (show) {
                 sheet.classList.add('active');
                 overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
             } else {
                 sheet.classList.remove('active');
                 overlay.classList.remove('active');
+                document.body.style.overflow = '';
             }
         }
 
         function checkout() {
             tg.HapticFeedback.notificationOccurred('success');
             const totalPrice = Object.values(cart).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
-            tg.sendData(JSON.stringify({
-                order: cart,
-                total: totalPrice
-            }));
+            tg.sendData(JSON.stringify({ order: cart, total: totalPrice }));
             tg.close();
-        }
-
-        function getWord(n, text_forms) {  
-            n = Math.abs(n) % 100; 
-            var n1 = n % 10;
-            if (n > 10 && n < 20) { return text_forms[2]; }
-            if (n1 > 1 && n1 < 5) { return text_forms[1]; }
-            if (n1 == 1) { return text_forms[0]; }
-            return text_forms[2];
         }
 
         init();
