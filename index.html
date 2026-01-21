@@ -124,13 +124,11 @@
         .bottom-sheet.active { transform: translateY(0); }
         .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; font-size: 15px; }
         
-        /* Custom File Input */
         .file-upload-container {
             width: 100%; background: var(--glass); border: 1px solid var(--glass-border);
             border-radius: 14px; padding: 15px; text-align: center; margin-bottom: 15px;
             cursor: pointer; position: relative;
         }
-        .file-upload-container:active { background: rgba(255,255,255,0.08); }
         .file-upload-preview {
             width: 60px; height: 60px; border-radius: 10px; object-fit: cover; margin: 10px auto;
             display: none; border: 1px solid var(--brand-color);
@@ -141,8 +139,11 @@
         .checkout-btn:active { transform: scale(0.98); }
 
         /* Payment Info */
-        .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 15px; text-align: center; margin: 10px 0; }
-        .price-tag { font-size: 24px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
+        .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
+        .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
+        
+        .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; }
+        .copy-btn { color: var(--brand-color); font-size: 12px; font-weight: 600; cursor: pointer; }
 
         body.admin-mode .delete-card-btn { display: flex; }
         body.admin-mode .cart-fab { display: none !important; }
@@ -210,20 +211,33 @@
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Детали заказа</h2>
-            <button class="icon-btn" style="border:none; background:transparent" onclick="closeSheets()">
-                <i data-lucide="arrow-left" onclick="toggleCart(true)"></i>
+            <button class="icon-btn" style="border:none; background:transparent" onclick="toggleCart(true)">
+                <i data-lucide="arrow-left"></i>
             </button>
         </div>
         <div style="flex-grow:1; overflow-y:auto;">
             <input type="text" id="order_name" class="form-input" placeholder="Ваше Имя">
             <input type="tel" id="order_phone" class="form-input" placeholder="Номер телефона">
-            <select id="order_type" class="form-input" onchange="toggleAddressField()">
+            
+            <div style="margin-bottom: 8px; font-size: 12px; color: var(--text-muted); margin-left: 5px;">Тип получения:</div>
+            <select id="order_type" class="form-input" onchange="updateOrderFields()">
                 <option value="delivery">Доставка по адресу</option>
-                <option value="meeting">Личная встреча (место)</option>
+                <option value="meeting">Личная встреча (выбор времени)</option>
             </select>
-            <input type="text" id="order_address" class="form-input" placeholder="Адрес / Место встречи">
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
-                * Мы свяжемся с вами для подтверждения времени.
+
+            <!-- Поле Адреса -->
+            <div id="address_container">
+                <input type="text" id="order_address" class="form-input" placeholder="Введите полный адрес">
+            </div>
+
+            <!-- Выбор времени встречи -->
+            <div id="time_container" style="display:none">
+                <div style="margin-bottom: 8px; font-size: 12px; color: var(--text-muted); margin-left: 5px;">Выберите время встречи:</div>
+                <select id="order_time" class="form-input">
+                    <option value="10:00 - 12:00">10:00 - 12:00</option>
+                    <option value="12:00 - 14:00">12:00 - 14:00</option>
+                    <option value="14:00 - 16:00">14:00 - 16:00</option>
+                </select>
             </div>
         </div>
         <button class="checkout-btn" onclick="openPaymentSheet()">К оплате</button>
@@ -232,26 +246,43 @@
     <!-- 3. Оплата СБП -->
     <div class="bottom-sheet" id="paymentSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2 style="font-size: 18px;">Оплата заказа</h2>
+            <h2 style="font-size: 18px;">Оплата</h2>
             <i data-lucide="x" onclick="closeSheets()" style="cursor:pointer"></i>
         </div>
         <div style="text-align: center; flex-grow:1;">
-            <div style="font-size: 14px; color: var(--text-muted)">К оплате по СБП:</div>
+            <div style="font-size: 14px; color: var(--text-muted)">Итого к переводу:</div>
             <div class="price-tag" id="finalPrice">0 ₽</div>
             
             <div class="payment-info">
-                <div style="font-weight: 600; margin-bottom: 5px;">Сбербанк / СБП</div>
-                <div style="font-size: 13px; margin-bottom: 10px;">Переведите сумму по номеру:</div>
-                <div style="font-size: 18px; font-weight: 700; color: var(--brand-color);">+7 (999) 000-00-00</div>
-                <div style="font-size: 12px; margin-top: 5px;">Получатель: ИВАН ИВАНОВИЧ И.</div>
+                <div style="font-weight: 700; margin-bottom: 15px; font-size: 16px;">Реквизиты для СБП</div>
+                
+                <div class="copy-info-row">
+                    <span id="target_phone">89525081814</span>
+                    <span class="copy-btn" onclick="copyData('89525081814', 'Номер скопирован')">КОПИРОВАТЬ</span>
+                </div>
+                <div class="copy-info-row">
+                    <span id="target_sum">0 ₽</span>
+                    <span class="copy-btn" onclick="copySum()">КОПИРОВАТЬ СУММУ</span>
+                </div>
+
+                <div style="font-size: 13px; margin-top: 15px; color: var(--text-main);">
+                    Получатель: <b>Иван Владимирович Р.</b>
+                </div>
+                <div style="font-size: 11px; color: var(--brand-color); margin-top: 5px;">Банк: Сбербанк</div>
             </div>
 
-            <div style="background: rgba(0,255,136,0.1); padding: 12px; border-radius: 12px; font-size: 13px; margin: 15px 0;">
-                <i data-lucide="info" size="14" style="vertical-align: middle"></i> 
-                После оплаты нажмите кнопку ниже, чтобы отправить чек в чат.
+            <div style="margin: 20px 0;">
+                <button class="checkout-btn" style="background: #21a038; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="openSberbank()">
+                    <i data-lucide="external-link" size="18"></i>
+                    Открыть Сбербанк Онлайн
+                </button>
+            </div>
+
+            <div style="background: rgba(0,255,136,0.05); padding: 12px; border-radius: 12px; font-size: 12px; color: var(--text-muted);">
+                После совершения перевода нажмите кнопку «Подтвердить», чтобы отправить заказ в работу.
             </div>
         </div>
-        <button class="checkout-btn" style="background: var(--success); color: white;" onclick="finishOrder()">Я оплатил(а), отправить заказ</button>
+        <button class="checkout-btn" style="background: var(--success); color: white; margin-top: 15px;" onclick="finishOrder()">Я оплатил(а), подтвердить</button>
     </div>
 
     <!-- Форма Админа -->
@@ -472,7 +503,21 @@
             }
         };
 
-        // Логика оформления заказа
+        // ЛОГИКА ЗАКАЗА
+        window.updateOrderFields = () => {
+            const type = document.getElementById('order_type').value;
+            const addressCont = document.getElementById('address_container');
+            const timeCont = document.getElementById('time_container');
+            
+            if (type === 'delivery') {
+                addressCont.style.display = 'block';
+                timeCont.style.display = 'none';
+            } else {
+                addressCont.style.display = 'none';
+                timeCont.style.display = 'block';
+            }
+        };
+
         window.openOrderForm = () => {
             document.getElementById('cartSheet').classList.remove('active');
             document.getElementById('orderSheet').classList.add('active');
@@ -482,36 +527,64 @@
         window.openPaymentSheet = () => {
             const name = document.getElementById('order_name').value;
             const phone = document.getElementById('order_phone').value;
+            const type = document.getElementById('order_type').value;
             const address = document.getElementById('order_address').value;
             
-            if(!name || !phone || !address) {
+            if (!name || !phone || (type === 'delivery' && !address)) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
             
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             document.getElementById('finalPrice').innerText = `${total} ₽`;
+            document.getElementById('target_sum').innerText = `${total} ₽`;
             
             document.getElementById('orderSheet').classList.remove('active');
             document.getElementById('paymentSheet').classList.add('active');
         };
 
+        // АВТОМАТИЗАЦИЯ ОПЛАТЫ
+        window.copyData = (text, msg) => {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            tg.HapticFeedback.notificationOccurred('success');
+        };
+
+        window.copySum = () => {
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            copyData(total.toString(), 'Сумма скопирована');
+        };
+
+        window.openSberbank = () => {
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            // Копируем самое важное перед переходом
+            copyData('89525081814', ''); 
+            // Пытаемся открыть приложение Сбера или универсальный SBP редирект
+            tg.openLink('https://www.sberbank.com/ru/person/dist_services/inner_sberbank_online');
+        };
+
         window.finishOrder = () => {
             tg.HapticFeedback.notificationOccurred('success');
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            const type = document.getElementById('order_type').value;
+            
             const orderDetails = {
                 items: cart,
                 total: total,
                 customer: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    type: document.getElementById('order_type').value,
-                    address: document.getElementById('order_address').value
+                    type: type,
+                    address: type === 'delivery' ? document.getElementById('order_address').value : 'Встреча',
+                    time: type === 'meeting' ? document.getElementById('order_time').value : 'Доставка'
                 },
                 timestamp: new Date().toLocaleString()
             };
             
-            // Отправляем данные боту
             tg.sendData(JSON.stringify(orderDetails));
             tg.close();
         };
