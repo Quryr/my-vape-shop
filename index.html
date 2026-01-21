@@ -192,7 +192,9 @@
     <div class="bottom-sheet" id="cartSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Корзина</h2>
-            <i data-lucide="x" onclick="toggleCart(false)" style="cursor:pointer"></i>
+            <button class="icon-btn" style="border:none; background:transparent" onclick="toggleCart(false)">
+                <i data-lucide="x"></i>
+            </button>
         </div>
         <div id="cartList" style="overflow-y:auto; flex-grow:1; margin-bottom:20px;"></div>
         <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
@@ -210,7 +212,6 @@
             <option value="Расходники">Расходники</option>
         </select>
         
-        <!-- Выбор фото из галереи -->
         <div class="file-upload-container">
             <i data-lucide="image" size="24" style="color:var(--brand-color)"></i>
             <div style="font-size: 13px; margin-top: 5px; color:var(--text-muted)" id="uploadText">Выбрать фото из галереи</div>
@@ -254,16 +255,14 @@
 
         function init() {
             if (isAdmin) document.getElementById('adminBtn').style.display = 'flex';
-            
             if (window.fs) {
                 const q = window.fs.query(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'));
                 window.fs.onSnapshot(q, (snap) => {
                     dbProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                     renderAll();
                 });
-            } else {
-                renderAll();
-            }
+            } else { renderAll(); }
+            updateCartUI(); // Синхронизируем UI при старте
         }
 
         function renderAll() {
@@ -283,7 +282,6 @@
             const allItems = [...initialProducts, ...dbProducts];
             const filtered = activeCategory === 'Все' ? allItems : allItems.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
-            
             container.innerHTML = filtered.map(p => {
                 const itemId = p.docId || p.id;
                 return `
@@ -295,20 +293,18 @@
                         <span class="product-price">${p.price} ₽</span>
                     </div>
                     <button class="add-btn" onclick="addToCart('${itemId}')">В корзину</button>
-                </div>
-            `}).join('');
+                </div>`;
+            }).join('');
             lucide.createIcons();
         }
 
-        function setCategory(cat) { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); }
-        
-        function toggleTheme() {
+        window.setCategory = (cat) => { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); };
+        window.toggleTheme = () => {
             tg.HapticFeedback.impactOccurred('medium');
             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
             document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
-        }
-
-        function toggleAdminMode() {
+        };
+        window.toggleAdminMode = () => {
             if (!isAdmin) return;
             tg.HapticFeedback.impactOccurred('heavy');
             isAdminMode = !isAdminMode;
@@ -316,89 +312,71 @@
             document.getElementById('adminBtn').classList.toggle('active');
             document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
             renderAll();
-        }
+            updateCartUI();
+        };
 
-        function openAdminForm() {
+        window.openAdminForm = () => {
             document.getElementById('adminForm').classList.add('active');
             document.getElementById('overlay').classList.add('active');
-        }
+        };
 
-        // Обработка выбора изображения
         window.handleImageSelect = (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = (e) => {
                 selectedBase64 = e.target.result;
                 const preview = document.getElementById('imagePreview');
-                const uploadText = document.getElementById('uploadText');
-                
                 preview.src = selectedBase64;
                 preview.style.display = 'block';
-                uploadText.innerText = 'Фото выбрано';
+                document.getElementById('uploadText').innerText = 'Фото выбрано';
                 tg.HapticFeedback.selectionChanged();
             };
             reader.readAsDataURL(file);
         };
 
-        async function adminAddProduct() {
+        window.adminAddProduct = async () => {
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
-
             if (!name || !price) return;
-
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true;
-            btn.innerText = 'Сохранение...';
-            
+            btn.disabled = true; btn.innerText = 'Сохранение...';
             if (window.fs) {
-                await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), {
-                    name, price, category, img, id: Date.now()
-                });
+                await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), { name, price, category, img, id: Date.now() });
             } else {
                 initialProducts.push({ id: Date.now(), name, price, category, img });
                 renderAll();
             }
-            
-            btn.disabled = false;
-            btn.innerText = 'Добавить карточку';
-            resetAdminForm();
-            closeSheets();
-        }
+            btn.disabled = false; btn.innerText = 'Добавить карточку';
+            resetAdminForm(); closeSheets();
+        };
 
         function resetAdminForm() {
-            document.getElementById('p_name').value = '';
-            document.getElementById('p_price').value = '';
-            document.getElementById('p_file').value = '';
-            document.getElementById('imagePreview').style.display = 'none';
-            document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
-            selectedBase64 = '';
+            document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; document.getElementById('p_file').value = '';
+            document.getElementById('imagePreview').style.display = 'none'; document.getElementById('uploadText').innerText = 'Выбрать фото из галереи'; selectedBase64 = '';
         }
 
-        async function deleteItem(id, isDb) {
+        window.deleteItem = async (id, isDb) => {
             if (!confirm("Удалить этот товар?")) return;
             tg.HapticFeedback.impactOccurred('medium');
             if (isDb && window.fs) {
                 await window.fs.deleteDoc(window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items', id));
-            } else {
-                initialProducts = initialProducts.filter(p => p.id != id);
-                renderAll();
-            }
-        }
+            } else { initialProducts = initialProducts.filter(p => p.id != id); renderAll(); }
+        };
 
-        function addToCart(id) {
+        window.addToCart = (id) => {
             tg.HapticFeedback.notificationOccurred('success');
             const all = [...initialProducts, ...dbProducts];
             const p = all.find(x => (x.docId || x.id) == id);
+            if (!p) return;
             if (cart[id]) cart[id].qty++;
             else cart[id] = { ...p, qty: 1 };
             updateCartUI();
-        }
+        };
 
-        function updateCartUI() {
+        window.updateCartUI = () => {
             const items = Object.values(cart);
             const count = items.reduce((a, b) => a + b.qty, 0);
             const total = items.reduce((a, b) => a + (b.price * b.qty), 0);
@@ -411,7 +389,9 @@
             if (items.length === 0) {
                 list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
             } else {
-                list.innerHTML = items.map(item => `
+                list.innerHTML = items.map(item => {
+                    const id = item.docId || item.id;
+                    return `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
                         <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                         <div style="flex-grow:1; min-width:0">
@@ -419,28 +399,28 @@
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:12px;">
-                            <i data-lucide="minus" size="14" onclick="changeQty('${item.docId || item.id}', -1)" style="cursor:pointer"></i>
+                            <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
-                            <i data-lucide="plus" size="14" onclick="changeQty('${item.docId || item.id}', 1)" style="cursor:pointer"></i>
+                            <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
                 lucide.createIcons();
             }
-        }
+        };
 
-        function changeQty(id, delta) {
+        window.changeQty = (id, delta) => {
             tg.HapticFeedback.impactOccurred('light');
             if (cart[id]) {
                 cart[id].qty += delta;
                 if (cart[id].qty <= 0) delete cart[id];
                 updateCartUI();
             }
-        }
+        };
 
-        function toggleCart(s) { document.getElementById('cartSheet').classList.toggle('active', s); document.getElementById('overlay').classList.toggle('active', s); document.body.style.overflow = s ? 'hidden' : ''; }
-        function closeSheets() { document.getElementById('cartSheet').classList.remove('active'); document.getElementById('adminForm').classList.remove('active'); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; }
-        function checkout() { tg.HapticFeedback.notificationOccurred('success'); tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() })); tg.close(); }
+        window.toggleCart = (s) => { document.getElementById('cartSheet').classList.toggle('active', s); document.getElementById('overlay').classList.toggle('active', s); document.body.style.overflow = s ? 'hidden' : ''; };
+        window.closeSheets = () => { document.getElementById('cartSheet').classList.remove('active'); document.getElementById('adminForm').classList.remove('active'); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
+        window.checkout = () => { tg.HapticFeedback.notificationOccurred('success'); tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() })); tg.close(); };
 
         init();
     </script>
