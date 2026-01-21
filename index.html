@@ -124,7 +124,6 @@
         .bottom-sheet.active { transform: translateY(0); }
         .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; font-size: 15px; }
         
-        /* Custom File Input */
         .file-upload-container {
             width: 100%; background: var(--glass); border: 1px solid var(--glass-border);
             border-radius: 14px; padding: 15px; text-align: center; margin-bottom: 15px;
@@ -144,9 +143,7 @@
         .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
         
         .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px 15px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; border: 1px solid var(--glass-border); }
-        .copy-btn { color: var(--brand-color); font-size: 12px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* Key Highlight */
+        .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
         .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
         body.admin-mode .delete-card-btn { display: flex; }
@@ -211,7 +208,7 @@
         <button class="checkout-btn" onclick="openOrderForm()">Перейти к оформлению</button>
     </div>
 
-    <!-- 2. Форма Заказа (ПЕРЕРАБОТАНО) -->
+    <!-- 2. Форма Заказа -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Данные заказа</h2>
@@ -220,6 +217,7 @@
             </button>
         </div>
         <div style="flex-grow:1; overflow-y:auto;">
+            <input type="text" id="order_name" class="form-input" placeholder="Ваше Имя">
             <input type="tel" id="order_phone" class="form-input" placeholder="Номер телефона">
             <input type="text" id="order_contact" class="form-input" placeholder="Контактные данные (ТГ @юз или др)">
             
@@ -235,40 +233,36 @@
         <button class="checkout-btn" onclick="openPaymentSheet()">К оплате</button>
     </div>
 
-    <!-- 3. Оплата СБП (ПЕРЕРАБОТАНО) -->
+    <!-- 3. Оплата (Ozon Банк) -->
     <div class="bottom-sheet" id="paymentSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Оплата заказа</h2>
             <i data-lucide="x" onclick="closeSheets()" style="cursor:pointer"></i>
         </div>
-        <div style="text-align: center; flex-grow:1; overflow-y: auto; padding-bottom: 10px;">
-            <div style="font-size: 13px; color: var(--text-muted)">Переведите на карту:</div>
+        <div style="text-align: center; flex-grow:1; overflow-y: auto;">
+            <div style="font-size: 13px; color: var(--text-muted)">Переведите на карту Ozon Банка:</div>
             <div class="price-tag" id="finalPrice">0 ₽</div>
             
             <div class="payment-info">
-                <div style="font-weight: 700; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; color: var(--brand-color)">Ozon Банк</div>
+                <div style="font-weight: 700; margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: var(--brand-color)">Ozon Банк</div>
                 
                 <div class="copy-info-row">
-                    <span id="target_card" style="font-family: monospace; font-size: 15px; font-weight: 600;">2204 3209 2444 1944</span>
-                    <span class="copy-btn" onclick="copyData('2204320924441944', 'Номер карты скопирован')">КОПИРОВАТЬ</span>
+                    <span style="font-family: monospace; font-size: 15px; font-weight: 600;">2204 3209 2444 1944</span>
+                    <span class="copy-btn" onclick="copyText('2204320924441944')">КОПИРОВАТЬ</span>
                 </div>
 
-                <div style="font-size: 13px; margin: 20px 0 10px 0; color: var(--text-muted);">
-                    ОБЯЗАТЕЛЬНО укажите в комментарии:
-                </div>
+                <div style="font-size: 12px; margin: 15px 0 10px 0; color: var(--text-muted);">УКАЖИТЕ В КОММЕНТАРИИ КЛЮЧ:</div>
                 
                 <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
                     <span class="payment-key" id="order_key">---</span>
-                    <span class="copy-btn" onclick="copyOrderKey()">КОПИРОВАТЬ</span>
+                    <span class="copy-btn" onclick="copyGeneratedKey()">КОПИРОВАТЬ</span>
                 </div>
 
-                <div style="font-size: 12px; margin-top: 15px; color: var(--text-main);">
-                    Получатель: <b>Иван Владимирович Р.</b>
-                </div>
+                <div style="font-size: 12px; margin-top: 15px; color: var(--text-main);">Получатель: <b>Иван Владимирович Р.</b></div>
             </div>
 
             <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; font-size: 12px; color: var(--text-muted); margin-top: 15px;">
-                После перевода нажмите «Я оплатил(а)», чтобы отправить заказ админу.
+                Оплатите по номеру карты и обязательно вставьте ключ в комментарий к платежу.
             </div>
         </div>
         <button class="checkout-btn" style="background: var(--success); color: white; margin-top: 10px;" onclick="finishOrder()">Я оплатил(а)</button>
@@ -310,13 +304,20 @@
         let isAdminMode = false;
         let cart = {};
         let selectedBase64 = '';
-        let generatedKey = '';
+        let currentOrderKey = '';
 
         let initialProducts = [
             { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
             { id: 3, category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
-            { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
+            { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 5, category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 6, category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 7, category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 8, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 9, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' },
+            { id: 10, category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 11, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
         ];
 
         let dbProducts = [];
@@ -336,15 +337,15 @@
         function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
 
         function renderCategories() {
-            const allItems = [...initialProducts, ...dbProducts];
-            const categories = ['Все', ...new Set(allItems.map(p => p.category))];
+            const all = [...initialProducts, ...dbProducts];
+            const categories = ['Все', ...new Set(all.map(p => p.category))];
             const container = document.getElementById('categories');
             container.innerHTML = categories.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
 
         function renderProducts() {
-            const allItems = [...initialProducts, ...dbProducts];
-            const filtered = activeCategory === 'Все' ? allItems : allItems.filter(p => p.category === activeCategory);
+            const all = [...initialProducts, ...dbProducts];
+            const filtered = activeCategory === 'Все' ? all : all.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             container.innerHTML = filtered.map(p => {
                 const itemId = p.docId || p.id;
@@ -372,10 +373,10 @@
             if (!isAdmin) return;
             tg.HapticFeedback.impactOccurred('heavy');
             isAdminMode = !isAdminMode;
-            document.body.classList.toggle('admin-mode');
-            document.getElementById('adminBtn').classList.toggle('active');
+            document.body.classList.toggle('admin-mode', isAdminMode);
+            document.getElementById('adminBtn').classList.toggle('active', isAdminMode);
             document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
-            renderAll();
+            renderAll(); updateCartUI();
         };
 
         window.openAdminForm = () => { document.getElementById('adminForm').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
@@ -386,11 +387,9 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 selectedBase64 = e.target.result;
-                const preview = document.getElementById('imagePreview');
-                preview.src = selectedBase64;
-                preview.style.display = 'block';
-                document.getElementById('uploadText').innerText = 'Фото выбрано';
-                tg.HapticFeedback.selectionChanged();
+                document.getElementById('imagePreview').src = selectedBase64;
+                document.getElementById('imagePreview').style.display = 'block';
+                document.getElementById('uploadText').innerText = 'Готово';
             };
             reader.readAsDataURL(file);
         };
@@ -401,22 +400,19 @@
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
             if (!name || !price) return;
-            const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true;
             if (window.fs) {
                 await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), { name, price, category, img, id: Date.now() });
             } else { initialProducts.push({ id: Date.now(), name, price, category, img }); renderAll(); }
-            btn.disabled = false; resetAdminForm(); closeSheets();
+            resetAdminForm(); closeSheets();
         };
 
         function resetAdminForm() {
-            document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; document.getElementById('p_file').value = '';
-            document.getElementById('imagePreview').style.display = 'none'; document.getElementById('uploadText').innerText = 'Выбрать фото из галереи'; selectedBase64 = '';
+            document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; 
+            document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = '';
         }
 
         window.deleteItem = async (id, isDb) => {
-            if (!confirm("Удалить этот товар?")) return;
-            tg.HapticFeedback.impactOccurred('medium');
+            if (!confirm("Удалить?")) return;
             if (isDb && window.fs) {
                 await window.fs.deleteDoc(window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items', id));
             } else { initialProducts = initialProducts.filter(p => p.id != id); renderAll(); }
@@ -442,19 +438,18 @@
             document.getElementById('cartTotal').innerText = `${total} ₽`;
             
             const list = document.getElementById('cartList');
-            if (items.length === 0) {
-                list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
-            } else {
+            if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Пусто</div>`; }
+            else {
                 list.innerHTML = items.map(item => {
                     const id = item.docId || item.id;
                     return `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
-                        <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
+                        <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;">
                         <div style="flex-grow:1; min-width:0">
                             <div style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${item.name}</div>
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
-                        <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:12px;">
+                        <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 8px; border-radius:12px;">
                             <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
                             <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
@@ -467,21 +462,18 @@
 
         window.changeQty = (id, delta) => {
             tg.HapticFeedback.impactOccurred('light');
-            if (cart[id]) {
-                cart[id].qty += delta;
-                if (cart[id].qty <= 0) delete cart[id];
-                updateCartUI();
-            }
+            if (cart[id]) { cart[id].qty += delta; if (cart[id].qty <= 0) delete cart[id]; updateCartUI(); }
         };
 
         window.openOrderForm = () => { closeSheets(); document.getElementById('orderSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
-
+        
         window.openPaymentSheet = () => {
+            const name = document.getElementById('order_name').value;
             const phone = document.getElementById('order_phone').value;
             const contact = document.getElementById('order_contact').value;
-            const location = document.getElementById('order_location').value;
+            const loc = document.getElementById('order_location').value;
             
-            if (!phone || !contact || !location) {
+            if (!name || !phone || !contact || !loc) {
                 tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
@@ -489,57 +481,47 @@
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             document.getElementById('finalPrice').innerText = `${total} ₽`;
             
-            // Генерация ключа
-            generatedKey = 'VX-' + Math.floor(100 + Math.random() * 900);
-            document.getElementById('order_key').innerText = generatedKey;
+            currentOrderKey = 'VX-' + Math.floor(100 + Math.random() * 900);
+            document.getElementById('order_key').innerText = currentOrderKey;
             
             closeSheets();
             document.getElementById('paymentSheet').classList.add('active');
             document.getElementById('overlay').classList.add('active');
         };
 
-        window.copyData = (text, msg) => {
-            const el = document.createElement('textarea');
-            el.value = text; document.body.appendChild(el); el.select();
-            document.execCommand('copy'); document.body.removeChild(el);
-            tg.HapticFeedback.notificationOccurred('success');
+        window.copyText = (text) => {
+            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select();
+            document.execCommand('copy'); document.body.removeChild(el); tg.HapticFeedback.notificationOccurred('success');
         };
-
-        window.copyOrderKey = () => copyData(generatedKey, 'Ключ скопирован');
+        window.copyGeneratedKey = () => copyText(currentOrderKey);
 
         window.finishOrder = () => {
             tg.HapticFeedback.notificationOccurred('success');
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
-            
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
 
+            // Формируем полный объект данных для админа
             const orderDetails = {
+                order_key: currentOrderKey,
                 items: itemsText,
-                total: total,
-                verification_key: generatedKey,
-                customer: {
+                total: total + " ₽",
+                client: {
+                    name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    contact: document.getElementById('order_contact').value,
+                    username_or_contact: document.getElementById('order_contact').value,
                     meeting_place: document.getElementById('order_location').value,
                     time_interval: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
             
-            tg.sendData(JSON.stringify(orderDetails));
+            // Отправляем данные боту (Бот должен переслать их админу!)
+            tg.sendData(JSON.stringify(orderDetails)); 
             tg.close();
         };
 
-        window.toggleCart = (s) => { 
-            closeSheets();
-            if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; }
-        };
-
-        window.closeSheets = () => { 
-            ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => document.getElementById(id).classList.remove('active'));
-            document.getElementById('overlay').classList.remove('active');
-            document.body.style.overflow = ''; 
-        };
+        window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
+        window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
 
         init();
     </script>
