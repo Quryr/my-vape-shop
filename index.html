@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK (только для синхронизации админки) -->
+    <!-- Firebase SDK (Admin Sync) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -67,10 +67,11 @@
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
             padding: 8px; border-radius: 12px; cursor: pointer; transition: var(--transition);
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
         }
-        .icon-btn.admin-btn { display: none; } /* Скрыто для всех, кроме тебя */
+        .icon-btn.admin-btn { display: none; } 
         .icon-btn.active { background: var(--brand-color); color: var(--bg-dark); }
+        #addBtn { display: none; background: var(--brand-color); color: var(--bg-dark); border-color: var(--brand-color); }
 
         /* Categories */
         .categories-container { padding: 12px 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -83,7 +84,7 @@
         .category-btn.active { color: var(--text-main); background: rgba(255, 255, 255, 0.08); }
         .category-btn.active::after { content: ''; position: absolute; inset: 0; border-radius: 20px; background: var(--brand-color); filter: blur(15px); opacity: 0.5; z-index: -1; }
 
-        /* Products */
+        /* Products Grid */
         .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 120px 16px; width: 100%; }
         .product-card {
             background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
@@ -125,6 +126,11 @@
 
         body.admin-mode .delete-card-btn { display: flex; }
         body.admin-mode .cart-fab { display: none !important; }
+
+        @media (max-width: 360px) {
+            .product-name { font-size: 12px; }
+            .products-grid { gap: 8px; padding: 0 12px 100px 12px; }
+        }
     </style>
 </head>
 <body class="theme-toxic">
@@ -140,6 +146,10 @@
             VAPE CLOUD
         </div>
         <div class="header-btns">
+            <!-- Кнопка добавления (только в админ-режиме) -->
+            <button class="icon-btn" id="addBtn" onclick="openAdminForm()">
+                <i data-lucide="plus" size="22"></i>
+            </button>
             <button class="icon-btn admin-btn" id="adminBtn" onclick="toggleAdminMode()">
                 <i data-lucide="shield" size="20"></i>
             </button>
@@ -194,7 +204,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // ТВОИ ДАННЫЕ
+        // АВТОРИЗАЦИЯ
         const MY_ADMIN_ID = 1262669099;
         const userData = tg.initDataUnsafe?.user;
         const isAdmin = userData && userData.id === MY_ADMIN_ID;
@@ -205,7 +215,6 @@
         let isAdminMode = false;
         let cart = {};
 
-        // ВОЗВРАЩЕННЫЙ ПОЛНЫЙ СПИСОК ТОВАРОВ
         let initialProducts = [
             { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -225,13 +234,12 @@
         function init() {
             if (isAdmin) document.getElementById('adminBtn').style.display = 'flex';
             
-            // Если Firebase подключен - слушаем облако
             if (window.fs) {
                 const q = window.fs.query(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'));
                 window.fs.onSnapshot(q, (snap) => {
                     dbProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                     renderAll();
-                });
+                }, (err) => console.log("Cloud sync error"));
             } else {
                 renderAll();
             }
@@ -247,14 +255,10 @@
             const allItems = [...initialProducts, ...dbProducts];
             const categories = ['Все', ...new Set(allItems.map(p => p.category))];
             const container = document.getElementById('categories');
-            let html = categories.map(cat => `
+            
+            container.innerHTML = categories.map(cat => `
                 <button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>
             `).join('');
-            
-            if (isAdminMode) {
-                html += `<button class="category-btn" style="background:var(--brand-color); color:#000" onclick="openAdminForm()">+</button>`;
-            }
-            container.innerHTML = html;
         }
 
         function renderProducts() {
@@ -262,17 +266,19 @@
             const filtered = activeCategory === 'Все' ? allItems : allItems.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             
-            container.innerHTML = filtered.map(p => `
+            container.innerHTML = filtered.map(p => {
+                const itemId = p.docId || p.id;
+                return `
                 <div class="product-card">
-                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId || p.id}', ${!!p.docId})"><i data-lucide="trash-2" size="16"></i></button>` : ''}
-                    <img src="${p.img}" class="product-img">
+                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${itemId}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>` : ''}
+                    <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${p.docId || p.id}')">В корзину</button>
+                    <button class="add-btn" onclick="addToCart('${itemId}')">В корзину</button>
                 </div>
-            `).join('');
+            `}).join('');
             lucide.createIcons();
         }
 
@@ -290,6 +296,8 @@
             isAdminMode = !isAdminMode;
             document.body.classList.toggle('admin-mode');
             document.getElementById('adminBtn').classList.toggle('active');
+            // Показываем кнопку ПЛЮС только в режиме админа
+            document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
             renderAll();
         }
 
@@ -315,10 +323,15 @@
                 renderAll();
             }
             closeSheets();
+            // Очистка полей
+            document.getElementById('p_name').value = '';
+            document.getElementById('p_price').value = '';
+            document.getElementById('p_img').value = '';
         }
 
         async function deleteItem(id, isDb) {
-            if (!confirm("Удалить карточку?")) return;
+            if (!confirm("Удалить этот товар?")) return;
+            tg.HapticFeedback.impactOccurred('medium');
             if (isDb && window.fs) {
                 await window.fs.deleteDoc(window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items', id));
             } else {
@@ -348,19 +361,19 @@
             
             const list = document.getElementById('cartList');
             if (items.length === 0) {
-                list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Пусто</div>`;
+                list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
             } else {
                 list.innerHTML = items.map(item => `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
-                        <img src="${item.img}" style="width:40px; height:40px; border-radius:10px;">
+                        <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                         <div style="flex-grow:1; min-width:0">
                             <div style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${item.name}</div>
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:12px;">
-                            <i data-lucide="minus" size="14" onclick="changeQty('${item.docId || item.id}', -1)"></i>
-                            <span>${item.qty}</span>
-                            <i data-lucide="plus" size="14" onclick="changeQty('${item.docId || item.id}', 1)"></i>
+                            <i data-lucide="minus" size="14" onclick="changeQty('${item.docId || item.id}', -1)" style="cursor:pointer"></i>
+                            <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
+                            <i data-lucide="plus" size="14" onclick="changeQty('${item.docId || item.id}', 1)" style="cursor:pointer"></i>
                         </div>
                     </div>
                 `).join('');
@@ -369,6 +382,7 @@
         }
 
         function changeQty(id, delta) {
+            tg.HapticFeedback.impactOccurred('light');
             if (cart[id]) {
                 cart[id].qty += delta;
                 if (cart[id].qty <= 0) delete cart[id];
@@ -390,7 +404,8 @@
         }
 
         function checkout() {
-            tg.sendData(JSON.stringify(cart));
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() }));
             tg.close();
         }
 
