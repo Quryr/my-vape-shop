@@ -12,6 +12,25 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Config from environment
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.firestoreUtils = { collection, doc, setDoc, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, query };
+    </script>
+
     <style>
         :root {
             --brand-color: #00ff88;
@@ -22,6 +41,7 @@
             --text-main: #ffffff;
             --text-muted: #a0a0a0;
             --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --error: #ff4444;
         }
 
         .theme-ice {
@@ -45,7 +65,7 @@
         body {
             background-color: var(--bg-dark);
             color: var(--text-main);
-            overflow-x: hidden; /* Защита от горизонтального скролла */
+            overflow-x: hidden;
             width: 100vw;
             min-height: 100vh;
         }
@@ -114,7 +134,12 @@
             gap: 8px;
         }
 
-        .theme-toggle {
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
             background: var(--glass);
             border: 1px solid var(--glass-border);
             color: var(--text-main);
@@ -125,6 +150,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .icon-btn.active {
+            background: var(--brand-color);
+            color: var(--bg-dark);
+            border-color: var(--brand-color);
         }
 
         /* Categories */
@@ -142,6 +173,7 @@
             display: inline-flex;
             gap: 10px;
             padding: 10px 20px 25px 20px;
+            align-items: center;
         }
 
         .category-btn {
@@ -173,10 +205,24 @@
             z-index: -1;
         }
 
-        /* Products Grid Fix */
+        .add-category-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--brand-color);
+            color: var(--bg-dark);
+            border: none;
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--brand-glow);
+        }
+
+        /* Products Grid */
         .products-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* Ровно две колонки */
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             padding: 0 16px 120px 16px;
             width: 100%;
@@ -192,12 +238,30 @@
             flex-direction: column;
             gap: 8px;
             animation: fadeIn 0.4s ease forwards;
-            min-width: 0; /* Важно для сжатия контента внутри грида */
+            min-width: 0;
+            position: relative;
         }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--error);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: none; /* Only in admin mode */
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         .product-img {
@@ -271,7 +335,7 @@
 
         .cart-fab.visible { transform: translateX(-50%) translateY(0); }
 
-        /* Bottom Sheet */
+        /* Modal / Form */
         .overlay {
             position: fixed;
             top: 0;
@@ -299,7 +363,7 @@
             z-index: 301;
             transform: translateY(100%);
             transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            max-height: 80vh;
+            max-height: 90vh;
             display: flex;
             flex-direction: column;
             padding: 20px;
@@ -313,6 +377,33 @@
             background: rgba(255,255,255,0.15);
             border-radius: 2px;
             margin: -10px auto 15px auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            margin-left: 4px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--brand-color);
         }
 
         .cart-list {
@@ -365,7 +456,7 @@
             align-items: center;
         }
 
-        .checkout-btn {
+        .action-btn {
             background: var(--brand-color);
             color: var(--bg-dark);
             border: none;
@@ -378,7 +469,16 @@
             box-shadow: 0 4px 20px var(--brand-glow);
         }
 
-        /* Mobile specific font tweaks */
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Admin Active UI */
+        body.admin-mode .delete-btn { display: flex; }
+        body.admin-mode .add-category-btn { display: flex; }
+        body.admin-mode .cart-fab { display: none !important; }
+
         @media (max-width: 360px) {
             .product-name { font-size: 12px; }
             .product-price { font-size: 14px; }
@@ -398,17 +498,27 @@
             <i data-lucide="zap" fill="var(--brand-color)" color="var(--brand-color)" size="22"></i>
             VAPE CLOUD
         </div>
-        <button class="theme-toggle" onclick="toggleTheme()">
-            <i data-lucide="palette" size="20"></i>
-        </button>
+        <div class="header-actions">
+            <button class="icon-btn" id="adminToggle" onclick="toggleAdminMode()">
+                <i data-lucide="shield" size="20"></i>
+            </button>
+            <button class="icon-btn" onclick="toggleTheme()">
+                <i data-lucide="palette" size="20"></i>
+            </button>
+        </div>
     </header>
 
     <div class="categories-container">
-        <div class="categories-inner" id="categories"></div>
+        <div class="categories-inner" id="categories">
+            <!-- Categories rendered here -->
+        </div>
     </div>
 
-    <div class="products-grid" id="products"></div>
+    <div class="products-grid" id="products">
+        <!-- Products rendered here -->
+    </div>
 
+    <!-- Cart UI -->
     <div class="cart-fab" id="cartFab" onclick="toggleCart(true)">
         <div style="display: flex; align-items: center; gap: 10px;">
             <i data-lucide="shopping-cart" size="20"></i>
@@ -417,176 +527,311 @@
         <span id="cartTotal">0 ₽</span>
     </div>
 
-    <div class="overlay" id="overlay" onclick="toggleCart(false)"></div>
-    <div class="bottom-sheet" id="bottomSheet">
+    <!-- Overlay & Sheets -->
+    <div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+    <!-- Cart Sheet -->
+    <div class="bottom-sheet" id="cartSheet">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
             <h2 style="margin: 0; font-size: 18px;">Корзина</h2>
-            <button class="theme-toggle" style="padding: 6px;" onclick="toggleCart(false)">
+            <button class="icon-btn" style="padding: 6px;" onclick="toggleCart(false)">
                 <i data-lucide="x" size="18"></i>
             </button>
         </div>
         <div class="cart-list" id="cartList"></div>
-        <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
+        <button class="action-btn" onclick="checkout()">Оформить заказ</button>
     </div>
 
-    <script>
+    <!-- Admin Form Sheet -->
+    <div class="bottom-sheet" id="adminSheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <h2 style="margin: 0; font-size: 18px;">Новый товар</h2>
+            <button class="icon-btn" style="padding: 6px;" onclick="toggleAdminForm(false)">
+                <i data-lucide="x" size="18"></i>
+            </button>
+        </div>
+        <div style="padding: 10px 0;">
+            <div class="form-group">
+                <label class="form-label">Название товара</label>
+                <input type="text" id="p_name" class="form-input" placeholder="Напр: XROS 3 Nano">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Цена (₽)</label>
+                <input type="number" id="p_price" class="form-input" placeholder="2850">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Категория</label>
+                <select id="p_cat" class="form-input">
+                    <option value="Одноразки">Одноразки</option>
+                    <option value="Жидкости">Жидкости</option>
+                    <option value="Pod-системы">Pod-системы</option>
+                    <option value="Расходники">Расходники</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ссылка на фото (Image URL)</label>
+                <input type="text" id="p_img" class="form-input" placeholder="https://...">
+            </div>
+            <button class="action-btn" id="saveBtn" onclick="saveProduct()">Добавить карточку</button>
+        </div>
+    </div>
+
+    <script type="module">
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        const themes = ['toxic', 'ice', 'magma'];
-        let currentThemeIndex = 0;
-
-        // Content based on your price list
-        const products = [
-            { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
-            { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?auto=format&fit=crop&q=80&w=200' },
-            { id: 3, category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
-            { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-            { id: 5, category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
-            { id: 6, category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?auto=format&fit=crop&q=80&w=200' },
-            { id: 7, category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200' },
-            { id: 8, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?auto=format&fit=crop&q=80&w=200' },
-            { id: 9, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' },
-            { id: 10, category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?auto=format&fit=crop&q=80&w=200' },
-            { id: 11, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?auto=format&fit=crop&q=80&w=200' }
-        ];
-
+        let products = [];
         let cart = {};
         let activeCategory = 'Все';
+        let isAdminMode = false;
+        let currentThemeIndex = 0;
+        const themes = ['toxic', 'ice', 'magma'];
 
-        function init() {
-            renderCategories();
-            renderProducts();
+        // Wait for Firebase
+        const checkFirebase = setInterval(() => {
+            if (window.db && window.firestoreUtils) {
+                clearInterval(checkFirebase);
+                startApp();
+            }
+        }, 100);
+
+        async function startApp() {
+            const { auth, firestoreUtils, db, appId } = window;
+            const { signInAnonymously, onSnapshot, collection, query } = firestoreUtils;
+
+            // Auth
+            await signInAnonymously(auth);
+
+            // Listen for Products
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'products'));
+            onSnapshot(q, (snapshot) => {
+                products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // If DB empty, add default seed (optional)
+                if (products.length === 0 && isAdminMode) {
+                    console.log("Database empty. Start adding products!");
+                }
+
+                renderCategories();
+                renderProducts();
+            }, (error) => console.error("Firestore Error:", error));
+
+            window.toggleAdminMode = () => {
+                tg.HapticFeedback.impactOccurred('heavy');
+                isAdminMode = !isAdminMode;
+                document.body.classList.toggle('admin-mode', isAdminMode);
+                const btn = document.getElementById('adminToggle');
+                btn.classList.toggle('active', isAdminMode);
+                renderCategories();
+                renderProducts();
+            };
+
+            window.toggleAdminForm = (show) => {
+                const sheet = document.getElementById('adminSheet');
+                const overlay = document.getElementById('overlay');
+                if (show) {
+                    sheet.classList.add('active');
+                    overlay.classList.add('active');
+                } else {
+                    sheet.classList.remove('active');
+                    overlay.classList.remove('active');
+                }
+            };
+
+            window.saveProduct = async () => {
+                const name = document.getElementById('p_name').value;
+                const price = Number(document.getElementById('p_price').value);
+                const category = document.getElementById('p_cat').value;
+                const img = document.getElementById('p_img').value || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200';
+
+                if (!name || !price) return;
+
+                const saveBtn = document.getElementById('saveBtn');
+                saveBtn.disabled = true;
+                saveBtn.innerText = "Сохранение...";
+
+                try {
+                    await firestoreUtils.addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), {
+                        name, price, category, img, createdAt: Date.now()
+                    });
+                    tg.HapticFeedback.notificationOccurred('success');
+                    toggleAdminForm(false);
+                    // Reset form
+                    document.getElementById('p_name').value = '';
+                    document.getElementById('p_price').value = '';
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = "Добавить карточку";
+                }
+            };
+
+            window.deleteProduct = async (id) => {
+                if (!confirm("Удалить этот товар?")) return;
+                tg.HapticFeedback.impactOccurred('medium');
+                try {
+                    await firestoreUtils.deleteDoc(firestoreUtils.doc(db, 'artifacts', appId, 'public', 'data', 'products', id));
+                } catch (e) { console.error(e); }
+            };
+
+            initUI();
+        }
+
+        function initUI() {
             lucide.createIcons();
-        }
+            window.renderCategories = () => {
+                const categories = ['Все', ...new Set(products.map(p => p.category))];
+                if (categories.length === 1 && categories[0] === 'Все') {
+                    // Default cats if no products
+                    categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
+                }
+                const container = document.getElementById('categories');
+                let html = categories.map(cat => `
+                    <button class="category-btn ${cat === activeCategory ? 'active' : ''}" 
+                            onclick="setCategory('${cat}')">${cat}</button>
+                `).join('');
+                
+                if (isAdminMode) {
+                    html += `<button class="add-category-btn" onclick="toggleAdminForm(true)">
+                        <i data-lucide="plus" size="20"></i>
+                    </button>`;
+                }
+                
+                container.innerHTML = html;
+                lucide.createIcons();
+            };
 
-        function toggleTheme() {
-            tg.HapticFeedback.impactOccurred('medium');
-            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-            document.body.className = `theme-${themes[currentThemeIndex]}`;
-        }
+            window.renderProducts = () => {
+                const container = document.getElementById('products');
+                const filtered = activeCategory === 'Все' 
+                    ? products 
+                    : products.filter(p => p.category === activeCategory);
 
-        function renderCategories() {
-            const categories = ['Все', ...new Set(products.map(p => p.category))];
-            const container = document.getElementById('categories');
-            container.innerHTML = categories.map(cat => `
-                <button class="category-btn ${cat === activeCategory ? 'active' : ''}" 
-                        onclick="setCategory('${cat}')">${cat}</button>
-            `).join('');
-        }
+                if (filtered.length === 0) {
+                    container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: var(--text-muted);">Товаров пока нет</div>`;
+                    return;
+                }
 
-        function setCategory(cat) {
-            tg.HapticFeedback.selectionChanged();
-            activeCategory = cat;
-            renderCategories();
-            renderProducts();
-        }
-
-        function renderProducts() {
-            const container = document.getElementById('products');
-            const filtered = activeCategory === 'Все' 
-                ? products 
-                : products.filter(p => p.category === activeCategory);
-
-            container.innerHTML = filtered.map(p => `
-                <div class="product-card">
-                    <img src="${p.img}" class="product-img" alt="${p.name}">
-                    <div class="product-info">
-                        <span class="product-name">${p.name}</span>
-                        <span class="product-price">${p.price} ₽</span>
+                container.innerHTML = filtered.map(p => `
+                    <div class="product-card">
+                        ${isAdminMode ? `<button class="delete-btn" onclick="deleteProduct('${p.id}')"><i data-lucide="trash-2" size="16"></i></button>` : ''}
+                        <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200'">
+                        <div class="product-info">
+                            <span class="product-name">${p.name}</span>
+                            <span class="product-price">${p.price} ₽</span>
+                        </div>
+                        <button class="add-btn" onclick="addToCart('${p.id}')">В корзину</button>
                     </div>
-                    <button class="add-btn" onclick="addToCart(${p.id})">В корзину</button>
-                </div>
-            `).join('');
-        }
+                `).join('');
+                lucide.createIcons();
+            };
 
-        function addToCart(id) {
-            tg.HapticFeedback.notificationOccurred('success');
-            if (cart[id]) {
-                cart[id].qty += 1;
-            } else {
-                const product = products.find(p => p.id === id);
-                cart[id] = { ...product, qty: 1 };
-            }
-            updateCartUI();
-        }
+            window.setCategory = (cat) => {
+                tg.HapticFeedback.selectionChanged();
+                activeCategory = cat;
+                renderCategories();
+                renderProducts();
+            };
 
-        function updateCartUI() {
-            const fab = document.getElementById('cartFab');
-            const countSpan = document.getElementById('cartCount');
-            const totalSpan = document.getElementById('cartTotal');
-            
-            const items = Object.values(cart);
-            const totalCount = items.reduce((acc, curr) => acc + curr.qty, 0);
-            const totalPrice = items.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+            window.toggleTheme = () => {
+                tg.HapticFeedback.impactOccurred('medium');
+                currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+                document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
+            };
 
-            if (totalCount > 0) {
-                fab.classList.add('visible');
-                countSpan.innerText = `${totalCount} ТОВ.`;
-                totalSpan.innerText = `${totalPrice} ₽`;
-            } else {
-                fab.classList.remove('visible');
-                toggleCart(false);
-            }
-            renderCartItems();
-        }
-
-        function renderCartItems() {
-            const container = document.getElementById('cartList');
-            const items = Object.values(cart);
-            if (items.length === 0) {
-                container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted); font-size: 14px;">Пусто</div>`;
-                return;
-            }
-            container.innerHTML = items.map(item => `
-                <div class="cart-item">
-                    <img src="${item.img}">
-                    <div class="cart-item-info">
-                        <div class="cart-item-name">${item.name}</div>
-                        <div class="cart-item-price">${item.price * item.qty} ₽</div>
-                    </div>
-                    <div class="qty-controls">
-                        <button class="qty-btn" onclick="changeQty(${item.id}, -1)"><i data-lucide="minus" size="14"></i></button>
-                        <span style="font-weight: 600; min-width: 15px; text-align: center; font-size: 14px;">${item.qty}</span>
-                        <button class="qty-btn" onclick="changeQty(${item.id}, 1)"><i data-lucide="plus" size="14"></i></button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        function changeQty(id, delta) {
-            tg.HapticFeedback.impactOccurred('light');
-            if (cart[id]) {
-                cart[id].qty += delta;
-                if (cart[id].qty <= 0) delete cart[id];
+            window.addToCart = (id) => {
+                tg.HapticFeedback.notificationOccurred('success');
+                if (cart[id]) {
+                    cart[id].qty += 1;
+                } else {
+                    const product = products.find(p => p.id === id);
+                    cart[id] = { ...product, qty: 1 };
+                }
                 updateCartUI();
-            }
-        }
+            };
 
-        function toggleCart(show) {
-            const sheet = document.getElementById('bottomSheet');
-            const overlay = document.getElementById('overlay');
-            if (show) {
-                sheet.classList.add('active');
-                overlay.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            } else {
-                sheet.classList.remove('active');
-                overlay.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        }
+            window.updateCartUI = () => {
+                const fab = document.getElementById('cartFab');
+                const countSpan = document.getElementById('cartCount');
+                const totalSpan = document.getElementById('cartTotal');
+                
+                const items = Object.values(cart);
+                const totalCount = items.reduce((acc, curr) => acc + curr.qty, 0);
+                const totalPrice = items.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
 
-        function checkout() {
-            tg.HapticFeedback.notificationOccurred('success');
-            const totalPrice = Object.values(cart).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
-            tg.sendData(JSON.stringify({ order: cart, total: totalPrice }));
-            tg.close();
-        }
+                if (totalCount > 0 && !isAdminMode) {
+                    fab.classList.add('visible');
+                    countSpan.innerText = `${totalCount} ТОВ.`;
+                    totalSpan.innerText = `${totalPrice} ₽`;
+                } else {
+                    fab.classList.remove('visible');
+                    toggleCart(false);
+                }
+                renderCartItems();
+            };
 
-        init();
+            window.renderCartItems = () => {
+                const container = document.getElementById('cartList');
+                const items = Object.values(cart);
+                if (items.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted); font-size: 14px;">Пусто</div>`;
+                    return;
+                }
+                container.innerHTML = items.map(item => `
+                    <div class="cart-item">
+                        <img src="${item.img}">
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.name}</div>
+                            <div class="cart-item-price">${item.price * item.qty} ₽</div>
+                        </div>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="changeQty('${item.id}', -1)"><i data-lucide="minus" size="14"></i></button>
+                            <span style="font-weight: 600; min-width: 15px; text-align: center; font-size: 14px;">${item.qty}</span>
+                            <button class="qty-btn" onclick="changeQty('${item.id}', 1)"><i data-lucide="plus" size="14"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            };
+
+            window.changeQty = (id, delta) => {
+                tg.HapticFeedback.impactOccurred('light');
+                if (cart[id]) {
+                    cart[id].qty += delta;
+                    if (cart[id].qty <= 0) delete cart[id];
+                    updateCartUI();
+                }
+            };
+
+            window.toggleCart = (show) => {
+                const sheet = document.getElementById('cartSheet');
+                const overlay = document.getElementById('overlay');
+                if (show) {
+                    sheet.classList.add('active');
+                    overlay.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    sheet.classList.remove('active');
+                    overlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            };
+
+            window.closeAllSheets = () => {
+                toggleCart(false);
+                toggleAdminForm(false);
+            };
+
+            window.checkout = () => {
+                tg.HapticFeedback.notificationOccurred('success');
+                const totalPrice = Object.values(cart).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+                tg.sendData(JSON.stringify({ order: cart, total: totalPrice }));
+                tg.close();
+            };
+        }
     </script>
 </body>
 </html>
