@@ -208,7 +208,7 @@
         <button class="checkout-btn" onclick="openOrderForm()">Перейти к оформлению</button>
     </div>
 
-    <!-- 2. Форма Заказа -->
+    <!-- 2. Форма Заказа (ДОБАВЛЕНО ИМЯ) -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Данные заказа</h2>
@@ -265,7 +265,7 @@
                 Оплатите по номеру карты и обязательно вставьте ключ в комментарий к платежу.
             </div>
         </div>
-        <button class="checkout-btn" style="background: var(--success); color: white; margin-top: 10px;" onclick="finishOrder()">Я оплатил(а)</button>
+        <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: white; margin-top: 10px;" onclick="finishOrder()">Я оплатил(а)</button>
     </div>
 
     <!-- Форма Админа -->
@@ -438,7 +438,7 @@
             document.getElementById('cartTotal').innerText = `${total} ₽`;
             
             const list = document.getElementById('cartList');
-            if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Пусто</div>`; }
+            if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`; }
             else {
                 list.innerHTML = items.map(item => {
                     const id = item.docId || item.id;
@@ -496,28 +496,35 @@
         window.copyGeneratedKey = () => copyText(currentOrderKey);
 
         window.finishOrder = () => {
+            const btn = document.getElementById('finishBtn');
+            btn.disabled = true;
+            btn.innerText = "Отправка заказа...";
+            
             tg.HapticFeedback.notificationOccurred('success');
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
 
-            // Формируем полный объект данных для админа
+            // Структурированный объект для бота
             const orderDetails = {
+                action: "NEW_ORDER",
                 order_key: currentOrderKey,
                 items: itemsText,
                 total: total + " ₽",
                 client: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value,
-                    meeting_place: document.getElementById('order_location').value,
-                    time_interval: document.getElementById('order_time').value
+                    contact: document.getElementById('order_contact').value,
+                    place: document.getElementById('order_location').value,
+                    time: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
             
-            // Отправляем данные боту (Бот должен переслать их админу!)
-            tg.sendData(JSON.stringify(orderDetails)); 
-            tg.close();
+            // Отправляем данные боту. Бот получит этот JSON в событии web_app_data
+            setTimeout(() => {
+                tg.sendData(JSON.stringify(orderDetails)); 
+                tg.close();
+            }, 1000);
         };
 
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
