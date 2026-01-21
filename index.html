@@ -12,25 +12,25 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (только для синхронизации админки) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Config from environment
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        window.db = db;
-        window.auth = auth;
-        window.appId = appId;
-        window.firestoreUtils = { collection, doc, setDoc, getDoc, onSnapshot, addDoc, updateDoc, deleteDoc, query };
+        const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        if (rawConfig) {
+            const firebaseConfig = JSON.parse(rawConfig);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            window.db = db;
+            window.auth = auth;
+            window.appId = appId;
+            window.fs = { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously };
+        }
     </script>
-
     <style>
         :root {
             --brand-color: #00ff88;
@@ -44,446 +44,87 @@
             --error: #ff4444;
         }
 
-        .theme-ice {
-            --brand-color: #00d1ff;
-            --brand-glow: rgba(0, 209, 255, 0.4);
-        }
+        .theme-ice { --brand-color: #00d1ff; --brand-glow: rgba(0, 209, 255, 0.4); }
+        .theme-magma { --brand-color: #ff6b00; --brand-glow: rgba(255, 107, 0, 0.4); }
 
-        .theme-magma {
-            --brand-color: #ff6b00;
-            --brand-glow: rgba(255, 107, 0, 0.4);
-        }
-
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            overflow-x: hidden;
-            width: 100vw;
-            min-height: 100vh;
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100vw; min-height: 100vh; }
 
         /* Silk Motion Background */
-        .background-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
-            background: radial-gradient(circle at center, #111 0%, #000 100%);
-        }
-
-        .orb {
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            filter: blur(80px);
-            opacity: 0.3;
-            transition: background var(--transition);
-        }
-
-        .orb-1 {
-            background: var(--brand-color);
-            top: -50px;
-            right: -50px;
-            animation: float 20s infinite alternate;
-        }
-
-        .orb-2 {
-            background: #4a00ff;
-            bottom: -50px;
-            left: -50px;
-            animation: float 25s infinite alternate-reverse;
-        }
-
-        @keyframes float {
-            0% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(30px, 50px) scale(1.1); }
-            100% { transform: translate(-20px, 30px) scale(0.9); }
-        }
+        .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; background: radial-gradient(circle at center, #111 0%, #000 100%); }
+        .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.3; transition: background var(--transition); }
+        .orb-1 { background: var(--brand-color); top: -50px; right: -50px; animation: float 20s infinite alternate; }
+        .orb-2 { background: #4a00ff; bottom: -50px; left: -50px; animation: float 25s infinite alternate-reverse; }
+        @keyframes float { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, 50px) scale(1.1); } 100% { transform: translate(-20px, 30px) scale(0.9); } }
 
         header {
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(15px);
-            background: rgba(5, 5, 5, 0.6);
-            border-bottom: 1px solid var(--glass-border);
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px);
+            background: rgba(5, 5, 5, 0.6); border-bottom: 1px solid var(--glass-border);
         }
-
-        .logo {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 10px;
-        }
-
+        .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .header-btns { display: flex; gap: 8px; }
         .icon-btn {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            color: var(--text-main);
-            padding: 8px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
+            padding: 8px; border-radius: 12px; cursor: pointer; transition: var(--transition);
+            display: flex; align-items: center; justify-content: center;
         }
-
-        .icon-btn.active {
-            background: var(--brand-color);
-            color: var(--bg-dark);
-            border-color: var(--brand-color);
-        }
+        .icon-btn.admin-btn { display: none; } /* Скрыто для всех, кроме тебя */
+        .icon-btn.active { background: var(--brand-color); color: var(--bg-dark); }
 
         /* Categories */
-        .categories-container {
-            padding: 12px 0;
-            overflow-x: auto;
-            white-space: nowrap;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-        }
-
+        .categories-container { padding: 12px 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
         .categories-container::-webkit-scrollbar { display: none; }
-
-        .categories-inner {
-            display: inline-flex;
-            gap: 10px;
-            padding: 10px 20px 25px 20px;
-            align-items: center;
-        }
-
+        .categories-inner { display: inline-flex; gap: 10px; padding: 10px 20px 25px 20px; align-items: center; }
         .category-btn {
-            background: var(--glass);
-            border: none;
-            color: var(--text-muted);
-            padding: 10px 18px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-            position: relative;
-            transition: var(--transition);
-            outline: none;
+            background: var(--glass); border: none; color: var(--text-muted); padding: 10px 18px;
+            border-radius: 20px; font-size: 14px; font-weight: 500; position: relative; transition: var(--transition); outline: none;
         }
+        .category-btn.active { color: var(--text-main); background: rgba(255, 255, 255, 0.08); }
+        .category-btn.active::after { content: ''; position: absolute; inset: 0; border-radius: 20px; background: var(--brand-color); filter: blur(15px); opacity: 0.5; z-index: -1; }
 
-        .category-btn.active {
-            color: var(--text-main);
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .category-btn.active::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 20px;
-            background: var(--brand-color);
-            filter: blur(15px);
-            opacity: 0.5;
-            z-index: -1;
-        }
-
-        .add-category-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--brand-color);
-            color: var(--bg-dark);
-            border: none;
-            display: none; /* Hidden by default */
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 15px var(--brand-glow);
-        }
-
-        /* Products Grid */
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            padding: 0 16px 120px 16px;
-            width: 100%;
-        }
-
+        /* Products */
+        .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 120px 16px; width: 100%; }
         .product-card {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            backdrop-filter: blur(10px);
-            border-radius: 22px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            animation: fadeIn 0.4s ease forwards;
-            min-width: 0;
-            position: relative;
+            background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
+            border-radius: 22px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+            animation: fadeIn 0.4s ease forwards; min-width: 0; position: relative;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .delete-card-btn {
+            position: absolute; top: 10px; right: 10px; background: var(--error);
+            color: white; border: none; width: 28px; height: 28px; border-radius: 8px;
+            display: none; align-items: center; justify-content: center; z-index: 10;
         }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.03); object-fit: cover; padding: 6px; }
+        .product-info { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+        .product-name { font-size: 13px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product-price { font-size: 15px; font-weight: 700; color: var(--brand-color); }
+        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 600; font-size: 12px; width: 100%; cursor: pointer; transition: var(--transition); }
 
-        .delete-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: var(--error);
-            color: white;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            display: none; /* Only in admin mode */
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        .product-img {
-            width: 100%;
-            aspect-ratio: 1/1;
-            border-radius: 16px;
-            background: rgba(255,255,255,0.03);
-            object-fit: cover;
-            padding: 6px;
-        }
-
-        .product-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            padding: 0 4px;
-        }
-
-        .product-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-main);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .product-price {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--brand-color);
-        }
-
-        .add-btn {
-            background: var(--text-main);
-            color: var(--bg-dark);
-            border: none;
-            padding: 12px;
-            border-radius: 14px;
-            font-weight: 600;
-            font-size: 12px;
-            width: 100%;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .add-btn:active { transform: scale(0.96); opacity: 0.9; }
-
-        /* Cart FAB */
+        /* UI Elements */
         .cart-fab {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(120px);
-            width: calc(100% - 32px);
-            max-width: 450px;
-            background: var(--brand-color);
-            color: var(--bg-dark);
-            height: 64px;
-            border-radius: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
-            font-weight: 700;
-            box-shadow: 0 10px 40px var(--brand-glow);
-            z-index: 200;
-            cursor: pointer;
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(120px);
+            width: calc(100% - 32px); max-width: 450px; background: var(--brand-color);
+            color: var(--bg-dark); height: 64px; border-radius: 22px; display: flex;
+            align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 700;
+            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         .cart-fab.visible { transform: translateX(-50%) translateY(0); }
-
-        /* Modal / Form */
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(8px);
-            z-index: 300;
-            opacity: 0;
-            visibility: hidden;
-            transition: var(--transition);
-        }
-
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 300; opacity: 0; visibility: hidden; transition: var(--transition); }
         .overlay.active { opacity: 1; visibility: visible; }
-
         .bottom-sheet {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #0d0d0d;
-            border-top: 1px solid var(--glass-border);
-            border-radius: 28px 28px 0 0;
-            z-index: 301;
-            transform: translateY(100%);
-            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            max-height: 90vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
+            position: fixed; bottom: 0; left: 0; width: 100%; background: #0d0d0d;
+            border-top: 1px solid var(--glass-border); border-radius: 28px 28px 0 0;
+            z-index: 301; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            max-height: 85vh; display: flex; flex-direction: column; padding: 20px;
         }
-
         .bottom-sheet.active { transform: translateY(0); }
+        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; }
 
-        .sheet-handle {
-            width: 40px;
-            height: 4px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 2px;
-            margin: -10px auto 15px auto;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-            margin-left: 4px;
-        }
-
-        .form-input {
-            width: 100%;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            color: white;
-            padding: 14px;
-            border-radius: 14px;
-            font-size: 15px;
-            outline: none;
-        }
-
-        .form-input:focus {
-            border-color: var(--brand-color);
-        }
-
-        .cart-list {
-            overflow-y: auto;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin: 10px 0 20px 0;
-        }
-
-        .cart-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: var(--glass);
-            padding: 10px;
-            border-radius: 18px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .cart-item img {
-            width: 45px;
-            height: 45px;
-            border-radius: 10px;
-            object-fit: cover;
-            background: rgba(255,255,255,0.05);
-        }
-
-        .cart-item-info { flex-grow: 1; min-width: 0; }
-        .cart-item-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cart-item-price { color: var(--brand-color); font-weight: 700; font-size: 14px; }
-
-        .qty-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255,255,255,0.06);
-            padding: 4px 10px;
-            border-radius: 12px;
-        }
-
-        .qty-btn {
-            background: none;
-            border: none;
-            color: var(--text-main);
-            padding: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-
-        .action-btn {
-            background: var(--brand-color);
-            color: var(--bg-dark);
-            border: none;
-            width: 100%;
-            padding: 18px;
-            border-radius: 18px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px var(--brand-glow);
-        }
-
-        .action-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Admin Active UI */
-        body.admin-mode .delete-btn { display: flex; }
-        body.admin-mode .add-category-btn { display: flex; }
+        body.admin-mode .delete-card-btn { display: flex; }
         body.admin-mode .cart-fab { display: none !important; }
-
-        @media (max-width: 360px) {
-            .product-name { font-size: 12px; }
-            .product-price { font-size: 14px; }
-            .products-grid { gap: 8px; padding: 0 12px 100px 12px; }
-        }
     </style>
 </head>
 <body class="theme-toxic">
@@ -498,8 +139,8 @@
             <i data-lucide="zap" fill="var(--brand-color)" color="var(--brand-color)" size="22"></i>
             VAPE CLOUD
         </div>
-        <div class="header-actions">
-            <button class="icon-btn" id="adminToggle" onclick="toggleAdminMode()">
+        <div class="header-btns">
+            <button class="icon-btn admin-btn" id="adminBtn" onclick="toggleAdminMode()">
                 <i data-lucide="shield" size="20"></i>
             </button>
             <button class="icon-btn" onclick="toggleTheme()">
@@ -509,16 +150,11 @@
     </header>
 
     <div class="categories-container">
-        <div class="categories-inner" id="categories">
-            <!-- Categories rendered here -->
-        </div>
+        <div class="categories-inner" id="categories"></div>
     </div>
 
-    <div class="products-grid" id="products">
-        <!-- Products rendered here -->
-    </div>
+    <div class="products-grid" id="products"></div>
 
-    <!-- Cart UI -->
     <div class="cart-fab" id="cartFab" onclick="toggleCart(true)">
         <div style="display: flex; align-items: center; gap: 10px;">
             <i data-lucide="shopping-cart" size="20"></i>
@@ -527,311 +163,238 @@
         <span id="cartTotal">0 ₽</span>
     </div>
 
-    <!-- Overlay & Sheets -->
-    <div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+    <div class="overlay" id="overlay" onclick="closeSheets()"></div>
 
-    <!-- Cart Sheet -->
+    <!-- Корзина -->
     <div class="bottom-sheet" id="cartSheet">
-        <div class="sheet-handle"></div>
-        <div class="sheet-header">
-            <h2 style="margin: 0; font-size: 18px;">Корзина</h2>
-            <button class="icon-btn" style="padding: 6px;" onclick="toggleCart(false)">
-                <i data-lucide="x" size="18"></i>
-            </button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="font-size: 18px;">Корзина</h2>
+            <i data-lucide="x" onclick="toggleCart(false)" style="cursor:pointer"></i>
         </div>
-        <div class="cart-list" id="cartList"></div>
-        <button class="action-btn" onclick="checkout()">Оформить заказ</button>
+        <div id="cartList" style="overflow-y:auto; flex-grow:1; margin-bottom:20px;"></div>
+        <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
     </div>
 
-    <!-- Admin Form Sheet -->
-    <div class="bottom-sheet" id="adminSheet">
-        <div class="sheet-handle"></div>
-        <div class="sheet-header">
-            <h2 style="margin: 0; font-size: 18px;">Новый товар</h2>
-            <button class="icon-btn" style="padding: 6px;" onclick="toggleAdminForm(false)">
-                <i data-lucide="x" size="18"></i>
-            </button>
-        </div>
-        <div style="padding: 10px 0;">
-            <div class="form-group">
-                <label class="form-label">Название товара</label>
-                <input type="text" id="p_name" class="form-input" placeholder="Напр: XROS 3 Nano">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Цена (₽)</label>
-                <input type="number" id="p_price" class="form-input" placeholder="2850">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Категория</label>
-                <select id="p_cat" class="form-input">
-                    <option value="Одноразки">Одноразки</option>
-                    <option value="Жидкости">Жидкости</option>
-                    <option value="Pod-системы">Pod-системы</option>
-                    <option value="Расходники">Расходники</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Ссылка на фото (Image URL)</label>
-                <input type="text" id="p_img" class="form-input" placeholder="https://...">
-            </div>
-            <button class="action-btn" id="saveBtn" onclick="saveProduct()">Добавить карточку</button>
-        </div>
+    <!-- Форма Админа -->
+    <div class="bottom-sheet" id="adminForm">
+        <h2 style="margin-bottom:20px; font-size: 18px;">Новый товар</h2>
+        <input type="text" id="p_name" class="form-input" placeholder="Название">
+        <input type="number" id="p_price" class="form-input" placeholder="Цена (₽)">
+        <select id="p_cat" class="form-input">
+            <option value="Одноразки">Одноразки</option>
+            <option value="Жидкости">Жидкости</option>
+            <option value="Pod-системы">Pod-системы</option>
+            <option value="Расходники">Расходники</option>
+        </select>
+        <input type="text" id="p_img" class="form-input" placeholder="URL картинки">
+        <button class="checkout-btn" onclick="adminAddProduct()">Добавить карточку</button>
     </div>
 
-    <script type="module">
+    <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let products = [];
-        let cart = {};
+        // ТВОИ ДАННЫЕ
+        const MY_ADMIN_ID = 1262669099;
+        const userData = tg.initDataUnsafe?.user;
+        const isAdmin = userData && userData.id === MY_ADMIN_ID;
+
+        const themes = ['toxic', 'ice', 'magma'];
+        let currentThemeIndex = 0;
         let activeCategory = 'Все';
         let isAdminMode = false;
-        let currentThemeIndex = 0;
-        const themes = ['toxic', 'ice', 'magma'];
+        let cart = {};
 
-        // Wait for Firebase
-        const checkFirebase = setInterval(() => {
-            if (window.db && window.firestoreUtils) {
-                clearInterval(checkFirebase);
-                startApp();
+        // ВОЗВРАЩЕННЫЙ ПОЛНЫЙ СПИСОК ТОВАРОВ
+        let initialProducts = [
+            { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 3, category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 5, category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 6, category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 7, category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 8, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 9, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' },
+            { id: 10, category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 11, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
+        ];
+
+        let dbProducts = [];
+
+        function init() {
+            if (isAdmin) document.getElementById('adminBtn').style.display = 'flex';
+            
+            // Если Firebase подключен - слушаем облако
+            if (window.fs) {
+                const q = window.fs.query(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'));
+                window.fs.onSnapshot(q, (snap) => {
+                    dbProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+                    renderAll();
+                });
+            } else {
+                renderAll();
             }
-        }, 100);
-
-        async function startApp() {
-            const { auth, firestoreUtils, db, appId } = window;
-            const { signInAnonymously, onSnapshot, collection, query } = firestoreUtils;
-
-            // Auth
-            await signInAnonymously(auth);
-
-            // Listen for Products
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'products'));
-            onSnapshot(q, (snapshot) => {
-                products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // If DB empty, add default seed (optional)
-                if (products.length === 0 && isAdminMode) {
-                    console.log("Database empty. Start adding products!");
-                }
-
-                renderCategories();
-                renderProducts();
-            }, (error) => console.error("Firestore Error:", error));
-
-            window.toggleAdminMode = () => {
-                tg.HapticFeedback.impactOccurred('heavy');
-                isAdminMode = !isAdminMode;
-                document.body.classList.toggle('admin-mode', isAdminMode);
-                const btn = document.getElementById('adminToggle');
-                btn.classList.toggle('active', isAdminMode);
-                renderCategories();
-                renderProducts();
-            };
-
-            window.toggleAdminForm = (show) => {
-                const sheet = document.getElementById('adminSheet');
-                const overlay = document.getElementById('overlay');
-                if (show) {
-                    sheet.classList.add('active');
-                    overlay.classList.add('active');
-                } else {
-                    sheet.classList.remove('active');
-                    overlay.classList.remove('active');
-                }
-            };
-
-            window.saveProduct = async () => {
-                const name = document.getElementById('p_name').value;
-                const price = Number(document.getElementById('p_price').value);
-                const category = document.getElementById('p_cat').value;
-                const img = document.getElementById('p_img').value || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200';
-
-                if (!name || !price) return;
-
-                const saveBtn = document.getElementById('saveBtn');
-                saveBtn.disabled = true;
-                saveBtn.innerText = "Сохранение...";
-
-                try {
-                    await firestoreUtils.addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'products'), {
-                        name, price, category, img, createdAt: Date.now()
-                    });
-                    tg.HapticFeedback.notificationOccurred('success');
-                    toggleAdminForm(false);
-                    // Reset form
-                    document.getElementById('p_name').value = '';
-                    document.getElementById('p_price').value = '';
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    saveBtn.disabled = false;
-                    saveBtn.innerText = "Добавить карточку";
-                }
-            };
-
-            window.deleteProduct = async (id) => {
-                if (!confirm("Удалить этот товар?")) return;
-                tg.HapticFeedback.impactOccurred('medium');
-                try {
-                    await firestoreUtils.deleteDoc(firestoreUtils.doc(db, 'artifacts', appId, 'public', 'data', 'products', id));
-                } catch (e) { console.error(e); }
-            };
-
-            initUI();
         }
 
-        function initUI() {
+        function renderAll() {
+            renderCategories();
+            renderProducts();
             lucide.createIcons();
-            window.renderCategories = () => {
-                const categories = ['Все', ...new Set(products.map(p => p.category))];
-                if (categories.length === 1 && categories[0] === 'Все') {
-                    // Default cats if no products
-                    categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
-                }
-                const container = document.getElementById('categories');
-                let html = categories.map(cat => `
-                    <button class="category-btn ${cat === activeCategory ? 'active' : ''}" 
-                            onclick="setCategory('${cat}')">${cat}</button>
-                `).join('');
-                
-                if (isAdminMode) {
-                    html += `<button class="add-category-btn" onclick="toggleAdminForm(true)">
-                        <i data-lucide="plus" size="20"></i>
-                    </button>`;
-                }
-                
-                container.innerHTML = html;
-                lucide.createIcons();
-            };
-
-            window.renderProducts = () => {
-                const container = document.getElementById('products');
-                const filtered = activeCategory === 'Все' 
-                    ? products 
-                    : products.filter(p => p.category === activeCategory);
-
-                if (filtered.length === 0) {
-                    container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: var(--text-muted);">Товаров пока нет</div>`;
-                    return;
-                }
-
-                container.innerHTML = filtered.map(p => `
-                    <div class="product-card">
-                        ${isAdminMode ? `<button class="delete-btn" onclick="deleteProduct('${p.id}')"><i data-lucide="trash-2" size="16"></i></button>` : ''}
-                        <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?auto=format&fit=crop&q=80&w=200'">
-                        <div class="product-info">
-                            <span class="product-name">${p.name}</span>
-                            <span class="product-price">${p.price} ₽</span>
-                        </div>
-                        <button class="add-btn" onclick="addToCart('${p.id}')">В корзину</button>
-                    </div>
-                `).join('');
-                lucide.createIcons();
-            };
-
-            window.setCategory = (cat) => {
-                tg.HapticFeedback.selectionChanged();
-                activeCategory = cat;
-                renderCategories();
-                renderProducts();
-            };
-
-            window.toggleTheme = () => {
-                tg.HapticFeedback.impactOccurred('medium');
-                currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-                document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
-            };
-
-            window.addToCart = (id) => {
-                tg.HapticFeedback.notificationOccurred('success');
-                if (cart[id]) {
-                    cart[id].qty += 1;
-                } else {
-                    const product = products.find(p => p.id === id);
-                    cart[id] = { ...product, qty: 1 };
-                }
-                updateCartUI();
-            };
-
-            window.updateCartUI = () => {
-                const fab = document.getElementById('cartFab');
-                const countSpan = document.getElementById('cartCount');
-                const totalSpan = document.getElementById('cartTotal');
-                
-                const items = Object.values(cart);
-                const totalCount = items.reduce((acc, curr) => acc + curr.qty, 0);
-                const totalPrice = items.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
-
-                if (totalCount > 0 && !isAdminMode) {
-                    fab.classList.add('visible');
-                    countSpan.innerText = `${totalCount} ТОВ.`;
-                    totalSpan.innerText = `${totalPrice} ₽`;
-                } else {
-                    fab.classList.remove('visible');
-                    toggleCart(false);
-                }
-                renderCartItems();
-            };
-
-            window.renderCartItems = () => {
-                const container = document.getElementById('cartList');
-                const items = Object.values(cart);
-                if (items.length === 0) {
-                    container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted); font-size: 14px;">Пусто</div>`;
-                    return;
-                }
-                container.innerHTML = items.map(item => `
-                    <div class="cart-item">
-                        <img src="${item.img}">
-                        <div class="cart-item-info">
-                            <div class="cart-item-name">${item.name}</div>
-                            <div class="cart-item-price">${item.price * item.qty} ₽</div>
-                        </div>
-                        <div class="qty-controls">
-                            <button class="qty-btn" onclick="changeQty('${item.id}', -1)"><i data-lucide="minus" size="14"></i></button>
-                            <span style="font-weight: 600; min-width: 15px; text-align: center; font-size: 14px;">${item.qty}</span>
-                            <button class="qty-btn" onclick="changeQty('${item.id}', 1)"><i data-lucide="plus" size="14"></i></button>
-                        </div>
-                    </div>
-                `).join('');
-                lucide.createIcons();
-            };
-
-            window.changeQty = (id, delta) => {
-                tg.HapticFeedback.impactOccurred('light');
-                if (cart[id]) {
-                    cart[id].qty += delta;
-                    if (cart[id].qty <= 0) delete cart[id];
-                    updateCartUI();
-                }
-            };
-
-            window.toggleCart = (show) => {
-                const sheet = document.getElementById('cartSheet');
-                const overlay = document.getElementById('overlay');
-                if (show) {
-                    sheet.classList.add('active');
-                    overlay.classList.add('active');
-                    document.body.style.overflow = 'hidden';
-                } else {
-                    sheet.classList.remove('active');
-                    overlay.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            };
-
-            window.closeAllSheets = () => {
-                toggleCart(false);
-                toggleAdminForm(false);
-            };
-
-            window.checkout = () => {
-                tg.HapticFeedback.notificationOccurred('success');
-                const totalPrice = Object.values(cart).reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
-                tg.sendData(JSON.stringify({ order: cart, total: totalPrice }));
-                tg.close();
-            };
         }
+
+        function renderCategories() {
+            const allItems = [...initialProducts, ...dbProducts];
+            const categories = ['Все', ...new Set(allItems.map(p => p.category))];
+            const container = document.getElementById('categories');
+            let html = categories.map(cat => `
+                <button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>
+            `).join('');
+            
+            if (isAdminMode) {
+                html += `<button class="category-btn" style="background:var(--brand-color); color:#000" onclick="openAdminForm()">+</button>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function renderProducts() {
+            const allItems = [...initialProducts, ...dbProducts];
+            const filtered = activeCategory === 'Все' ? allItems : allItems.filter(p => p.category === activeCategory);
+            const container = document.getElementById('products');
+            
+            container.innerHTML = filtered.map(p => `
+                <div class="product-card">
+                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId || p.id}', ${!!p.docId})"><i data-lucide="trash-2" size="16"></i></button>` : ''}
+                    <img src="${p.img}" class="product-img">
+                    <div class="product-info">
+                        <span class="product-name">${p.name}</span>
+                        <span class="product-price">${p.price} ₽</span>
+                    </div>
+                    <button class="add-btn" onclick="addToCart('${p.docId || p.id}')">В корзину</button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function setCategory(cat) { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); }
+        
+        function toggleTheme() {
+            tg.HapticFeedback.impactOccurred('medium');
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
+        }
+
+        function toggleAdminMode() {
+            if (!isAdmin) return;
+            tg.HapticFeedback.impactOccurred('heavy');
+            isAdminMode = !isAdminMode;
+            document.body.classList.toggle('admin-mode');
+            document.getElementById('adminBtn').classList.toggle('active');
+            renderAll();
+        }
+
+        function openAdminForm() {
+            document.getElementById('adminForm').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        }
+
+        async function adminAddProduct() {
+            const name = document.getElementById('p_name').value;
+            const price = Number(document.getElementById('p_price').value);
+            const category = document.getElementById('p_cat').value;
+            const img = document.getElementById('p_img').value || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
+
+            if (!name || !price) return;
+            
+            if (window.fs) {
+                await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), {
+                    name, price, category, img, id: Date.now()
+                });
+            } else {
+                initialProducts.push({ id: Date.now(), name, price, category, img });
+                renderAll();
+            }
+            closeSheets();
+        }
+
+        async function deleteItem(id, isDb) {
+            if (!confirm("Удалить карточку?")) return;
+            if (isDb && window.fs) {
+                await window.fs.deleteDoc(window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items', id));
+            } else {
+                initialProducts = initialProducts.filter(p => p.id != id);
+                renderAll();
+            }
+        }
+
+        function addToCart(id) {
+            tg.HapticFeedback.notificationOccurred('success');
+            const all = [...initialProducts, ...dbProducts];
+            const p = all.find(x => (x.docId || x.id) == id);
+            if (cart[id]) cart[id].qty++;
+            else cart[id] = { ...p, qty: 1 };
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const items = Object.values(cart);
+            const count = items.reduce((a, b) => a + b.qty, 0);
+            const total = items.reduce((a, b) => a + (b.price * b.qty), 0);
+            const fab = document.getElementById('cartFab');
+            
+            fab.classList.toggle('visible', count > 0 && !isAdminMode);
+            document.getElementById('cartCount').innerText = `${count} ТОВ.`;
+            document.getElementById('cartTotal').innerText = `${total} ₽`;
+            
+            const list = document.getElementById('cartList');
+            if (items.length === 0) {
+                list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Пусто</div>`;
+            } else {
+                list.innerHTML = items.map(item => `
+                    <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
+                        <img src="${item.img}" style="width:40px; height:40px; border-radius:10px;">
+                        <div style="flex-grow:1; min-width:0">
+                            <div style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${item.name}</div>
+                            <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:5px 10px; border-radius:12px;">
+                            <i data-lucide="minus" size="14" onclick="changeQty('${item.docId || item.id}', -1)"></i>
+                            <span>${item.qty}</span>
+                            <i data-lucide="plus" size="14" onclick="changeQty('${item.docId || item.id}', 1)"></i>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+        }
+
+        function changeQty(id, delta) {
+            if (cart[id]) {
+                cart[id].qty += delta;
+                if (cart[id].qty <= 0) delete cart[id];
+                updateCartUI();
+            }
+        }
+
+        function toggleCart(s) {
+            document.getElementById('cartSheet').classList.toggle('active', s);
+            document.getElementById('overlay').classList.toggle('active', s);
+            document.body.style.overflow = s ? 'hidden' : '';
+        }
+
+        function closeSheets() {
+            document.getElementById('cartSheet').classList.remove('active');
+            document.getElementById('adminForm').classList.remove('active');
+            document.getElementById('overlay').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function checkout() {
+            tg.sendData(JSON.stringify(cart));
+            tg.close();
+        }
+
+        init();
     </script>
 </body>
 </html>
