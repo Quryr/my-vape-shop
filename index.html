@@ -42,6 +42,7 @@
             --text-muted: #a0a0a0;
             --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             --error: #ff4444;
+            --success: #00c853;
         }
 
         .theme-ice { --brand-color: #00d1ff; --brand-glow: rgba(0, 209, 255, 0.4); }
@@ -121,7 +122,7 @@
             max-height: 85vh; display: flex; flex-direction: column; padding: 20px;
         }
         .bottom-sheet.active { transform: translateY(0); }
-        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; }
+        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; font-size: 15px; }
         
         /* Custom File Input */
         .file-upload-container {
@@ -136,7 +137,12 @@
         }
         #p_file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
-        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .checkout-btn:active { transform: scale(0.98); }
+
+        /* Payment Info */
+        .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 15px; text-align: center; margin: 10px 0; }
+        .price-tag { font-size: 24px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
 
         body.admin-mode .delete-card-btn { display: flex; }
         body.admin-mode .cart-fab { display: none !important; }
@@ -188,7 +194,7 @@
 
     <div class="overlay" id="overlay" onclick="closeSheets()"></div>
 
-    <!-- Корзина -->
+    <!-- 1. Корзина -->
     <div class="bottom-sheet" id="cartSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Корзина</h2>
@@ -197,7 +203,55 @@
             </button>
         </div>
         <div id="cartList" style="overflow-y:auto; flex-grow:1; margin-bottom:20px;"></div>
-        <button class="checkout-btn" onclick="checkout()">Оформить заказ</button>
+        <button class="checkout-btn" onclick="openOrderForm()">Перейти к оформлению</button>
+    </div>
+
+    <!-- 2. Форма Заказа -->
+    <div class="bottom-sheet" id="orderSheet">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="font-size: 18px;">Детали заказа</h2>
+            <button class="icon-btn" style="border:none; background:transparent" onclick="closeSheets()">
+                <i data-lucide="arrow-left" onclick="toggleCart(true)"></i>
+            </button>
+        </div>
+        <div style="flex-grow:1; overflow-y:auto;">
+            <input type="text" id="order_name" class="form-input" placeholder="Ваше Имя">
+            <input type="tel" id="order_phone" class="form-input" placeholder="Номер телефона">
+            <select id="order_type" class="form-input" onchange="toggleAddressField()">
+                <option value="delivery">Доставка по адресу</option>
+                <option value="meeting">Личная встреча (место)</option>
+            </select>
+            <input type="text" id="order_address" class="form-input" placeholder="Адрес / Место встречи">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
+                * Мы свяжемся с вами для подтверждения времени.
+            </div>
+        </div>
+        <button class="checkout-btn" onclick="openPaymentSheet()">К оплате</button>
+    </div>
+
+    <!-- 3. Оплата СБП -->
+    <div class="bottom-sheet" id="paymentSheet">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="font-size: 18px;">Оплата заказа</h2>
+            <i data-lucide="x" onclick="closeSheets()" style="cursor:pointer"></i>
+        </div>
+        <div style="text-align: center; flex-grow:1;">
+            <div style="font-size: 14px; color: var(--text-muted)">К оплате по СБП:</div>
+            <div class="price-tag" id="finalPrice">0 ₽</div>
+            
+            <div class="payment-info">
+                <div style="font-weight: 600; margin-bottom: 5px;">Сбербанк / СБП</div>
+                <div style="font-size: 13px; margin-bottom: 10px;">Переведите сумму по номеру:</div>
+                <div style="font-size: 18px; font-weight: 700; color: var(--brand-color);">+7 (999) 000-00-00</div>
+                <div style="font-size: 12px; margin-top: 5px;">Получатель: ИВАН ИВАНОВИЧ И.</div>
+            </div>
+
+            <div style="background: rgba(0,255,136,0.1); padding: 12px; border-radius: 12px; font-size: 13px; margin: 15px 0;">
+                <i data-lucide="info" size="14" style="vertical-align: middle"></i> 
+                После оплаты нажмите кнопку ниже, чтобы отправить чек в чат.
+            </div>
+        </div>
+        <button class="checkout-btn" style="background: var(--success); color: white;" onclick="finishOrder()">Я оплатил(а), отправить заказ</button>
     </div>
 
     <!-- Форма Админа -->
@@ -262,7 +316,7 @@
                     renderAll();
                 });
             } else { renderAll(); }
-            updateCartUI(); // Синхронизируем UI при старте
+            updateCartUI();
         }
 
         function renderAll() {
@@ -418,9 +472,65 @@
             }
         };
 
-        window.toggleCart = (s) => { document.getElementById('cartSheet').classList.toggle('active', s); document.getElementById('overlay').classList.toggle('active', s); document.body.style.overflow = s ? 'hidden' : ''; };
-        window.closeSheets = () => { document.getElementById('cartSheet').classList.remove('active'); document.getElementById('adminForm').classList.remove('active'); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
-        window.checkout = () => { tg.HapticFeedback.notificationOccurred('success'); tg.sendData(JSON.stringify({ order: cart, date: new Date().toLocaleString() })); tg.close(); };
+        // Логика оформления заказа
+        window.openOrderForm = () => {
+            document.getElementById('cartSheet').classList.remove('active');
+            document.getElementById('orderSheet').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        };
+
+        window.openPaymentSheet = () => {
+            const name = document.getElementById('order_name').value;
+            const phone = document.getElementById('order_phone').value;
+            const address = document.getElementById('order_address').value;
+            
+            if(!name || !phone || !address) {
+                tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+            
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            document.getElementById('finalPrice').innerText = `${total} ₽`;
+            
+            document.getElementById('orderSheet').classList.remove('active');
+            document.getElementById('paymentSheet').classList.add('active');
+        };
+
+        window.finishOrder = () => {
+            tg.HapticFeedback.notificationOccurred('success');
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            const orderDetails = {
+                items: cart,
+                total: total,
+                customer: {
+                    name: document.getElementById('order_name').value,
+                    phone: document.getElementById('order_phone').value,
+                    type: document.getElementById('order_type').value,
+                    address: document.getElementById('order_address').value
+                },
+                timestamp: new Date().toLocaleString()
+            };
+            
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(orderDetails));
+            tg.close();
+        };
+
+        window.toggleCart = (s) => { 
+            closeSheets();
+            if(s) {
+                document.getElementById('cartSheet').classList.add('active');
+                document.getElementById('overlay').classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.closeSheets = () => { 
+            const sheets = ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'];
+            sheets.forEach(id => document.getElementById(id).classList.remove('active'));
+            document.getElementById('overlay').classList.remove('active');
+            document.body.style.overflow = ''; 
+        };
 
         init();
     </script>
