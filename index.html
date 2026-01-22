@@ -275,7 +275,7 @@
     <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Config (Runtime provided)
@@ -326,9 +326,14 @@
             const userData = tg?.initDataUnsafe?.user;
             if (checkAdmin(userData)) {
                 window.state.isAdmin = true;
-                document.getElementById('admin-controls').classList.remove('hidden');
-                document.getElementById('admin-status').innerText = 'ADMIN MODE';
-                document.getElementById('admin-status').classList.add('text-primary');
+                const controls = document.getElementById('admin-controls');
+                if (controls) controls.classList.remove('hidden');
+                
+                const status = document.getElementById('admin-status');
+                if (status) {
+                    status.innerText = 'ADMIN MODE';
+                    status.classList.add('text-primary');
+                }
                 renderProducts(); // Refresh to show delete buttons
             }
         };
@@ -336,7 +341,13 @@
         // Auth
         const initAuth = async () => {
             try {
-                await signInAnonymously(auth);
+                // RULE 3: Auth BEFORE queries
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
                 onAuthStateChanged(auth, (user) => {
                     window.state.user = user;
                     if (user) {
@@ -350,6 +361,9 @@
 
         // Firestore
         const initDataStore = () => {
+            // Guard every Firestore operation
+            if (!auth.currentUser) return;
+
             const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
             onSnapshot(q, (snapshot) => {
                 const products = [];
@@ -360,10 +374,13 @@
                     seedDatabase();
                 }
                 renderProducts();
-            }, (error) => console.error("Firestore error", error));
+            }, (error) => {
+                console.error("Firestore error", error);
+            });
         };
 
         const seedDatabase = async () => {
+            if (!auth.currentUser) return;
             const starters = [
                 { name: "HQD Cuve Plus", price: 1200, icon: "💨", tag: "Disposable" },
                 { name: "Elf Bar BC5000", price: 1450, icon: "🔋", tag: "Disposable" },
@@ -387,6 +404,8 @@
         // UI Rendering
         const renderProducts = () => {
             const grid = document.getElementById('products-grid');
+            if (!grid) return;
+
             if (window.state.products.length === 0) {
                 grid.innerHTML = '<div class="col-span-2 text-center py-20 opacity-30">Нет товаров в наличии</div>';
                 return;
@@ -563,6 +582,7 @@
 
         // Admin Actions
         window.deleteProduct = async (id) => {
+            if (!auth.currentUser) return;
             if (!confirm('Удалить товар?')) return;
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
@@ -582,6 +602,7 @@
         };
 
         window.saveProduct = async () => {
+            if (!auth.currentUser) return;
             const name = document.getElementById('p-name').value;
             const price = parseInt(document.getElementById('p-price').value);
             const icon = document.getElementById('p-image').value;
