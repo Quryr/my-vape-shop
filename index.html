@@ -622,6 +622,9 @@
 
                 window.shop.state.user = tgUser;
                 
+                // Load Cart from LocalStorage
+                window.shop.loadCart();
+
                 // STRING COMPARISON for Admin ID to avoid type errors
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
 
@@ -639,12 +642,6 @@
                 // Auth & Data
                 await window.shop.authenticate();
 
-                // Sync Profile
-                if (tgUser) {
-                    await window.shop.saveUserProfile(tgUser);
-                    window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
-                }
-                
                 // Clear Loader
                 const loader = document.getElementById('loader');
                 loader.style.opacity = '0';
@@ -659,6 +656,17 @@
             },
 
             authenticate: async () => {
+                // Setup auth listener first to capture sign-in
+                auth.onAuthStateChanged(async (firebaseUser) => {
+                    if (firebaseUser) {
+                        // Sync profile AFTER we are definitely authenticated
+                        if (window.shop.state.user) {
+                            await window.shop.saveUserProfile(window.shop.state.user);
+                            window.shop.showToast(`Вход: ${window.shop.state.user.first_name}`, "Система");
+                        }
+                    }
+                });
+
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await auth.signInWithCustomToken(__initial_auth_token);
@@ -988,7 +996,7 @@
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
                         
-                        <h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
+                        h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
                         
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
@@ -1131,20 +1139,25 @@
                 } else {
                     // Try to catch auth state change first
                     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-                        unsubscribeAuth(); // Run once
+                        // DON'T unsubscribe immediately here if user is null
+                        // Wait for a valid user
                         if (user) {
+                            unsubscribeAuth(); 
                             loadOrders(user.uid);
-                        } else {
-                            // If still no user, force sign in immediately
-                            console.log("Force signing in anonymously...");
-                            auth.signInAnonymously()
-                                .then(cred => loadOrders(cred.user.uid))
-                                .catch(e => {
-                                    console.error("Auth failed:", e);
-                                    list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось войти.<br>Повторите попытку.</div>`;
-                                });
-                        }
+                        } 
+                        // If null, we do nothing and keep waiting for auth state to resolve
+                        // unless timeout happens (optional, but let's keep it simple and robust)
                     });
+
+                    // Fallback: If auth takes too long (e.g. > 5s) and still no user, we might want to try forcing
+                    // But usually onAuthStateChanged will fire eventually. 
+                    // Let's add a safe timeout to retry anonymous auth if stuck
+                    setTimeout(() => {
+                        if (!auth.currentUser) {
+                             console.log("Auth taking long, forcing retry...");
+                             auth.signInAnonymously().catch(console.error);
+                        }
+                    }, 5000);
                 }
             },
 
@@ -1405,6 +1418,7 @@
                 }
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
+                window.shop.saveCart(); // Save to LocalStorage
                 window.shop.showToast("Добавлено в корзину", "Корзина");
                 
                 if(window.Telegram.WebApp.HapticFeedback) {
@@ -1421,8 +1435,27 @@
                 }
                 
                 window.shop.updateCartBadge();
+                window.shop.saveCart(); // Save to LocalStorage
                 window.shop.renderCart(document.getElementById('main-content'));
                 setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
+            },
+
+            // --- NEW: LocalStorage Helpers ---
+            saveCart: () => {
+                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
+            },
+
+            loadCart: () => {
+                const stored = localStorage.getItem('vape_cart');
+                if (stored) {
+                    try {
+                        window.shop.state.cart = JSON.parse(stored);
+                        window.shop.updateCartBadge();
+                    } catch(e) {
+                        console.error("Error loading cart", e);
+                        window.shop.state.cart = {};
+                    }
+                }
             },
 
             updateCartBadge: () => {
@@ -1604,6 +1637,7 @@
                 // 3. UI Cleanup (No more python payload)
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
+                window.shop.saveCart(); // Clear local storage cart
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
