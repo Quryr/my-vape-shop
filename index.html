@@ -310,8 +310,8 @@
         const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
+        let dbLoaded = false;
 
-        // Резервный список (на случай, если база пуста или не прогрузилась)
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -321,14 +321,16 @@
 
         function checkAdminAccess() {
             const user = tg.initDataUnsafe?.user;
-            if (user && (user.id == MY_ADMIN_ID || String(user.id) == String(MY_ADMIN_ID))) {
-                document.getElementById('adminBtn').style.display = 'flex';
+            // Проверка на админа через Telegram ID (жесткое сравнение)
+            if (user && (String(user.id) === String(MY_ADMIN_ID))) {
+                const btn = document.getElementById('adminBtn');
+                if(btn) btn.style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        // Рендерим начальные данные сразу, чтобы не было пустого экрана
+        // Инициализация при старте (сначала показываем seed)
         function startApp() {
             products = [...initialSeed];
             renderAll();
@@ -341,23 +343,25 @@
 
             const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
             fs.onSnapshot(q, (snapshot) => {
+                // Как только облако ответило, мы переключаемся ТОЛЬКО на него
                 const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-                // Если в базе есть товары, заменяем ими начальный список
-                if (dbItems.length > 0) {
-                    products = dbItems;
-                    renderAll();
-                }
+                
+                // Если мы хотя бы раз получили данные (даже пустые), отключаем seed
+                dbLoaded = true;
+                products = dbItems;
+                renderAll();
             }, (error) => {
                 console.error("Firebase Error:", error);
+                // В случае ошибки прав доступа все равно пытаемся показать хоть что-то
+                if(!dbLoaded) renderAll();
             });
         });
 
-        // Если через 3 сек событие не пришло (модуль загрузился раньше), проверяем флаг
-        setTimeout(() => {
-            if (window.isVapeAuthReady && products.length <= initialSeed.length) {
-                window.dispatchEvent(new Event('vape-auth-ready'));
-            }
-        }, 3000);
+        // Повторная проверка админа на случай задержки загрузки профиля
+        const retryCheck = setInterval(() => {
+            if(checkAdminAccess()) clearInterval(retryCheck);
+        }, 1000);
+        setTimeout(() => clearInterval(retryCheck), 5000);
 
         function renderAll() {
             renderCategories();
@@ -367,6 +371,9 @@
 
         function renderCategories() {
             const categories = ['Все', ...new Set(products.map(p => p.category))];
+            if (categories.length === 1 && categories[0] === 'Все') {
+                categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
+            }
             const container = document.getElementById('categories');
             if(!container) return;
             container.innerHTML = categories.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
@@ -376,25 +383,37 @@
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
-            container.innerHTML = filtered.map(p => `
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(p => {
+                const isFromDB = !!p.docId;
+                const itemId = p.docId || p.id;
+                return `
                 <div class="product-card">
-                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId || p.id}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>` : ''}
+                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${itemId}', ${isFromDB})"><i data-lucide="trash-2" size="14"></i></button>` : ''}
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${p.docId || p.id}')">В корзину</button>
-                </div>`).join('');
+                    <button class="add-btn" onclick="addToCart('${itemId}')">В корзину</button>
+                </div>`;
+            }).join('');
             lucide.createIcons();
         }
 
         window.setCategory = (cat) => { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); };
+        
         window.toggleTheme = () => {
             tg.HapticFeedback.impactOccurred('medium');
             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
             document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
         };
+
         window.toggleAdminMode = () => {
             isAdminMode = !isAdminMode;
             document.body.classList.toggle('admin-mode', isAdminMode);
@@ -423,16 +442,20 @@
 
         window.adminAddProduct = async () => {
             if (!window.VapeDB) return;
-            const { db, fs, appId, auth } = window.VapeDB;
+            const { db, fs, appId } = window.VapeDB;
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
+            
             if (!name || !price) return;
             const btn = document.getElementById('saveProductBtn');
             btn.disabled = true; btn.innerText = 'Сохранение...';
+
             try {
-                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
+                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { 
+                    name, price, category, img, createdAt: Date.now() 
+                });
                 resetAdminForm(); closeSheets();
                 tg.HapticFeedback.notificationOccurred('success');
             } catch (e) { console.error(e); } finally { btn.disabled = false; btn.innerText = 'Добавить карточку'; }
@@ -444,12 +467,17 @@
             document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
-        window.deleteItem = async (id, isDb) => {
+        window.deleteItem = async (id, isFromDB) => {
             if (!confirm("Удалить товар?")) return;
-            if (isDb && window.VapeDB) {
+            tg.HapticFeedback.impactOccurred('medium');
+            
+            if (isFromDB && window.VapeDB) {
                 const { db, fs, appId } = window.VapeDB;
-                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                try {
+                    await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                } catch (e) { console.error("Delete from DB failed:", e); }
             } else {
+                // Если это seed-товар, просто убираем его из массива до перезагрузки
                 products = products.filter(p => (p.docId || p.id) !== id);
                 renderAll();
             }
@@ -476,7 +504,9 @@
             if(!list) return;
             if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`; }
             else {
-                list.innerHTML = items.map(item => `
+                list.innerHTML = items.map(item => {
+                    const id = item.docId || item.id;
+                    return `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
                         <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;">
                         <div style="flex-grow:1; min-width:0">
@@ -484,11 +514,12 @@
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 8px; border-radius:12px;">
-                            <button onclick="changeQty('${item.docId || item.id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
+                            <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
-                            <button onclick="changeQty('${item.docId || item.id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
+                            <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
                         </div>
-                    </div>`).join('');
+                    </div>`;
+                }).join('');
                 lucide.createIcons();
             }
         };
@@ -525,6 +556,7 @@
             btn.disabled = true; btn.innerText = "Отправка...";
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
+
             const orderDetails = {
                 action: "NEW_ORDER",
                 order_key: currentOrderKey,
@@ -533,23 +565,28 @@
                 client: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value,
+                    username_or_contact: document.getElementById('order_contact').value, // Синхронизировано с бэкендом
                     place: document.getElementById('order_location').value,
                     time: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
+            
             tg.sendData(JSON.stringify(orderDetails)); 
             setTimeout(() => tg.close(), 500);
         };
 
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
-        window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => {
-            const el = document.getElementById(id);
-            if(el) el.classList.remove('active');
-        }); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
+        window.closeSheets = () => { 
+            const sheets = ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'];
+            sheets.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.classList.remove('active');
+            }); 
+            document.getElementById('overlay').classList.remove('active'); 
+            document.body.style.overflow = ''; 
+        };
 
-        // Запускаем приложение
         startApp();
     </script>
 </body>
