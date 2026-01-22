@@ -127,7 +127,6 @@
         /* Clipping Fix for Category Scroll */
         .category-scroll {
             padding-top: 1rem; padding-bottom: 1rem;
-            /* Improved mask for better visibility on edges */
             mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
             -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
             overflow-x: auto;
@@ -137,10 +136,8 @@
         /* Desktop Scrollbar Fixes */
         @media (min-width: 768px) {
             .category-scroll {
-                /* Reset margins on desktop to prevent clipping */
                 margin-left: 0 !important;
                 margin-right: 0 !important;
-                /* Show scrollbar on desktop */
                 scrollbar-width: thin;
                 -ms-overflow-style: auto;
                 padding-bottom: 10px; 
@@ -157,7 +154,6 @@
                 background: #22c55e;
                 border-radius: 4px;
             }
-            /* Remove mask on desktop to see full width */
             .category-scroll {
                 mask-image: none;
                 -webkit-mask-image: none;
@@ -202,7 +198,7 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYNC DATABASE...</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">ПОДКЛЮЧЕНИЕ К БАЗЕ...</div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -210,7 +206,11 @@
         <button onclick="document.getElementById('debug-panel').classList.add('hidden')" class="mb-4 bg-red-500 text-white p-2 rounded">CLOSE DEBUG</button>
         <h3 class="text-white text-lg font-bold mb-2">DIAGNOSTICS</h3>
         <div id="debug-content" class="whitespace-pre-wrap">Loading...</div>
-        <button onclick="window.shop.seedDatabase()" class="mt-4 bg-green-600 text-white p-3 rounded font-bold">RESET DATABASE (RESTORE DEFAULTS)</button>
+        <div id="debug-warning" class="mt-4 p-3 bg-red-500/20 border border-red-500 text-red-200 rounded hidden">
+            ⚠️ <b>ВНИМАНИЕ:</b> База данных не подключена (Demo Mode).<br>
+            Изменения не сохранятся после перезагрузки.
+        </div>
+        <button onclick="window.shop.seedDatabase()" class="mt-4 bg-green-600 text-white p-3 rounded font-bold">ВОССТАНОВИТЬ СТАНДАРТНЫЕ ТОВАРЫ</button>
     </div>
 
     <!-- Toast Notification -->
@@ -386,8 +386,18 @@
         // 2. FIREBASE & APP ID SETUP
         // ---------------------------------------------------------
         
+        // ВАЖНО: Твои данные Firebase
+        const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDCXGwD1a3dJ73JJ2TxShZack-KLCteABI",
+            authDomain: "vape-store-60093.firebaseapp.com",
+            projectId: "vape-store-60093",
+            storageBucket: "vape-store-60093.firebasestorage.app",
+            messagingSenderId: "551908874555",
+            appId: "1:551908874555:web:f50b6e9e77b81512467f1e",
+            measurementId: "G-663WY383DG"
+        };
+
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
-        const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "demo", projectId: "demo" };
 
         try {
             if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
@@ -396,7 +406,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        const ADMIN_ID = "1262669099"; // String format for safer comparison
+        const ADMIN_ID = "1262669099";
 
         // ---------------------------------------------------------
         // 3. CORE APPLICATION LOGIC
@@ -566,6 +576,20 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
+                // Check connection status for Debug
+                if (FIREBASE_CONFIG.projectId === 'demo') {
+                    console.warn("DEMO MODE: Sync disabled.");
+                    // In demo mode, rely on localStorage entirely for single-session persistence
+                    const localData = localStorage.getItem('vape_store_products');
+                    if (localData && localData !== "[]") {
+                        window.shop.state.products = JSON.parse(localData);
+                    } else {
+                        window.shop.state.products = [...MOCK_PRODUCTS];
+                    }
+                    window.shop.renderStore();
+                    return;
+                }
+
                 window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
                     .onSnapshot(async (snapshot) => {
                         // AUTO-SEEDING DISABLED to prevent ghost items returning
@@ -583,20 +607,18 @@
                         
                         // --- CLIENT SIDE SORTING (Fixed "Random Order") ---
                         dbProducts.sort((a, b) => {
-                            // Normalize createdAt: Handle Timestamps, numbers, or missing values
                             const getTime = (t) => {
                                 if (!t) return 0;
-                                if (typeof t === 'number') return t; // Already millis
-                                if (t.toMillis) return t.toMillis(); // Firestore Timestamp
-                                if (t instanceof Date) return t.getTime(); // JS Date
+                                if (typeof t === 'number') return t;
+                                if (t.toMillis) return t.toMillis();
+                                if (t instanceof Date) return t.getTime();
                                 return 0;
                             };
                             
                             const dateA = getTime(a.createdAt);
                             const dateB = getTime(b.createdAt);
                             
-                            // Sort by Date Descending (Newest first)
-                            return dateB - dateA; 
+                            return dateB - dateA; // Descending (newest first)
                         });
                         
                         console.log("Realtime Update Received:", dbProducts.length);
@@ -634,14 +656,22 @@
                 if (window.shop.state.debugClicks >= 5) {
                     const panel = document.getElementById('debug-panel');
                     const content = document.getElementById('debug-content');
+                    const warning = document.getElementById('debug-warning');
+                    
                     panel.classList.remove('hidden');
+                    
+                    if (FIREBASE_CONFIG.projectId === 'demo') {
+                        warning.classList.remove('hidden');
+                    } else {
+                        warning.classList.add('hidden');
+                    }
                     
                     const info = {
                         "DETECTED_USER_ID": window.shop.state.user?.id,
                         "EXPECTED_ADMIN_ID": ADMIN_ID,
                         "IS_ADMIN_BOOL": window.shop.state.isAdmin,
-                        "SOURCE": window.shop.debugInfo?.parsedSource,
                         "PROJECT_ID": FIREBASE_CONFIG.projectId,
+                        "SOURCE": window.shop.debugInfo?.parsedSource,
                         "FULL_USER_OBJ": window.shop.state.user
                     };
                     
@@ -853,7 +883,7 @@
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
                         
-                        <h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
+                        h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
                         
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
@@ -890,7 +920,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 11.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 13.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
