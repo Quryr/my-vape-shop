@@ -94,7 +94,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease, visibility 0.5s;
         }
     </style>
 </head>
@@ -235,21 +235,34 @@
         ];
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-luxe-premium';
-        const firebaseConfig = JSON.parse(__firebase_config);
+
+        // Функция скрытия лоадера
+        function hideLoading() {
+            const loader = document.getElementById('loading-screen');
+            if (loader) {
+                loader.style.opacity = '0';
+                loader.style.visibility = 'hidden';
+                setTimeout(() => loader.remove(), 500);
+            }
+        }
 
         // --- CORE FUNCTIONS ---
 
         async function initApp() {
+            // Принудительный таймер безопасности (сработает даже если Firebase упадет)
+            setTimeout(hideLoading, 3500);
+
             try {
+                if (typeof __firebase_config === 'undefined') {
+                    console.error("Firebase config is missing");
+                    hideLoading();
+                    return;
+                }
+
+                const firebaseConfig = JSON.parse(__firebase_config);
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-
-                // Safety timeout
-                setTimeout(() => {
-                    document.getElementById('loading-screen').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loading-screen').remove(), 500);
-                }, 2500);
 
                 // Auth Logic (Rule 3)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -263,11 +276,14 @@
                     if (user) {
                         checkAdmin();
                         startListeners();
+                        // Скрываем загрузку сразу после успешной авторизации
+                        hideLoading();
                     }
                 });
             } catch (err) {
                 console.error("Init Error:", err);
                 showNotification("Ошибка загрузки", "error");
+                hideLoading(); // Скрываем в случае критической ошибки
             }
         }
 
@@ -275,7 +291,6 @@
             const userId = tg.initDataUnsafe?.user?.id?.toString();
             const username = tg.initDataUnsafe?.user?.username;
             
-            // Multi-check for reliability
             const verify = () => {
                 if (userId === ADMIN_ID || username === ADMIN_USERNAME) {
                     isAdmin = true;
@@ -283,7 +298,7 @@
                     document.getElementById('auth-status').innerText = 'ADMIN MODE';
                     document.getElementById('auth-status').classList.remove('opacity-50');
                     document.getElementById('auth-status').classList.add('accent-text', 'font-bold');
-                    renderProducts(); // re-render to show delete buttons
+                    renderProducts(); 
                 }
             };
 
@@ -297,13 +312,15 @@
             onSnapshot(q, (snapshot) => {
                 items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 
-                // Auto-Seed if empty and admin
                 if (items.length === 0 && isAdmin) {
                     seedDatabase();
                 }
                 
                 renderProducts();
-            }, (err) => console.error("Snapshot error:", err));
+            }, (err) => {
+                console.error("Snapshot error:", err);
+                hideLoading();
+            });
         }
 
         async function seedDatabase() {
@@ -321,7 +338,9 @@
             ];
 
             for (const item of starter) {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), item);
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), item);
+                } catch(e) {}
             }
         }
 
@@ -485,7 +504,6 @@
             } else {
                 sheet.classList.remove('active');
                 overlay.classList.remove('opacity-100', 'pointer-events-auto');
-                // Reset state
                 setTimeout(() => {
                     currentStep = 'cart';
                     document.getElementById('cart-items').classList.remove('hidden');
@@ -552,7 +570,6 @@
                 });
                 showNotification("Товар добавлен");
                 toggleAddModal(false);
-                // Clear fields
                 document.getElementById('p-name').value = '';
                 document.getElementById('p-price').value = '';
             } catch (err) {
@@ -572,7 +589,6 @@
         }
 
         window.showStats = function() {
-            const revenue = items.length * 1000; // Mock stat
             showNotification(`В базе: ${items.length} поз.`);
         }
 
