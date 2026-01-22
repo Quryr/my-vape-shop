@@ -179,6 +179,14 @@
             border-color: #22c55e;
             background-color: rgba(34, 197, 94, 0.05);
         }
+
+        /* Time Selection Button Active State */
+        .time-btn.active {
+            background-color: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+            color: #22c55e;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -314,7 +322,56 @@
         </div>
     </div>
 
-    <!-- Checkout Modal -->
+    <!-- DELIVERY INFO MODAL (Step 1) -->
+    <div id="delivery-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
+        <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t border-green-500/30 animate-float-up shadow-[0_-10px_50px_rgba(0,0,0,0.8)] pb-10">
+            
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black italic text-white">ДАННЫЕ <span class="text-green-500">ДОСТАВКИ</span></h2>
+                <button onclick="document.getElementById('delivery-modal').classList.add('hidden')" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Имя</label>
+                    <input type="text" id="del-name" placeholder="Как к вам обращаться" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                </div>
+                
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Тел</label>
+                    <input type="tel" id="del-phone" placeholder="+7..." class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Контакт</label>
+                    <input type="text" id="del-contact" placeholder="@username или ссылка" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">📍 Место встречи</label>
+                    <input type="text" id="del-place" placeholder="Адрес или ориентир" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 block">⏰ Время встречи</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="window.shop.selectTime('6:00 - 12:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
+                            6:00 - 12:00
+                        </button>
+                        <button onclick="window.shop.selectTime('14:00 - 20:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
+                            14:00 - 20:00
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="window.shop.proceedToPayment()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-4 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2">
+                    К ОПЛАТЕ <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAYMENT MODAL (Step 2) -->
     <div id="checkout-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
         <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t border-green-500/30 animate-float-up shadow-[0_-10px_50px_rgba(0,0,0,0.8)]">
             <div class="text-center mb-6">
@@ -336,7 +393,7 @@
                     <div class="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-blue-900/40">OZON</div>
                     <div class="flex-grow">
                         <p class="text-sm text-white font-mono tracking-wider font-bold">2204 3209 2444 1944</p>
-                        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Ivan V. R.</p>
+                        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Иван Владимирович Р.</p>
                     </div>
                     <button onclick="window.shop.copyBank()" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all">
                         <i data-lucide="copy" class="w-4 h-4"></i>
@@ -346,7 +403,7 @@
 
             <button onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
                 <span>Я ОПЛАТИЛ</span>
-                <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                <i data-lucide="check-circle" class="w-5 h-5"></i>
             </button>
             <button onclick="document.getElementById('checkout-modal').classList.add('hidden')" class="w-full py-4 text-xs font-bold text-gray-500 uppercase tracking-widest hover:text-white transition-colors">ОТМЕНА</button>
         </div>
@@ -421,7 +478,8 @@
                 isAdmin: false,
                 debugClicks: 0,
                 pendingImage: null,
-                listenerUnsubscribe: null
+                listenerUnsubscribe: null,
+                deliveryTime: null // New state for time selection
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -753,7 +811,7 @@
                         <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
                         <p>Товаров пока нет</p>
                         ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте товар в меню админа (+)</p>' : ''}
-                     </div>`;
+                      </div>`;
                 } else {
                     filtered.forEach((p, index) => {
                         const delay = index * 50;
@@ -883,7 +941,7 @@
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
                         
-                        h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
+                        <h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
                         
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
@@ -1036,12 +1094,47 @@
                 }
             },
 
+            // --- CHECKOUT LOGIC ---
+
             initCheckout: (total) => {
-                document.getElementById('checkout-total').innerText = total + " ₽";
+                window.shop.state.currentTotal = total;
+                // Open Delivery Form First
+                document.getElementById('delivery-modal').classList.remove('hidden');
+            },
+
+            selectTime: (time, btn) => {
+                // Clear active class from all buttons
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                // Add to clicked
+                btn.classList.add('active');
+                window.shop.state.deliveryTime = time;
+            },
+
+            proceedToPayment: () => {
+                // Validation
+                const name = document.getElementById('del-name').value;
+                const phone = document.getElementById('del-phone').value;
+                const contact = document.getElementById('del-contact').value;
+                const place = document.getElementById('del-place').value;
+                const time = window.shop.state.deliveryTime;
+
+                if (!name || !phone || !contact || !place || !time) {
+                    window.shop.showToast("Заполните все поля и выберите время", "Ошибка");
+                    return;
+                }
+
+                // Store info temporarily
+                window.shop.state.deliveryInfo = { name, phone, contact, place, time };
+
+                // Switch Modals
+                document.getElementById('delivery-modal').classList.add('hidden');
+                
+                // Update Total and Order ID for Payment Screen
+                document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
                 window.shop.state.currentOrderId = orderId;
-                window.shop.state.currentTotal = total;
+                
                 document.getElementById('checkout-modal').classList.remove('hidden');
             },
 
@@ -1057,7 +1150,8 @@
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: new Date().toISOString(),
-                    user: window.shop.state.user
+                    user: window.shop.state.user,
+                    delivery: window.shop.state.deliveryInfo // Add delivery info to order
                 };
 
                 try {
