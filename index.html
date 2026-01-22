@@ -15,7 +15,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Setup
@@ -28,11 +28,24 @@
         // Экспортируем в глобальное окно для основного скрипта
         window.VapeDB = { 
             db, auth, appId, 
-            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously, onAuthStateChanged } 
+            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously, signInWithCustomToken, onAuthStateChanged } 
         };
 
-        // Запускаем инициализацию данных сразу после готовности Firebase
-        window.dispatchEvent(new Event('firebase-ready'));
+        // RULE 3: Auth Before Queries
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                console.log("Firebase Auth Success");
+                window.dispatchEvent(new Event('vape-auth-ready'));
+            } catch (e) {
+                console.error("Auth failed:", e);
+            }
+        };
+        initAuth();
     </script>
     <style>
         :root {
@@ -73,7 +86,7 @@
             padding: 8px; border-radius: 12px; cursor: pointer; transition: var(--transition);
             display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
         }
-        #adminBtn { display: none; } /* По умолчанию скрыт */
+        #adminBtn { display: none; } 
         .icon-btn.active { background: var(--brand-color); color: var(--bg-dark); }
         #addBtn { display: none; background: var(--brand-color); color: var(--bg-dark); border-color: var(--brand-color); }
 
@@ -304,40 +317,44 @@
         let selectedBase64 = '';
         let currentOrderKey = '';
 
-        // Функция проверки админа (с повтором)
+        // Функция проверки доступа админа
         function checkAdminAccess() {
             const user = tg.initDataUnsafe?.user;
-            console.log("Checking admin for ID:", user?.id);
             if (user && (user.id == MY_ADMIN_ID || String(user.id) == String(MY_ADMIN_ID))) {
-                document.getElementById('adminBtn').style.display = 'flex';
+                const btn = document.getElementById('adminBtn');
+                if(btn) btn.style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        // Ждем Firebase
-        window.addEventListener('firebase-ready', async () => {
+        // Слушаем готовность авторизации Firebase
+        window.addEventListener('vape-auth-ready', async () => {
             const { auth, fs, db, appId } = window.VapeDB;
             
-            // 1. Авторизация (ОБЯЗАТЕЛЬНО ПЕРЕД ЗАПРОСАМИ)
-            await fs.signInAnonymously(auth);
-            
-            // 2. Проверка админа
+            // Проверка админа после авторизации
             checkAdminAccess();
 
-            // 3. Загрузка товаров из Firebase
-            const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
+            // Загрузка товаров с защитой (Rule 3)
+            const collectionPath = fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            const q = fs.query(collectionPath);
+            
             fs.onSnapshot(q, (snapshot) => {
-                // Если база пуста, это первый запуск - можно добавить дефолтные товары вручную через админку
-                products = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-                renderAll();
+                // Если мы авторизованы, обрабатываем данные
+                if (auth.currentUser) {
+                    products = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                    renderAll();
+                }
             }, (error) => {
-                console.error("Firebase Error:", error);
+                console.error("Firestore Permission/Error:", error);
             });
         });
 
-        // ПОВТОРНАЯ ПРОВЕРКА АДМИНА через 2 секунды (на случай задержки SDK)
-        setTimeout(checkAdminAccess, 2000);
+        // Запасная проверка через интервал
+        const adminCheckInterval = setInterval(() => {
+            if(checkAdminAccess()) clearInterval(adminCheckInterval);
+        }, 1000);
+        setTimeout(() => clearInterval(adminCheckInterval), 5000);
 
         function renderAll() {
             renderCategories();
@@ -408,9 +425,10 @@
             reader.readAsDataURL(file);
         };
 
-        // СОХРАНЕНИЕ В ОБЛАКО (FIXED)
         window.adminAddProduct = async () => {
-            const { db, fs, appId } = window.VapeDB;
+            const { db, fs, appId, auth } = window.VapeDB;
+            if (!auth.currentUser) return;
+
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
@@ -425,8 +443,7 @@
                 await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
                     name, price, category, img, createdAt: Date.now()
                 });
-                resetAdminForm(); 
-                closeSheets();
+                resetAdminForm(); closeSheets();
                 tg.HapticFeedback.notificationOccurred('success');
             } catch (e) {
                 console.error("Save failed:", e);
@@ -441,10 +458,11 @@
             document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
-        // УДАЛЕНИЕ ИЗ ОБЛАКА (FIXED)
         window.deleteItem = async (docId) => {
             if (!confirm("Удалить этот товар навсегда?")) return;
-            const { db, fs, appId } = window.VapeDB;
+            const { db, fs, appId, auth } = window.VapeDB;
+            if (!auth.currentUser) return;
+
             try {
                 await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
                 tg.HapticFeedback.impactOccurred('medium');
