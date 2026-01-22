@@ -662,7 +662,7 @@
                         // Sync profile AFTER we are definitely authenticated
                         if (window.shop.state.user) {
                             await window.shop.saveUserProfile(window.shop.state.user);
-                            window.shop.showToast(`Вход: ${window.shop.state.user.first_name}`, "Система");
+                            // console.log(`Вход: ${window.shop.state.user.first_name}`);
                         }
                     }
                 });
@@ -986,6 +986,11 @@
                 const roleColor = window.shop.state.isAdmin ? 'text-red-500' : 'text-green-500';
                 const roleBg = window.shop.state.isAdmin ? 'bg-red-500' : 'bg-green-500';
                 const roleName = window.shop.state.isAdmin ? 'АДМИНИСТРАТОР' : 'КЛИЕНТ';
+                
+                // Safe name rendering
+                const firstName = u.first_name || 'Гость';
+                const lastName = u.last_name || '';
+                const displayName = `${firstName} ${lastName}`.trim();
 
                 container.innerHTML = `
                     <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden animate-float-up border border-white/10">
@@ -996,7 +1001,7 @@
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
                         
-                        h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
+                        <h2 class="text-2xl font-black text-white relative z-10 italic mb-1 break-words w-full px-2">${displayName}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
                         
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
@@ -1065,12 +1070,26 @@
                 }
 
                 const list = document.getElementById('my-orders-list');
+                
+                // TIMEOUT SAFETY: If loading takes too long (> 5s), show error/retry
+                const loadTimeout = setTimeout(() => {
+                    const listEl = document.getElementById('my-orders-list');
+                    if (listEl && listEl.innerText.includes("Загрузка")) {
+                         listEl.innerHTML = `
+                            <div class="text-center py-10 text-gray-500">
+                                <p class="mb-2">Не удалось загрузить данные</p>
+                                <button onclick="window.shop.switchView('my-orders')" class="text-green-500 font-bold border border-green-500 rounded-lg px-4 py-2 text-xs">Повторить</button>
+                            </div>`;
+                    }
+                }, 5000);
 
                 // Function to load data
                 const loadOrders = (uid) => {
                     console.log("Loading orders for:", uid);
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
+                            clearTimeout(loadTimeout); // Clear timeout on success
+                            
                             if (!document.getElementById('my-orders-list')) return;
 
                             if (snapshot.empty) {
@@ -1122,6 +1141,7 @@
                             list.innerHTML = html;
                             if(window.lucide) window.lucide.createIcons();
                         }, (error) => {
+                            clearTimeout(loadTimeout);
                             console.error("My Orders Error:", error);
                             // Only show error if permission denied (real error) or network fails definitively
                             // Ignore transient errors if retry works
@@ -1588,38 +1608,49 @@
             },
 
             completeOrder: async () => {
+                // FORCE AUTH CHECK:
+                // Ensure we have a valid UID before saving anything private
+                let uid = auth.currentUser ? auth.currentUser.uid : null;
+                
+                if (!uid) {
+                    try {
+                        const cred = await auth.signInAnonymously();
+                        uid = cred.user.uid;
+                        // Save profile immediately for the new user
+                        await window.shop.saveUserProfile(window.shop.state.user);
+                    } catch (e) {
+                        console.error("Critical Auth Fail in Checkout", e);
+                        window.shop.showToast("Ошибка авторизации. Попробуйте снова.", "Сбой");
+                        return; // Stop here
+                    }
+                }
+
                 // 1. Prepare Data
                 const now = new Date();
                 
-                // 2. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
-                // We construct the order object
                 const orderBase = {
-                    order_key: window.shop.state.currentOrderId, // Match with previous naming convention
+                    order_key: window.shop.state.currentOrderId, 
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: now.toISOString(),
-                    user: window.shop.state.user,
+                    user: window.shop.state.user, // Save TG user info
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending' 
                 };
 
                 try {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
                     let userOrderDocId = null;
 
-                    // A. Save to User History (Private) if Authenticated
-                    if (uid) {
-                        try {
-                            const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
-                            userOrderDocId = userOrderRef.id;
-                        } catch(innerE) {
-                            console.warn("Could not save to user history", innerE);
-                        }
+                    // A. Save to User History (Private) - NOW GUARANTEED
+                    try {
+                        const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
+                        userOrderDocId = userOrderRef.id;
+                    } catch(innerE) {
+                        console.warn("Could not save to user history", innerE);
                     }
 
-                    // B. Save to PUBLIC ADMIN COLLECTION (Always)
-                    // We link it to the user doc so Admin can update status later
+                    // B. Save to PUBLIC ADMIN COLLECTION
                     const publicOrder = {
                         ...orderBase,
                         linkedUserUid: uid,
@@ -1627,14 +1658,17 @@
                     };
                     
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
+                    
+                    // C. Force update profile timestamp to ensure user doc exists
+                    await window.shop.saveUserProfile(window.shop.state.user);
                       
                 } catch(e) { 
                     console.error("DB Error", e); 
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
-                    // Proceed anyway to clear UI
+                    // Continue to clear UI even if error (user experience priority)
                 }
 
-                // 3. UI Cleanup (No more python payload)
+                // 3. UI Cleanup
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 window.shop.saveCart(); // Clear local storage cart
