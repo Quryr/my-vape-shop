@@ -1118,24 +1118,29 @@
                 if (auth.currentUser) {
                     setupListener(auth.currentUser.uid);
                 } else {
+                    let authTimeout;
+                    
                     const unsub = auth.onAuthStateChanged(user => {
                         if (user) {
                             unsub();
+                            if(authTimeout) clearTimeout(authTimeout); // Cancel the fallback
                             setupListener(user.uid);
                         }
                     });
                     
-                    // Fallback after 2 seconds if auth is still null
-                    setTimeout(() => {
+                    // Fallback after 6 seconds (increased to avoid premature timeout)
+                    authTimeout = setTimeout(() => {
                         if (!auth.currentUser) {
+                            console.log("Auth timeout, forcing anonymous sign-in...");
                             auth.signInAnonymously()
                             .then(cred => setupListener(cred.user.uid))
                             .catch(e => {
+                                console.error("Force auth failed", e);
                                 const list = document.getElementById('my-orders-list');
-                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации.<br>Обновите страницу.</div>`;
+                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка соединения.<br>Попробуйте позже.</div>`;
                             });
                         }
-                    }, 2000);
+                    }, 6000);
                 }
             },
 
