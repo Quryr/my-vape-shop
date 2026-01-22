@@ -202,7 +202,7 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYSTEM ONLINE</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYNC SERVER...</div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -358,16 +358,16 @@
         
         // Russian Data (Used if Firestore fails or is empty)
         const MOCK_PRODUCTS = [
-            { id: 'm1', name: "Neon Pod X", price: 2500, category: "Поды", image: "zap" },
-            { id: 'm2', name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging" },
-            { id: 'm3', name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet" },
-            { id: 'm4', name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu" },
-            { id: 'm5', name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake" },
-            { id: 'm6', name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot" },
-            { id: 'm7', name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet" },
-            { id: 'm8', name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind" },
-            { id: 'm9', name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb" },
-            { id: 'm10', name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll" },
+            { name: "Neon Pod X", price: 2500, category: "Поды", image: "zap" },
+            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging" },
+            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet" },
+            { name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu" },
+            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake" },
+            { name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot" },
+            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet" },
+            { name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind" },
+            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb" },
+            { name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll" },
         ];
 
         // Safety Loader Timeout
@@ -560,26 +560,21 @@
 
             // --- REALTIME SYNC: The Key to Multi-User Updates ---
             initRealtimeListener: () => {
-                // 1. Load LocalStorage first for instant view (no waiting)
-                const localData = localStorage.getItem('vape_store_products');
-                if (localData && localData !== "[]") {
-                    console.log("Showing local cache while connecting...");
-                    window.shop.state.products = JSON.parse(localData);
-                    window.shop.renderStore();
-                } else {
-                    // Show Mocks if nothing local
-                    window.shop.state.products = [...MOCK_PRODUCTS];
-                    window.shop.renderStore();
-                }
-
-                // 2. Connect to Firestore with onSnapshot
+                // 1. Connect to Firestore with onSnapshot
                 if (window.shop.state.listenerUnsubscribe) {
                     window.shop.state.listenerUnsubscribe();
                 }
 
                 window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
                     .orderBy('createdAt', 'desc') // Ensure consistent order
-                    .onSnapshot((snapshot) => {
+                    .onSnapshot(async (snapshot) => {
+                        // AUTO-SEEDING: If DB is empty, fill it with mocks so users see items
+                        if (snapshot.empty) {
+                            console.log("DB Empty. Seeding globally...");
+                            await window.shop.seedDatabase();
+                            return; // Listener will fire again after seed
+                        }
+
                         const dbProducts = [];
                         snapshot.forEach(doc => {
                             dbProducts.push({ id: doc.id, ...doc.data() });
@@ -587,23 +582,9 @@
                         
                         console.log("Realtime Update Received:", dbProducts.length);
                         
-                        if (dbProducts.length > 0) {
-                            window.shop.state.products = dbProducts;
-                            localStorage.setItem('vape_store_products', JSON.stringify(dbProducts));
-                            window.shop.renderStore();
-                        } else {
-                            // If DB is genuinely empty (admin deleted all), reflect that
-                            if (!snapshot.empty) {
-                                // Snapshot not empty but loop yielded 0? unlikely
-                            } else {
-                                // DB empty. 
-                                console.log("DB Empty");
-                                if (window.shop.state.isAdmin && (!localData || localData === "[]")) {
-                                    // Optional: Auto-seed if truly empty and admin
-                                    // window.shop.seedDatabase(); 
-                                }
-                            }
-                        }
+                        window.shop.state.products = dbProducts;
+                        window.shop.renderStore();
+                        
                     }, (error) => {
                         console.error("Realtime listener error:", error);
                     });
@@ -615,9 +596,8 @@
                     const colRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products');
                     
                     MOCK_PRODUCTS.forEach(item => {
-                        const { id, ...data } = item; 
                         const docRef = colRef.doc(); 
-                        batch.set(docRef, { ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        batch.set(docRef, { ...item, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
                     });
 
                     await batch.commit();
@@ -884,7 +864,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 7.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 8.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
