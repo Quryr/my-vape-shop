@@ -81,7 +81,7 @@
             align-items: center;
             justify-content: center;
             z-index: 9999;
-            transition: opacity 0.5s;
+            transition: opacity 0.5s, visibility 0.5s;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -106,7 +106,6 @@
                 <p id="status-text" class="text-[9px] text-white/30 font-bold uppercase tracking-widest mt-1">Authorized Access</p>
             </div>
             <div class="flex gap-2 items-center">
-                <!-- Кнопки админа: Появляются СЛЕВА от темы -->
                 <div id="admin-group" class="hidden flex gap-2">
                     <button id="admin-shield" class="w-10 h-10 rounded-xl glass flex items-center justify-center text-[var(--primary)] border-[var(--primary)]/30">
                         <i data-lucide="shield-check" class="w-5 h-5"></i>
@@ -129,10 +128,10 @@
             <button onclick="window.filterCat('Одноразка')" class="cat-chip px-6 py-2.5 glass rounded-2xl text-[10px] font-bold uppercase border border-white/5 opacity-40 whitespace-nowrap">Одноразки</button>
             <button onclick="window.filterCat('Жидкость')" class="cat-chip px-6 py-2.5 glass rounded-2xl text-[10px] font-bold uppercase border border-white/5 opacity-40 whitespace-nowrap">Жидкости</button>
             <button onclick="window.filterCat('Устройство')" class="cat-chip px-6 py-2.5 glass rounded-2xl text-[10px] font-bold uppercase border border-white/5 opacity-40 whitespace-nowrap">Устройства</button>
+            <button onclick="window.filterCat('Расходник')" class="cat-chip px-6 py-2.5 glass rounded-2xl text-[10px] font-bold uppercase border border-white/5 opacity-40 whitespace-nowrap">Расходники</button>
         </div>
 
         <div id="product-grid" class="grid grid-cols-2 gap-4">
-            <!-- Skeletons -->
             <div class="h-64 glass rounded-[2.5rem] animate-pulse"></div>
             <div class="h-64 glass rounded-[2.5rem] animate-pulse"></div>
         </div>
@@ -219,7 +218,7 @@
                 <input type="text" id="p-icon" placeholder="Emoji" class="w-full glass h-12 px-5 rounded-xl outline-none">
                 <div class="flex gap-2 pt-4">
                     <button onclick="window.toggleAdminModal(false)" class="flex-1 py-4 rounded-xl glass font-bold text-[10px] uppercase">Отмена</button>
-                    <button id="p-save" class="flex-1 py-4 rounded-xl btn-primary font-bold text-[10px] uppercase">Сохранить</button>
+                    <button id="p-save" class="flex-1 py-4 rounded-xl btn-primary font-bold text-[10px] uppercase text-black">Сохранить</button>
                 </div>
             </div>
         </div>
@@ -229,6 +228,20 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. КРИТИЧЕСКИЕ ФУНКЦИИ ЛОАДЕРА ---
+        const hideLoader = () => {
+            const loader = document.getElementById('loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    if (loader) loader.remove();
+                }, 500);
+            }
+        };
+
+        // Safety Timeout (Гарантированно скрываем через 3 секунды, даже если всё упало)
+        const loaderSafetyTimer = setTimeout(hideLoader, 3000);
 
         // CONFIG & INIT
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -247,18 +260,16 @@
         let isAdmin = false;
         let activeCat = 'Все';
 
-        // 1. ПРОВЕРКА АДМИНА (АГРЕССИВНАЯ)
+        // 2. ПРОВЕРКА АДМИНА
         const checkAdminStatus = () => {
             let uId = "";
             let uName = "";
 
-            // Способ 1: SDK
             if (tg?.initDataUnsafe?.user) {
                 uId = String(tg.initDataUnsafe.user.id);
                 uName = tg.initDataUnsafe.user.username || "";
             }
 
-            // Способ 2: Hash Parsing
             if (!uId) {
                 try {
                     const params = new URLSearchParams(window.location.hash.slice(1));
@@ -280,32 +291,22 @@
                 const status = document.getElementById('status-text');
                 status.innerText = "ADMIN MODE ACTIVE";
                 status.style.color = "var(--primary)";
-                renderProducts(); // Перерисовать, чтобы кнопки удаления появились
+                renderProducts();
             }
         };
 
-        // 2. FIREBASE AUTH & DB
+        // 3. FIREBASE LOGIC
         onAuthStateChanged(auth, (u) => {
             if (u) {
                 checkAdminStatus();
                 setupListeners();
-                // Гарантированное скрытие лоадера
+                // Скрываем лоадер после успешного входа
                 setTimeout(() => {
-                    const loader = document.getElementById('loader');
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.remove(), 500);
-                    }
-                }, 1500);
+                    hideLoader();
+                    clearTimeout(loaderSafetyTimer);
+                }, 1000);
             }
         });
-
-        // Запуск проверки через интервалы (на случай задержки SDK)
-        const adminCheckInterval = setInterval(() => {
-            checkAdminStatus();
-            if (isAdmin) clearInterval(adminCheckInterval);
-        }, 500);
-        setTimeout(() => clearInterval(adminCheckInterval), 5000);
 
         const setupListeners = () => {
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
@@ -313,6 +314,9 @@
                 products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 if (products.length === 0 && isAdmin) seedDB();
                 else renderProducts();
+            }, (err) => {
+                console.error("Firestore error:", err);
+                hideLoader();
             });
         };
 
@@ -322,19 +326,26 @@
                 { name: "Elf Bar BC5000", price: 1200, category: "Одноразка", icon: "🌪️" },
                 { name: "Vaporesso XROS 4", price: 3200, category: "Устройство", icon: "🔋" },
                 { name: "Husky White 30ml", price: 650, category: "Жидкость", icon: "❄️" },
-                { name: "Boshki Exotic", price: 580, category: "Жидкость", icon: "🍍" }
+                { name: "Boshki Exotic", price: 580, category: "Жидкость", icon: "🍍" },
+                { name: "Maxwell Shoria 30ml", price: 620, category: "Жидкость", icon: "🌲" },
+                { name: "Waka SoPro 10k", price: 1550, category: "Одноразка", icon: "⚡" },
+                { name: "Charon Baby Plus", price: 2600, category: "Устройство", icon: "👾" },
+                { name: "XROS Cartridge 0.6", price: 350, category: "Расходник", icon: "📦" },
+                { name: "Smoant S-1 Mesh", price: 300, category: "Расходник", icon: "⚙️" }
             ];
             const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
             for (const i of items) await addDoc(colRef, i);
         };
 
-        // 3. ACTIONS
+        // 4. UI ACTIONS
         window.renderProducts = () => {
             const grid = document.getElementById('product-grid');
+            if (!grid) return;
+
             const filtered = activeCat === 'Все' ? products : products.filter(p => p.category === activeCat);
             
             grid.innerHTML = filtered.map(p => `
-                <div class="product-card glass p-4 rounded-[2.5rem] relative fade-in">
+                <div class="product-card glass p-4 rounded-[2.5rem] relative flex flex-col fade-in">
                     ${isAdmin ? `<button onclick="window.deleteProduct('${p.id}')" class="absolute top-4 right-4 z-10 p-2 glass text-red-500 rounded-xl"><i data-lucide="trash" class="w-3 h-3"></i></button>` : ''}
                     <div class="h-28 flex items-center justify-center text-6xl mb-4 bg-white/5 rounded-3xl">${p.icon || '📦'}</div>
                     <div class="flex-grow flex flex-col px-1">
@@ -351,13 +362,16 @@
         };
 
         window.deleteProduct = async (id) => {
-            if (!confirm("Удалить товар?")) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-            if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            if (!confirm("Удалить этот товар?")) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            } catch(e) { console.error(e); }
         };
 
         window.addToCart = (id) => {
             const p = products.find(x => x.id === id);
+            if (!p) return;
             const inCart = cart.find(x => x.id === id);
             if (inCart) inCart.qty++;
             else cart.push({ ...p, qty: 1 });
@@ -434,7 +448,7 @@
                     c.classList.remove('opacity-40');
                 } else {
                     c.classList.remove('active', 'border-[var(--primary)]', 'text-[var(--primary)]');
-                    c.classList.add('opacity-40');
+                    c.classList.add('opacity-40', 'border-white/5');
                 }
             });
             renderProducts();
@@ -488,6 +502,7 @@
             if (show) modal.classList.add('flex');
         };
 
+        // Event Bindings
         document.getElementById('admin-add').onclick = () => window.toggleAdminModal(true);
         document.getElementById('cart-trigger').onclick = () => window.toggleCart(true);
         document.getElementById('overlay').onclick = () => window.toggleCart(false);
@@ -498,10 +513,12 @@
             const c = document.getElementById('p-cat').value;
             const i = document.getElementById('p-icon').value || '📦';
             if (!n || !p) return;
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
-                name: n, price: p, category: c, icon: i, createdAt: new Date().toISOString()
-            });
-            window.toggleAdminModal(false);
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
+                    name: n, price: p, category: c, icon: i, createdAt: new Date().toISOString()
+                });
+                window.toggleAdminModal(false);
+            } catch(e) { console.error(e); }
         };
 
         document.getElementById('theme-toggle').onclick = () => {
@@ -517,13 +534,21 @@
             if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         };
 
-        // Auth Start
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            signInWithCustomToken(auth, __initial_auth_token).catch(hideLoader);
-        } else {
-            signInAnonymously(auth).catch(hideLoader);
+        // Auth Startup
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                signInWithCustomToken(auth, __initial_auth_token).catch(hideLoader);
+            } else {
+                signInAnonymously(auth).catch(hideLoader);
+            }
+        } catch(e) {
+            console.error("Auth init fail", e);
+            hideLoader();
         }
 
+        // Многократная проверка админа
+        setInterval(checkAdminStatus, 1000);
+        
         lucide.createIcons();
     </script>
 </body>
