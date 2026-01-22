@@ -9,431 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, getDocs, onSnapshot, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-
-        // CONFIGS
-        const firebaseConfig = JSON.parse(__firebase_config || '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-tma';
-        
-        let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch(e) { console.error("Firebase Init Fail", e); }
-
-        // State
-        let state = {
-            user: null,
-            isAdmin: false,
-            items: [],
-            cart: [],
-            currentCategory: 'Все',
-            theme: 'toxic',
-            isCartOpen: false,
-            isCheckoutOpen: false,
-            checkoutStep: 1,
-            loading: true,
-            initialized: false
-        };
-
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        tg.backgroundColor = '#000000';
-        tg.headerColor = '#000000';
-
-        const ADMIN_ID = "1262669099";
-        const ADMIN_USERNAME = "Tru5tNoBody";
-
-        const haptic = (type = 'light') => {
-            if (tg.HapticFeedback) {
-                if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
-                else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
-                else tg.HapticFeedback.impactOccurred(type);
-            }
-        };
-
-        const $ = (id) => document.getElementById(id);
-
-        const themes = {
-            toxic: { primary: '#00ff41', secondary: '#004d13', glow: 'rgba(0, 255, 65, 0.4)' },
-            ice: { primary: '#00d4ff', secondary: '#003a4d', glow: 'rgba(0, 212, 255, 0.4)' },
-            magma: { primary: '#ff4e00', secondary: '#4d1700', glow: 'rgba(255, 78, 0, 0.4)' }
-        };
-
-        function applyTheme(themeName) {
-            state.theme = themeName;
-            const t = themes[themeName];
-            document.documentElement.style.setProperty('--primary', t.primary);
-            document.documentElement.style.setProperty('--primary-glow', t.glow);
-            document.documentElement.style.setProperty('--secondary', t.secondary);
-            render();
-        }
-
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) {
-                console.error("Auth error", e);
-                state.loading = false;
-                render();
-            }
-        }
-
-        function checkAdmin() {
-            const user = tg.initDataUnsafe?.user;
-            if (user && (user.id.toString() === ADMIN_ID || user.username === ADMIN_USERNAME)) {
-                state.isAdmin = true;
-            } else {
-                const hashData = new URLSearchParams(window.location.hash.slice(1));
-                try {
-                    const tgData = JSON.parse(hashData.get('tgWebAppData'));
-                    if (tgData?.user?.id?.toString() === ADMIN_ID) state.isAdmin = true;
-                } catch(e) {}
-            }
-            render();
-        }
-
-        window.seedDatabase = async () => {
-            if (!state.isAdmin) return;
-            haptic('medium');
-            const collectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-            const starterItems = [
-                { name: "HQD Cuvie Plus", price: 850, category: "Одноразки", icon: "💨", desc: "1200 затяжек, Черника" },
-                { name: "Elf Bar BC5000", price: 1200, category: "Одноразки", icon: "🍓", desc: "5000 затяжек, Клубника-Манго" },
-                { name: "Vaporesso XROS 3", price: 2900, category: "Устройства", icon: "🔋", desc: "Лучшая POD-система 2024" },
-                { name: "Maxwell's Shoria", price: 650, category: "Жидкости", icon: "🌲", desc: "Хвоя, мята, лесные ягоды" },
-                { name: "Brusko Minican", price: 1500, category: "Устройства", icon: "🔌", desc: "Компактность и вкус" },
-                { name: "Husky Double Ice", price: 550, category: "Жидкости", icon: "🧊", desc: "Арбуз с мощным холодом" },
-                { name: "Испаритель XROS", price: 350, category: "Расходники", icon: "⚙️", desc: "0.6 / 0.8 / 1.0 Ом" },
-                { name: "Lost Mary OS5000", price: 1100, category: "Одноразки", icon: "🍒", desc: "Вишня-Персик-Лимонад" },
-                { name: "Angry Vape", price: 500, category: "Жидкости", icon: "🍋", desc: "Кислое яблоко" },
-                { name: "Сетка для мехмода", price: 200, category: "Расходники", icon: "🕸️", desc: "Кантал A1" }
-            ];
-            for (const item of starterItems) {
-                await addDoc(collectionRef, { ...item, createdAt: Date.now() });
-            }
-            haptic('success');
-        };
-
-        function setupItemsListener() {
-            const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-            onSnapshot(q, (snapshot) => {
-                state.items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                state.loading = false;
-                state.initialized = true;
-                render();
-            }, (err) => {
-                console.error(err);
-                state.loading = false;
-                render();
-            });
-        }
-
-        window.addToCart = (id) => {
-            const item = state.items.find(i => i.id === id);
-            const inCart = state.cart.find(i => i.id === id);
-            if (inCart) inCart.count++;
-            else state.cart.push({ ...item, count: 1 });
-            haptic('medium');
-            render();
-        };
-
-        window.updateCartCount = (id, delta) => {
-            const item = state.cart.find(i => i.id === id);
-            if (item) {
-                item.count += delta;
-                if (item.count <= 0) state.cart = state.cart.filter(i => i.id !== id);
-            }
-            haptic('light');
-            render();
-        };
-
-        window.deleteItem = async (id) => {
-            if (!confirm('Удалить товар навсегда?')) return;
-            try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                haptic('success');
-            } catch (e) { console.error(e); }
-        };
-
-        window.toggleCart = () => {
-            state.isCartOpen = !state.isCartOpen;
-            haptic('light');
-            render();
-        };
-
-        window.submitOrder = () => {
-            const orderId = `VX-${Math.floor(100 + Math.random() * 899)}`;
-            const orderData = {
-                orderId,
-                total: state.cart.reduce((s, i) => s + i.price * i.count, 0),
-                customer: {
-                    name: $('form-name').value,
-                    phone: $('form-phone').value,
-                    username: $('form-user').value,
-                    location: $('form-loc').value
-                }
-            };
-            haptic('success');
-            tg.sendData(JSON.stringify(orderData));
-            tg.close();
-        };
-
-        function render() {
-            const root = $('app');
-            const totalItems = state.cart.reduce((s, i) => s + i.count, 0);
-            const totalPrice = state.cart.reduce((s, i) => s + i.price * i.count, 0);
-            const filteredItems = state.currentCategory === 'Все' 
-                ? state.items 
-                : state.items.filter(i => i.category === state.currentCategory);
-
-            root.innerHTML = `
-                <!-- Background Blobs -->
-                <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1] bg-black">
-                    <div class="blob blob-1"></div>
-                    <div class="blob blob-2"></div>
-                    <div class="blob blob-3"></div>
-                </div>
-
-                <!-- Header -->
-                <header class="sticky top-0 z-40 bg-black/40 backdrop-blur-2xl border-b border-white/5 px-4 py-4 flex items-center justify-between">
-                    <div class="flex flex-col">
-                        <span class="text-[var(--primary)] font-black text-2xl italic tracking-tighter leading-none">VAPE LUXE</span>
-                        <span class="text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold mt-1">
-                            ${state.isAdmin ? '<span class="text-[var(--primary)] animate-pulse">ADMIN PRIVILEGE</span>' : 'Authorized Access'}
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        ${state.isAdmin ? `
-                            <button onclick="seedDatabase()" class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 border border-white/5">
-                                <i data-lucide="database" class="w-5 h-5"></i>
-                            </button>
-                        ` : ''}
-                        <button onclick="applyTheme(state.theme === 'toxic' ? 'ice' : state.theme === 'ice' ? 'magma' : 'toxic')" class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 border border-white/5">
-                            <i data-lucide="swatchbook" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </header>
-
-                <!-- Categories -->
-                <nav class="flex overflow-x-auto gap-2 p-4 no-scrollbar sticky top-[73px] z-30 bg-black/20 backdrop-blur-md">
-                    ${['Все', 'Одноразки', 'Жидкости', 'Устройства', 'Расходники'].map(cat => `
-                        <button onclick="window.setCategory('${cat}')" 
-                                class="px-6 py-2.5 rounded-2xl whitespace-nowrap text-xs font-black transition-all border
-                                ${state.currentCategory === cat ? 'bg-[var(--primary)] text-black border-transparent shadow-[0_0_20px_var(--primary-glow)]' : 'bg-white/5 text-white/40 border-white/5'}">
-                            ${cat.toUpperCase()}
-                        </button>
-                    `).join('')}
-                </nav>
-
-                <!-- Grid -->
-                <main class="grid grid-cols-2 gap-4 p-4 pb-40">
-                    ${state.loading && !state.initialized ? `
-                        <div class="col-span-2 py-20 flex flex-col items-center">
-                            <div class="w-10 h-10 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                    ` : filteredItems.length === 0 ? `
-                        <div class="col-span-2 py-20 text-center">
-                            <i data-lucide="package-open" class="w-12 h-12 text-white/10 mx-auto mb-4"></i>
-                            <p class="text-white/20 font-bold uppercase text-xs tracking-widest">Витрина пуста</p>
-                        </div>
-                    ` : filteredItems.map(item => `
-                        <div class="glass flex flex-col rounded-[2.5rem] overflow-hidden border border-white/10 relative transition-transform active:scale-95 group">
-                            ${state.isAdmin ? `
-                                <button onclick="deleteItem('${item.id}')" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 flex items-center justify-center backdrop-blur-md">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
-                                </button>
-                            ` : ''}
-                            <div class="aspect-square flex items-center justify-center text-6xl relative overflow-hidden">
-                                <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent"></div>
-                                <span class="relative z-10 drop-shadow-2xl">${item.icon || '📦'}</span>
-                            </div>
-                            <div class="p-4 flex flex-col flex-grow bg-white/[0.02]">
-                                <h3 class="text-white font-black text-sm leading-tight mb-1">${item.name}</h3>
-                                <p class="text-white/30 text-[10px] line-clamp-2 leading-relaxed mb-4">${item.desc || ''}</p>
-                                
-                                <div class="mt-auto">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <span class="text-white/20 text-[10px] font-bold">ЦЕНА</span>
-                                        <span class="text-[var(--primary)] font-black text-lg tracking-tighter">${item.price} ₽</span>
-                                    </div>
-                                    <button onclick="addToCart('${item.id}')" 
-                                            class="w-full py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-widest hover:bg-[var(--primary)] hover:text-black transition-all">
-                                        В корзину
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </main>
-
-                <!-- Floating Footer -->
-                ${totalItems > 0 && !state.isCartOpen ? `
-                    <div class="fixed bottom-8 left-6 right-6 z-50 animate-slide-up">
-                        <button onclick="toggleCart()" class="w-full h-18 rounded-[2rem] bg-[var(--primary)] shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex items-center justify-between px-8 relative overflow-hidden border-t border-white/30">
-                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
-                            <div class="flex items-center gap-4 relative z-10">
-                                <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center text-[var(--primary)] font-black text-xs">${totalItems}</div>
-                                <span class="text-black font-black uppercase tracking-[0.2em] text-[10px]">Корзина</span>
-                            </div>
-                            <span class="text-black font-black text-xl relative z-10">${totalPrice} ₽</span>
-                        </button>
-                    </div>
-                ` : ''}
-
-                <!-- Cart Sheet -->
-                <div class="fixed inset-0 z-[60] transition-all duration-500 ${state.isCartOpen ? 'visible' : 'invisible'}">
-                    <div class="absolute inset-0 bg-black/90 backdrop-blur-md transition-opacity duration-500 ${state.isCartOpen ? 'opacity-100' : 'opacity-0'}" onclick="toggleCart()"></div>
-                    <div class="absolute bottom-0 left-0 right-0 bg-[#050505] rounded-t-[3rem] border-t border-white/10 max-h-[90vh] flex flex-col transition-transform duration-500 transform ${state.isCartOpen ? 'translate-y-0' : 'translate-y-full'}">
-                        <div class="w-16 h-1 bg-white/10 rounded-full mx-auto my-6"></div>
-                        <div class="px-8 pb-4 flex items-center justify-between">
-                            <h2 class="text-3xl font-black text-white italic tracking-tighter">ORDER</h2>
-                            <button onclick="toggleCart()" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/40"><i data-lucide="x"></i></button>
-                        </div>
-                        
-                        <div class="flex-grow overflow-y-auto px-6 py-4 space-y-4">
-                            ${state.cart.map(item => `
-                                <div class="flex items-center gap-4 bg-white/[0.03] p-4 rounded-[2rem] border border-white/5">
-                                    <div class="w-16 h-16 rounded-2xl bg-black flex items-center justify-center text-3xl shadow-inner">${item.icon}</div>
-                                    <div class="flex-grow">
-                                        <h4 class="text-white font-black text-sm">${item.name}</h4>
-                                        <p class="text-[var(--primary)] font-bold text-xs">${item.price} ₽</p>
-                                    </div>
-                                    <div class="flex items-center gap-4 bg-black/50 px-4 py-2 rounded-2xl border border-white/5">
-                                        <button onclick="updateCartCount('${item.id}', -1)" class="text-white/40"><i data-lucide="minus" class="w-4 h-4"></i></button>
-                                        <span class="text-white font-black text-sm w-4 text-center">${item.count}</span>
-                                        <button onclick="updateCartCount('${item.id}', 1)" class="text-[var(--primary)]"><i data-lucide="plus" class="w-4 h-4"></i></button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-
-                        <div class="p-8 bg-black/60 backdrop-blur-xl border-t border-white/5">
-                            <div class="flex justify-between items-end mb-8">
-                                <span class="text-white/20 font-black uppercase text-[10px] tracking-widest">Итого к оплате</span>
-                                <span class="text-4xl font-black text-[var(--primary)] tracking-tighter">${totalPrice} ₽</span>
-                            </div>
-                            <button onclick="window.startCheckout()" class="w-full py-6 rounded-[2rem] bg-[var(--primary)] text-black font-black uppercase tracking-[0.3em] text-xs shadow-[0_0_40px_var(--primary-glow)]">
-                                ПОДТВЕРДИТЬ
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Checkout -->
-                ${state.isCheckoutOpen ? `
-                <div class="fixed inset-0 z-[100] bg-black flex flex-col p-8 animate-fade-in overflow-y-auto">
-                    <header class="flex items-center justify-between mb-12">
-                        <button onclick="window.closeCheckout()" class="text-white/20"><i data-lucide="arrow-left"></i></button>
-                        <h2 class="text-sm font-black text-white/40 uppercase tracking-[0.4em]">Оформление</h2>
-                        <div class="w-6"></div>
-                    </header>
-
-                    <div class="space-y-8">
-                        <div class="space-y-2">
-                            <label class="text-[10px] text-white/20 uppercase font-black tracking-widest ml-4">Как вас зовут?</label>
-                            <input id="form-name" type="text" placeholder="ИМЯ" class="w-full bg-white/5 border border-white/10 rounded-3xl py-5 px-8 text-white font-bold focus:outline-none focus:border-[var(--primary)] transition-all uppercase placeholder:text-white/10">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] text-white/20 uppercase font-black tracking-widest ml-4">Номер телефона</label>
-                            <input id="form-phone" type="tel" placeholder="+7 (___) ___ __ __" class="w-full bg-white/5 border border-white/10 rounded-3xl py-5 px-8 text-white font-bold focus:outline-none focus:border-[var(--primary)] placeholder:text-white/10">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] text-white/20 uppercase font-black tracking-widest ml-4">Где удобно встретиться?</label>
-                            <input id="form-loc" type="text" placeholder="МЕТРО / РАЙОН" class="w-full bg-white/5 border border-white/10 rounded-3xl py-5 px-8 text-white font-bold focus:outline-none focus:border-[var(--primary)] uppercase placeholder:text-white/10">
-                        </div>
-                        <input id="form-user" type="hidden" value="@${tg.initDataUnsafe?.user?.username || ''}">
-
-                        <div class="bg-[var(--secondary)]/20 border border-[var(--primary)]/20 p-6 rounded-[2rem] mt-8">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-10 h-10 rounded-full bg-[var(--primary)] text-black flex items-center justify-center font-black">!</div>
-                                <span class="text-[var(--primary)] font-black text-[10px] uppercase tracking-widest">Инструкция по оплате</span>
-                            </div>
-                            <p class="text-white/60 text-xs leading-relaxed mb-4 italic">Переведите <span class="text-white font-black">${totalPrice} ₽</span> на карту Ozon:</p>
-                            <div class="bg-black/40 p-4 rounded-2xl flex items-center justify-between border border-white/5">
-                                <code class="text-white font-black tracking-widest">2204 3209 2444 1944</code>
-                                <button onclick="navigator.clipboard.writeText('2204320924441944'); haptic('medium');" class="text-[var(--primary)]"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                            </div>
-                            <p class="text-[9px] text-white/20 mt-4 uppercase text-center tracking-widest font-bold">Получатель: ИВАН ВЛАДИМИРОВИЧ Р.</p>
-                        </div>
-
-                        <button onclick="submitOrder()" class="w-full py-6 rounded-[2.5rem] bg-[var(--primary)] text-black font-black uppercase tracking-[0.4em] text-xs shadow-[0_20px_40px_rgba(0,0,0,0.5)] active:scale-95 transition-transform mt-8">
-                            Я ОПЛАТИЛ
-                        </button>
-                    </div>
-                </div>
-                ` : ''}
-
-                <!-- Splash Screen / Loader -->
-                <div id="loading-screen" class="fixed inset-0 z-[200] bg-black flex items-center justify-center transition-all duration-700 ${state.loading ? 'opacity-100' : 'opacity-0 pointer-events-none scale-110'}">
-                    <div class="relative">
-                        <div class="w-32 h-32 rounded-full border border-[var(--primary)]/20 animate-ping absolute inset-0"></div>
-                        <div class="w-32 h-32 rounded-full border-4 border-[var(--primary)] border-t-transparent animate-spin"></div>
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <span class="text-[var(--primary)] font-black italic text-xl animate-pulse tracking-tighter">LUXE</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-            lucide.createIcons();
-        }
-
-        // Global functions
-        window.setCategory = (cat) => {
-            state.currentCategory = cat;
-            haptic('light');
-            render();
-        };
-
-        window.startCheckout = () => {
-            state.isCartOpen = false;
-            state.isCheckoutOpen = true;
-            haptic('medium');
-            render();
-        };
-
-        window.closeCheckout = () => {
-            state.isCheckoutOpen = false;
-            haptic('light');
-            render();
-        };
-
-        // Lifecycle
-        window.onload = async () => {
-            applyTheme('toxic');
-            
-            // Fix for "black screen": forced loading end after 2.5s regardless of Firebase
-            setTimeout(() => {
-                if (state.loading) {
-                    state.loading = false;
-                    render();
-                }
-            }, 2500);
-
-            checkAdmin();
-            await initAuth();
-            
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    state.user = user;
-                    setupItemsListener();
-                }
-            });
-
-            // Double check admin status for SDK latency
-            setTimeout(checkAdmin, 500);
-            setTimeout(checkAdmin, 1500);
-        };
-    </script>
+    
     <style>
         :root {
             --primary: #00ff41;
@@ -444,6 +20,7 @@
         * {
             -webkit-tap-highlight-color: transparent;
             user-select: none;
+            box-sizing: border-box;
         }
 
         body {
@@ -453,87 +30,465 @@
             margin: 0;
             padding: 0;
             overflow-x: hidden;
+            min-height: 100vh;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* Glassmorphism */
         .glass {
             background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        /* Animated Blobs */
+        /* Анимированные сферы */
         .blob {
             position: absolute;
-            filter: blur(120px);
+            filter: blur(80px);
             z-index: -1;
             border-radius: 50%;
-            opacity: 0.6;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .blob-1 { width: 300px; height: 300px; background: var(--primary); top: -100px; left: -100px; animation: float 15s infinite alternate; }
+        .blob-2 { width: 250px; height: 250px; background: #8a2be2; bottom: 10%; right: -50px; animation: float 12s infinite alternate-reverse; }
+        .blob-3 { width: 200px; height: 200px; background: #ff00ff; top: 30%; right: 10%; opacity: 0.2; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(40px, 60px) scale(1.1); }
         }
 
-        .blob-1 {
-            width: 400px;
-            height: 400px;
-            background: var(--primary);
-            top: -150px;
-            left: -150px;
-            animation: drift 25s infinite alternate ease-in-out;
+        /* Спец-эффект для кнопки корзины */
+        .shimmer {
+            position: relative;
+            overflow: hidden;
         }
-
-        .blob-2 {
-            width: 350px;
-            height: 350px;
-            background: #8a2be2;
-            bottom: -100px;
-            right: -100px;
-            animation: drift 20s infinite alternate-reverse ease-in-out;
-            animation-delay: -5s;
+        .shimmer::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
         }
-
-        .blob-3 {
-            width: 250px;
-            height: 250px;
-            background: #ff00ff;
-            top: 40%;
-            left: 60%;
-            animation: drift 30s infinite alternate ease-in-out;
-            opacity: 0.2;
-        }
-
-        @keyframes drift {
-            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-            50% { transform: translate(50px, 100px) scale(1.2) rotate(180deg); }
-            100% { transform: translate(-50px, -50px) scale(0.8) rotate(360deg); }
-        }
-
         @keyframes shimmer {
-            0% { transform: translateX(-150%); }
-            100% { transform: translateX(150%); }
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
         }
 
-        .animate-shimmer { animation: shimmer 3s infinite ease-in-out; }
-
-        @keyframes fade-in {
-            from { opacity: 0; transform: scale(1.05); }
-            to { opacity: 1; transform: scale(1); }
+        /* Загрузчик */
+        #main-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
         }
 
-        .animate-fade-in { animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        @keyframes slide-up {
-            from { transform: translateY(100px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
         }
 
-        .animate-slide-up { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        input { background: none; border: none; }
-        input::placeholder { color: rgba(255,255,255,0.1); }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body id="app">
-    <!-- App will be rendered here -->
+<body>
+
+    <!-- Статический загрузчик (виден сразу) -->
+    <div id="main-loader">
+        <div class="relative w-20 h-20">
+            <div class="absolute inset-0 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+            <div class="absolute inset-0 flex items-center justify-center font-black text-[var(--primary)] italic text-xs">LUXE</div>
+        </div>
+        <p class="mt-4 text-[var(--primary)] font-bold tracking-[0.3em] text-[10px] animate-pulse">ИНИЦИАЛИЗАЦИЯ</p>
+    </div>
+
+    <!-- Основной контейнер приложения -->
+    <div id="app" class="relative min-h-screen pb-10">
+        <!-- Фон (всегда на месте) -->
+        <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+        </div>
+        
+        <!-- Контент рендерится сюда -->
+        <div id="content"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+        // Безопасный парсинг конфигов
+        const getSafeConfig = (key, fallback = '{}') => {
+            try { return JSON.parse(window[key] || fallback); } 
+            catch(e) { return JSON.parse(fallback); }
+        };
+
+        const firebaseConfig = getSafeConfig('__firebase_config');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-tma';
+        
+        // Инициализация Firebase
+        let db, auth;
+        try {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch(e) { console.error("Firebase init failed", e); }
+
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        
+        // State
+        let state = {
+            user: null,
+            isAdmin: false,
+            items: [],
+            cart: [],
+            category: 'Все',
+            theme: 'toxic',
+            isCartOpen: false,
+            isCheckoutOpen: false,
+            loading: true
+        };
+
+        const ADMIN_ID = "1262669099";
+
+        // Проверка админа
+        const checkAdmin = () => {
+            const user = tg.initDataUnsafe?.user;
+            if (user?.id?.toString() === ADMIN_ID) {
+                state.isAdmin = true;
+                render();
+            }
+        };
+
+        // Подписка на данные (Только после авторизации)
+        const initData = () => {
+            if (!db || !auth.currentUser) return;
+            
+            const collectionPath = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            
+            // Snapshot listener с обработкой ошибок
+            onSnapshot(collectionPath, (snapshot) => {
+                state.items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                state.loading = false;
+                hideLoader();
+                render();
+            }, (err) => {
+                console.error("Firestore error:", err.message);
+                state.loading = false;
+                hideLoader();
+                render();
+            });
+        };
+
+        const hideLoader = () => {
+            const loader = document.getElementById('main-loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 500);
+            }
+        };
+
+        // Рендер
+        window.render = () => {
+            const container = document.getElementById('content');
+            if (!container) return;
+            
+            const total = state.cart.reduce((s, i) => s + i.price * i.count, 0);
+            const filtered = state.category === 'Все' ? state.items : state.items.filter(i => i.category === state.category);
+
+            container.innerHTML = `
+                <!-- Header -->
+                <header class="sticky top-0 z-40 bg-black/50 backdrop-blur-xl border-b border-white/5 px-6 py-5 flex items-center justify-between">
+                    <div>
+                        <h1 class="text-[var(--primary)] font-black text-2xl italic tracking-tighter leading-none uppercase">Vape Luxe</h1>
+                        <p class="text-[8px] uppercase tracking-[0.4em] text-white/30 font-bold mt-1">
+                            ${state.isAdmin ? '<span class="text-[var(--primary)] animate-pulse tracking-widest">Админ-панель</span>' : 'Премиум Магазин'}
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        ${state.isAdmin ? `
+                            <button onclick="window.seed()" class="w-10 h-10 rounded-xl glass flex items-center justify-center text-[var(--primary)]">
+                                <i data-lucide="database" class="w-5 h-5"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="tg.close()" class="w-10 h-10 rounded-xl glass flex items-center justify-center text-white/40">
+                            <i data-lucide="log-out" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Filters -->
+                <nav class="flex gap-2 p-4 overflow-x-auto no-scrollbar sticky top-[76px] z-30 bg-black/20 backdrop-blur-md">
+                    ${['Все', 'Одноразки', 'Жидкости', 'Устройства'].map(c => `
+                        <button onclick="window.setCat('${c}')" class="px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border
+                            ${state.category === c ? 'bg-[var(--primary)] text-black border-transparent shadow-[0_0_20px_var(--primary-glow)]' : 'bg-white/5 text-white/40 border-white/5'}">
+                            ${c}
+                        </button>
+                    `).join('')}
+                </nav>
+
+                <!-- Grid -->
+                <main class="grid grid-cols-2 gap-4 p-4 pb-32">
+                    ${filtered.length === 0 ? `
+                        <div class="col-span-2 py-20 text-center opacity-20 font-black uppercase tracking-widest text-xs">Витрина пуста</div>
+                    ` : filtered.map(item => `
+                        <div class="glass rounded-[2rem] p-4 flex flex-col h-full relative group animate-fade-in">
+                            ${state.isAdmin ? `
+                                <button onclick="window.del('${item.id}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center border border-red-500/20 z-10">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
+                            <div class="aspect-square flex items-center justify-center text-5xl mb-4 bg-white/5 rounded-3xl relative overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/10 to-transparent"></div>
+                                <span class="relative z-10">${item.icon || '💨'}</span>
+                            </div>
+                            <div class="flex-grow">
+                                <h3 class="text-white font-bold text-sm leading-tight">${item.name}</h3>
+                                <p class="text-white/30 text-[9px] mt-1 line-clamp-2">${item.desc || ''}</p>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-white/5">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-[var(--primary)] font-black text-lg">${item.price} ₽</span>
+                                </div>
+                                <button onclick="window.add('${item.id}')" class="w-full py-3.5 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all hover:bg-[var(--primary)] hover:text-black">
+                                    В корзину
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </main>
+
+                <!-- Floating Cart -->
+                ${state.cart.length > 0 ? `
+                    <div class="fixed bottom-6 left-6 right-6 z-50">
+                        <button onclick="window.toggleCart()" class="w-full h-16 rounded-3xl bg-[var(--primary)] text-black flex items-center justify-between px-8 shadow-[0_20px_40px_rgba(0,0,0,0.5)] shimmer border-t border-white/30">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-black/20 w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs">${state.cart.reduce((a,b)=>a+b.count, 0)}</span>
+                                <span class="font-black text-xs uppercase tracking-[0.2em]">Корзина</span>
+                            </div>
+                            <span class="font-black text-xl">${total} ₽</span>
+                        </button>
+                    </div>
+                ` : ''}
+
+                <!-- Cart Sheet -->
+                ${state.isCartOpen ? `
+                    <div class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md animate-fade-in" onclick="window.toggleCart()">
+                        <div class="absolute bottom-0 left-0 right-0 glass rounded-t-[3rem] p-8 max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+                            <div class="w-16 h-1 bg-white/10 rounded-full mx-auto mb-8"></div>
+                            <h2 class="text-3xl font-black italic mb-8 tracking-tighter">ВАШ ЗАКАЗ</h2>
+                            <div class="flex-grow overflow-y-auto space-y-4 no-scrollbar">
+                                ${state.cart.map(i => `
+                                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/5">
+                                        <div class="w-14 h-14 rounded-2xl bg-black flex items-center justify-center text-3xl border border-white/5">${i.icon}</div>
+                                        <div class="flex-grow">
+                                            <h4 class="text-xs font-bold text-white">${i.name}</h4>
+                                            <p class="text-[var(--primary)] font-black text-sm">${i.price} ₽</p>
+                                        </div>
+                                        <div class="flex items-center gap-4 bg-black/40 p-2.5 rounded-2xl border border-white/5">
+                                            <button onclick="window.mod('${i.id}', -1)" class="text-white/40"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                                            <span class="font-black text-sm text-white">${i.count}</span>
+                                            <button onclick="window.mod('${i.id}', 1)" class="text-[var(--primary)]"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex justify-between items-end mb-8">
+                                    <span class="text-white/20 font-black uppercase text-[10px] tracking-widest">К оплате:</span>
+                                    <span class="text-4xl font-black text-[var(--primary)] tracking-tighter">${total} ₽</span>
+                                </div>
+                                <button onclick="window.checkout()" class="w-full py-6 rounded-[2rem] bg-[var(--primary)] text-black font-black uppercase tracking-[0.3em] shadow-[0_10px_40px_var(--primary-glow)] text-xs">
+                                    Оформить заказ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Checkout Modal -->
+                ${state.isCheckoutOpen ? `
+                    <div class="fixed inset-0 z-[100] bg-black p-8 overflow-y-auto">
+                        <header class="flex items-center justify-between mb-12">
+                            <button onclick="window.closeCheckout()" class="text-white/20"><i data-lucide="arrow-left"></i></button>
+                            <h2 class="text-[10px] font-black uppercase tracking-[0.6em] text-white/40">Оформление</h2>
+                            <div class="w-6"></div>
+                        </header>
+                        <div class="space-y-8">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase text-white/20 ml-5 tracking-widest">Имя получателя</label>
+                                <input id="f-name" class="w-full glass rounded-[2rem] py-5 px-8 text-white focus:border-[var(--primary)] transition-all outline-none font-bold uppercase placeholder:text-white/10" placeholder="ИВАН">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase text-white/20 ml-5 tracking-widest">Телефон</label>
+                                <input id="f-phone" class="w-full glass rounded-[2rem] py-5 px-8 text-white focus:border-[var(--primary)] transition-all outline-none font-bold placeholder:text-white/10" placeholder="+7 (___) ___ __ __">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase text-white/20 ml-5 tracking-widest">Место встречи</label>
+                                <input id="f-loc" class="w-full glass rounded-[2rem] py-5 px-8 text-white focus:border-[var(--primary)] transition-all outline-none font-bold uppercase placeholder:text-white/10" placeholder="МЕТРО / АДРЕС">
+                            </div>
+
+                            <div class="bg-[var(--secondary)]/20 border border-[var(--primary)]/20 p-6 rounded-[2.5rem] mt-10">
+                                <div class="flex items-center gap-3 mb-5">
+                                    <div class="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-black text-xs">!</div>
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-[var(--primary)]">Оплата Ozon</span>
+                                </div>
+                                <div class="bg-black/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 mb-4">
+                                    <code class="text-white font-mono text-lg tracking-widest">2204 3209 2444 1944</code>
+                                    <button onclick="navigator.clipboard.writeText('2204320924441944')" class="text-[var(--primary)]"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                                </div>
+                                <p class="text-[9px] text-white/20 text-center uppercase font-bold tracking-[0.2em]">Получатель: Иван Владимирович Р.</p>
+                            </div>
+
+                            <button onclick="window.finish()" class="w-full py-6 rounded-[2.5rem] bg-[var(--primary)] text-black font-black uppercase tracking-[0.4em] text-xs shadow-[0_20px_40px_rgba(0,0,0,0.5)] mt-6 active:scale-95 transition-transform">
+                                Я Оплатил
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+            lucide.createIcons();
+        };
+
+        // Функции глобального доступа
+        window.setCat = (c) => { 
+            state.category = c; 
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            render(); 
+        };
+        
+        window.add = (id) => {
+            const item = state.items.find(i => i.id === id);
+            const inCart = state.cart.find(i => i.id === id);
+            if (inCart) inCart.count++;
+            else state.cart.push({ ...item, count: 1 });
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            render();
+        };
+        
+        window.mod = (id, d) => {
+            const item = state.cart.find(i => i.id === id);
+            if (item) {
+                item.count += d;
+                if (item.count <= 0) state.cart = state.cart.filter(i => i.id !== id);
+            }
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            render();
+        };
+        
+        window.toggleCart = () => { 
+            state.isCartOpen = !state.isCartOpen; 
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            render(); 
+        };
+        
+        window.checkout = () => { 
+            state.isCartOpen = false; 
+            state.isCheckoutOpen = true; 
+            render(); 
+        };
+        
+        window.closeCheckout = () => { 
+            state.isCheckoutOpen = false; 
+            render(); 
+        };
+        
+        window.finish = () => {
+            const order = { 
+                id: `VX-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+                items: state.cart,
+                total: state.cart.reduce((s, i) => s + i.price * i.count, 0),
+                customer: {
+                    name: document.getElementById('f-name').value,
+                    phone: document.getElementById('f-phone').value,
+                    loc: document.getElementById('f-loc').value
+                }
+            };
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            tg.sendData(JSON.stringify(order));
+            tg.close();
+        };
+        
+        window.del = async (id) => {
+            if (!auth.currentUser) return;
+            if (confirm('Удалить товар навсегда?')) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                } catch(e) {
+                    console.error("Delete failed:", e);
+                }
+            }
+        };
+        
+        window.seed = async () => {
+            if (!auth.currentUser) return;
+            const data = [
+                { name: "HQD Cuvie Plus", price: 850, category: "Одноразки", icon: "💨", desc: "1200 затяжек, черника", createdAt: Date.now() },
+                { name: "Elf Bar BC5000", price: 1200, category: "Одноразки", icon: "🍓", desc: "5000 затяжек, клубника", createdAt: Date.now() },
+                { name: "Vaporesso XROS 3", price: 2900, category: "Устройства", icon: "🔋", desc: "Лучшая под-система", createdAt: Date.now() },
+                { name: "Husky Ice", price: 550, category: "Жидкости", icon: "🧊", desc: "Ледяной арбуз", createdAt: Date.now() },
+                { name: "Lost Mary 5000", price: 1100, category: "Одноразки", icon: "🍒", desc: "5000 затяжек, вишня", createdAt: Date.now() },
+                { name: "Brusko Minican", price: 1550, category: "Устройства", icon: "⚡", desc: "Компактный девайс", createdAt: Date.now() }
+            ];
+            for (const i of data) {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), i);
+            }
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        };
+
+        // Запуск (Rule 3: Auth Before Queries)
+        window.onload = async () => {
+            render();
+            checkAdmin();
+
+            // 1. Инициализация Auth
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    console.error("Auth initiation failed:", e);
+                }
+            };
+
+            await initAuth();
+
+            // 2. Слушатель состояния Auth перед запуском Firestore
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    state.user = user;
+                    initData(); // Запускаем слушатель только когда user !== null
+                } else {
+                    state.loading = false;
+                    hideLoader();
+                    render();
+                }
+            });
+
+            // Страховка от вечного лоадера
+            setTimeout(hideLoader, 4000);
+        };
+    </script>
 </body>
 </html>
