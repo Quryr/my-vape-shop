@@ -15,10 +15,10 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Setup
+        // Firebase Initialization
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -30,6 +30,7 @@
             methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
         };
 
+        // RULE 3: Auth Before Everything
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -37,10 +38,14 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-                window.dispatchEvent(new Event('vape-cloud-ready'));
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        window.dispatchEvent(new Event('vape-cloud-ready'));
+                    }
+                });
             } catch (e) {
                 console.error("Auth failed:", e);
-                window.dispatchEvent(new Event('vape-cloud-ready'));
+                window.dispatchEvent(new Event('vape-cloud-ready')); // Fallback
             }
         };
         initAuth();
@@ -68,7 +73,7 @@
         .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: #000; }
         .orb { position: absolute; width: 350px; height: 350px; border-radius: 50%; filter: blur(80px); opacity: 0.15; pointer-events: none; }
         .orb-1 { background: var(--brand-color); top: -80px; right: -80px; }
-        .orb-2 { background: #4a00ff; bottom: -80px; left: -80px; }
+        .orb-2 { background: #4a00ff; bottom: -80px; left: -50px; }
 
         header {
             padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
@@ -143,14 +148,19 @@
         body.admin-mode .delete-card-btn { display: flex !important; }
         body.admin-mode .cart-fab { display: none !important; }
         
-        #boot-loader { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; transition: 0.5s; }
+        #boot-loader { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; transition: 0.5s; }
         #boot-loader.hidden { opacity: 0; pointer-events: none; }
+        .spinner { width: 30px; height: 30px; border: 3px solid var(--glass); border-top-color: var(--brand-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 360px) { .product-name { font-size: 12px; } .products-grid { gap: 8px; padding: 0 12px 100px 12px; } }
     </style>
 </head>
 <body class="theme-toxic">
 
     <div id="boot-loader">
-        <div style="color: var(--brand-color); font-weight: 800; letter-spacing: 2px;">VAPE CLOUD</div>
+        <div class="spinner"></div>
+        <div style="color: var(--brand-color); font-weight: 800; letter-spacing: 2px; font-size: 12px;">ПОДКЛЮЧЕНИЕ</div>
     </div>
 
     <div class="background-container">
@@ -180,17 +190,17 @@
     <!-- Корзина -->
     <div class="bottom-sheet" id="cartSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2>Корзина</h2>
+            <h2 style="font-size: 20px; font-weight: 800;">Корзина</h2>
             <i data-lucide="x" onclick="closeAllSheets()" style="cursor:pointer"></i>
         </div>
         <div id="cartList" style="overflow-y:auto; flex-grow:1; margin-bottom:20px;"></div>
-        <button class="checkout-btn" onclick="openSheet('orderSheet')">К оформлению</button>
+        <button class="checkout-btn" id="checkout-main-btn" onclick="openSheet('orderSheet')">К оформлению</button>
     </div>
 
     <!-- Заказ -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2>Данные заказа</h2>
+            <h2 style="font-size: 20px; font-weight: 800;">Данные заказа</h2>
             <i data-lucide="arrow-left" onclick="openSheet('cartSheet')" style="cursor:pointer"></i>
         </div>
         <div style="overflow-y:auto; flex-grow:1;">
@@ -209,28 +219,29 @@
     <!-- Оплата -->
     <div class="bottom-sheet" id="paymentSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2>Оплата</h2>
+            <h2 style="font-size: 20px; font-weight: 800;">Оплата</h2>
             <i data-lucide="x" onclick="closeAllSheets()" style="cursor:pointer"></i>
         </div>
         <div class="payment-info">
             <div class="price-tag" id="finalPrice">0 ₽</div>
-            <div style="font-weight: 800; margin-bottom: 12px; color: var(--brand-color)">Ozon Банк</div>
+            <div style="font-weight: 800; margin-bottom: 12px; color: var(--brand-color); letter-spacing: 1px;">OZON БАНК</div>
             <div class="copy-info-row">
-                <span style="font-family: monospace;">2204 3209 2444 1944</span>
+                <span style="font-family: monospace; font-weight: 600;">2204 3209 2444 1944</span>
                 <span class="copy-btn" onclick="copyText('2204320924441944')">Копировать</span>
             </div>
-            <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ:</div>
+            <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ (ОБЯЗАТЕЛЬНО):</div>
             <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
-                <span id="payment_key" style="font-weight: 800;">---</span>
+                <span id="payment_key" style="font-weight: 900; letter-spacing: 2px;">---</span>
                 <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">Копировать</span>
             </div>
+            <div style="font-size: 12px; margin-top: 15px;">Получатель: <b>Иван Владимирович Р.</b></div>
         </div>
         <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: #fff;" onclick="finishOrder()">Я оплатил(а)</button>
     </div>
 
     <!-- Админка -->
     <div class="bottom-sheet" id="adminSheet">
-        <h2 style="margin-bottom:20px;">Новый товар</h2>
+        <h2 style="margin-bottom:20px; font-size: 20px; font-weight: 800;">Новый товар</h2>
         <input type="text" id="p_name" class="form-input" placeholder="Название">
         <input type="number" id="p_price" class="form-input" placeholder="Цена (₽)">
         <select id="p_cat" class="form-input">
@@ -259,8 +270,8 @@
         let selectedBase64 = '';
         let currentKey = '';
 
-        // Глобальный массив для первичного наполнения (в облако)
-        const initialSeed = [
+        // Список товаров ТОЛЬКО для первого наполнения облака
+        const seedItems = [
             { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
             { category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
@@ -284,16 +295,14 @@
             return false;
         }
 
-        // Единственная функция отрисовки данных
+        // Рендер интерфейса
         function renderAll() {
-            // Категории
             const categories = ['Все', ...new Set(products.map(p => p.category))];
             if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
             document.getElementById('categories').innerHTML = categories.map(c => `
                 <button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>
             `).join('');
 
-            // Товары
             const grid = document.getElementById('products');
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             
@@ -315,7 +324,7 @@
             setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 500);
         }
 
-        // СИНХРОНИЗАЦИЯ С ОБЛАКОМ
+        // Подключение к облаку
         window.addEventListener('vape-cloud-ready', () => {
             const { db, appId, methods } = window.VapeCloud;
             const isAdmin = checkAdmin();
@@ -324,12 +333,12 @@
             methods.onSnapshot(methods.query(coll), async (snapshot) => {
                 let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // АВТО-СИД: Если база пуста и зашел админ - наполняем облако
+                // Если облако совсем пустое и зашел админ - АВТО-НАПОЛНЕНИЕ
                 if (dbItems.length === 0 && isAdmin) {
-                    for(let item of initialSeed) {
+                    for(let item of seedItems) {
                         await methods.addDoc(coll, { ...item, createdAt: Date.now() });
                     }
-                    return;
+                    return; // Ждем следующего снимка
                 }
 
                 products = dbItems;
@@ -357,8 +366,8 @@
 
             const btn = document.getElementById('saveProductBtn');
             btn.disabled = true; btn.innerText = "Добавление...";
-            
             const { db, appId, methods } = window.VapeCloud;
+            
             try {
                 await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
                     name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
@@ -379,7 +388,7 @@
             } catch(e) { console.error(e); }
         };
 
-        // КОРЗИНА
+        // ЛОГИКА КОРЗИНЫ
         window.addToCart = (id) => {
             const p = products.find(x => x.docId === id);
             if(!p) return;
@@ -399,7 +408,9 @@
             const list = document.getElementById('cartList');
             if(items.length === 0) {
                 list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
+                document.getElementById('checkout-main-btn').style.display = 'none';
             } else {
+                document.getElementById('checkout-main-btn').style.display = 'block';
                 list.innerHTML = items.map(i => `
                     <div class="cart-item">
                         <img src="${i.img}">
@@ -422,6 +433,7 @@
                 cart[id].qty += delta;
                 if(cart[id].qty <= 0) delete cart[id];
                 updateCartUI();
+                tg.HapticFeedback.impactOccurred('light');
             }
         };
 
@@ -452,7 +464,7 @@
 
         window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
 
-        // Инициализация принудительно если облако зависнет
+        // Если облако не отвечает за 5 сек, рендерим пустоту
         setTimeout(() => { if(products.length === 0) renderAll(); }, 5000);
     </script>
 </body>
