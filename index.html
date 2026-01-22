@@ -387,6 +387,29 @@
                 return { source: 'fallback', user: null };
             },
 
+            // --- NEW: AUTO-CREATE USER PROFILE ---
+            saveUserProfile: async (user) => {
+                if (!user || user.id === 999999) return; // Don't save guest mockup
+
+                try {
+                    // Save to: artifacts/{appId}/users/{userId} (where userId = TG ID)
+                    // We use the TG ID as the document key to recognize them next time.
+                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.id.toString()).set({
+                        id: user.id,
+                        first_name: user.first_name || '',
+                        last_name: user.last_name || '',
+                        username: user.username || '',
+                        language_code: user.language_code || 'ru',
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                        platform: 'Telegram WebApp'
+                    }, { merge: true });
+                    
+                    console.log("User profile synced to DB");
+                } catch (e) {
+                    console.error("Failed to save profile:", e);
+                }
+            },
+
             init: async () => {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
@@ -436,6 +459,12 @@
 
                 // Auth & Data
                 await window.shop.authenticate();
+
+                // --- NEW: FORCE SAVE PROFILE FOR EVERYONE ---
+                if (tgUser && tgUser.id !== 999999) {
+                    await window.shop.saveUserProfile(tgUser);
+                    window.shop.showToast(`Добро пожаловать, ${tgUser.first_name}`, "Вход выполнен");
+                }
                 
                 // Clear Loader
                 const loader = document.getElementById('loader');
