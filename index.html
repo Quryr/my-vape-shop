@@ -12,7 +12,7 @@
         :root {
             --primary: #22c55e; /* Toxic Green */
             --bg-dark: #050505;
-            --accent-glow: rgba(34, 197, 94, 0.2);
+            --accent-glow: rgba(34, 197, 94, 0.25);
         }
 
         body {
@@ -74,13 +74,15 @@
             font-style: italic;
             font-size: 1.875rem;
             line-height: 1;
+            background: linear-gradient(to right, #fff, var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         .logo-accent {
-            color: var(--primary);
-            filter: drop-shadow(0 0 10px var(--primary));
+            filter: drop-shadow(0 0 8px var(--primary));
         }
 
-        /* Кнопки категорий */
+        /* Кнопки категорий - Исправлено обрезание неона */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -91,9 +93,9 @@
         .category-pill.active {
             background: var(--primary);
             color: black;
-            box-shadow: 0 0 25px var(--accent-glow);
             border-color: var(--primary);
             transform: translateY(-2px);
+            filter: drop-shadow(0 5px 15px var(--accent-glow));
         }
 
         /* Объемная нижняя панель */
@@ -149,9 +151,9 @@
             transform: translateY(0);
         }
 
-        .theme-toxic { --primary: #22c55e; --accent-glow: rgba(34, 197, 94, 0.2); }
-        .theme-ice { --primary: #0ea5e9; --accent-glow: rgba(14, 165, 233, 0.2); }
-        .theme-magma { --primary: #f97316; --accent-glow: rgba(249, 115, 22, 0.2); }
+        .theme-toxic { --primary: #22c55e; --accent-glow: rgba(34, 197, 94, 0.3); }
+        .theme-ice { --primary: #0ea5e9; --accent-glow: rgba(14, 165, 233, 0.3); }
+        .theme-magma { --primary: #f97316; --accent-glow: rgba(249, 115, 22, 0.3); }
     </style>
 
     <script>
@@ -163,7 +165,7 @@
                 setTimeout(() => loader.style.display = 'none', 600);
             }
         };
-        setTimeout(window.hideLoader, 3000);
+        setTimeout(window.hideLoader, 3500);
     </script>
 </head>
 <body class="theme-toxic">
@@ -189,11 +191,11 @@
         <div id="view-store">
             <header class="flex items-center justify-between mb-12">
                 <div class="flex items-center gap-3">
-                    <div class="p-2.5 bg-primary/10 rounded-2xl border border-primary/20">
+                    <div class="p-2.5 bg-primary/10 rounded-2xl border border-primary/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
                     </div>
                     <div>
-                        <h1 id="admin-status" class="text-[10px] font-black tracking-[0.4em] text-white/30 mb-1 uppercase">SYSTEM.OS // v2.5</h1>
+                        <h1 id="admin-status" class="text-[10px] font-black tracking-[0.4em] text-white/30 mb-1 uppercase">SYSTEM.OS // v2.6</h1>
                         <div class="logo-text">V<span class="logo-accent">Λ</span>POR CLOUD</div>
                     </div>
                 </div>
@@ -213,8 +215,8 @@
                 <input type="text" oninput="window.filterProducts(this.value)" placeholder="Поиск девайса..." class="bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-white/20">
             </div>
 
-            <!-- Categories -->
-            <div class="flex gap-4 overflow-x-auto pb-8 mb-4 no-scrollbar snap-x">
+            <!-- Categories - Исправлено: py-4 дает место для Drop Shadow -->
+            <div class="flex gap-4 overflow-x-auto py-4 mb-4 no-scrollbar snap-x">
                 <button onclick="window.setCategory('all')" class="category-pill active shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="all">Все</button>
                 <button onclick="window.setCategory('Device')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Device">Девайсы</button>
                 <button onclick="window.setCategory('Disposable')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Disposable">Одноразки</button>
@@ -510,6 +512,16 @@
 
         const syncUser = () => {
             let userData = tg?.initDataUnsafe?.user;
+            
+            // Если WebApp пустой, пытаемся парсить из строки initData
+            if (!userData && tg?.initData) {
+                try {
+                    const params = new URLSearchParams(tg.initData);
+                    const userRaw = params.get('user');
+                    if (userRaw) userData = JSON.parse(userRaw);
+                } catch(e) {}
+            }
+
             if (!userData && window.location.hash) {
                 try {
                     const params = new URLSearchParams(window.location.hash.substring(1));
@@ -520,17 +532,29 @@
 
             if (userData) {
                 window.state.user = { ...window.state.user, ...userData };
-                document.getElementById('user-display-name').innerText = userData.first_name;
-                document.getElementById('user-tg-username').innerText = `@${userData.username || 'user'}`;
-                document.getElementById('user-display-id').innerText = userData.id;
+                const nameEl = document.getElementById('user-display-name');
+                const tagEl = document.getElementById('user-tg-username');
+                const idEl = document.getElementById('user-display-id');
                 
-                if (userData.id === ADMIN_ID || userData.username === ADMIN_USER) {
+                if (nameEl) nameEl.innerText = userData.first_name || "User";
+                if (tagEl) tagEl.innerText = `@${userData.username || 'user'}`;
+                if (idEl) idEl.innerText = userData.id || "0";
+                
+                if (userData.id == ADMIN_ID || userData.username === ADMIN_USER) {
                     window.state.isAdmin = true;
-                    document.getElementById('admin-btn').classList.remove('hidden');
-                    document.getElementById('user-display-rank').innerText = "ROOT_ADMIN";
-                    document.getElementById('user-display-rank').classList.add('text-primary');
-                    document.getElementById('admin-status').innerText = 'AUTHORIZED_ADMIN_ACCESS';
-                    document.getElementById('admin-status').classList.add('text-primary/60');
+                    const btn = document.getElementById('admin-btn');
+                    const rank = document.getElementById('user-display-rank');
+                    const status = document.getElementById('admin-status');
+
+                    if (btn) btn.classList.remove('hidden');
+                    if (rank) {
+                        rank.innerText = "ROOT_ADMIN";
+                        rank.classList.add('text-primary');
+                    }
+                    if (status) {
+                        status.innerText = 'AUTHORIZED_ADMIN_ACCESS';
+                        status.classList.add('text-primary/60');
+                    }
                     renderProducts();
                 }
             }
@@ -538,6 +562,7 @@
 
         const renderProducts = (search = "") => {
             const grid = document.getElementById('products-grid');
+            if (!grid) return;
             let items = window.state.products;
             if (window.state.cat !== 'all') items = items.filter(i => i.tag === window.state.cat);
             if (search) items = items.filter(i => i.name.toLowerCase().includes(search));
@@ -574,10 +599,13 @@
         const updateCartUI = () => {
             const count = window.state.cart.reduce((a, b) => a + b.qty, 0);
             const badge = document.getElementById('cart-counter');
-            badge.innerText = count;
-            badge.classList.toggle('hidden', count === 0);
+            if (badge) {
+                badge.innerText = count;
+                badge.classList.toggle('hidden', count === 0);
+            }
 
             const list = document.getElementById('cart-items-list');
+            if (!list) return;
             if (window.state.cart.length === 0) {
                 list.innerHTML = `<p class="text-center py-20 font-black opacity-10 uppercase italic tracking-widest">Basket Empty</p>`;
             } else {
@@ -597,15 +625,21 @@
                 `).join('');
             }
             const total = window.state.cart.reduce((a, b) => a + (b.price * b.qty), 0);
-            document.getElementById('cart-total-price').innerText = `${total} ₽`;
+            const totalEl = document.getElementById('cart-total-price');
+            if (totalEl) totalEl.innerText = `${total} ₽`;
             lucide.createIcons();
         };
+
+        // Mutation Observer для автоматической инициализации иконок
+        const observer = new MutationObserver(() => lucide.createIcons());
+        observer.observe(document.body, { childList: true, subtree: true });
 
         window.onload = () => {
             tg?.ready();
             tg?.expand();
             initSession();
-            [200, 800, 2000].forEach(ms => setTimeout(syncUser, ms));
+            syncUser();
+            [500, 1500, 3000].forEach(ms => setTimeout(syncUser, ms));
             lucide.createIcons();
         };
     </script>
