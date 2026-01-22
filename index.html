@@ -30,7 +30,6 @@
             methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
         };
 
-        // RULE 3: Auth Before Everything
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -44,8 +43,8 @@
                     }
                 });
             } catch (e) {
-                console.error("Auth failed:", e);
-                window.dispatchEvent(new Event('vape-cloud-ready')); // Fallback
+                console.error("Auth error:", e);
+                window.dispatchEvent(new Event('vape-cloud-ready'));
             }
         };
         initAuth();
@@ -229,7 +228,7 @@
                 <span style="font-family: monospace; font-weight: 600;">2204 3209 2444 1944</span>
                 <span class="copy-btn" onclick="copyText('2204320924441944')">Копировать</span>
             </div>
-            <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ (ОБЯЗАТЕЛЬНО):</div>
+            <div style="font-size: 12px; margin: 15px 0 10px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ (ОБЯЗАТЕЛЬНО):</div>
             <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
                 <span id="payment_key" style="font-weight: 900; letter-spacing: 2px;">---</span>
                 <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">Копировать</span>
@@ -269,8 +268,8 @@
         let isAdminMode = false;
         let selectedBase64 = '';
         let currentKey = '';
+        let isUserAdmin = false;
 
-        // Список товаров ТОЛЬКО для первого наполнения облака
         const seedItems = [
             { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -279,23 +278,30 @@
             { category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
         ];
 
-        function checkAdmin() {
+        // Функция принудительного определения админа
+        function forceAdminCheck() {
             let uId = tg.initDataUnsafe?.user?.id;
+            
+            // Если через SDK не пришло, ищем в URL (Telegram Mini Apps передают данные в hash)
             if(!uId) {
                 try {
-                    const h = new URLSearchParams(window.location.hash.substring(1));
-                    const d = Object.fromEntries(new URLSearchParams(h.get('tgWebAppData')));
-                    uId = JSON.parse(d.user).id;
-                } catch(e){}
+                    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+                    const dataStr = hashParams.get('tgWebAppData');
+                    if(dataStr) {
+                        const data = Object.fromEntries(new URLSearchParams(dataStr));
+                        if(data.user) uId = JSON.parse(data.user).id;
+                    }
+                } catch(e) {}
             }
+
             if(uId && String(uId) === String(MY_ADMIN_ID)) {
+                isUserAdmin = true;
                 document.getElementById('adminBtn').style.display = 'flex';
-                return true;
+                console.log("Admin recognized:", uId);
             }
-            return false;
         }
 
-        // Рендер интерфейса
+        // Рендер
         function renderAll() {
             const categories = ['Все', ...new Set(products.map(p => p.category))];
             if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
@@ -324,27 +330,34 @@
             setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 500);
         }
 
-        // Подключение к облаку
+        // Синхронизация с облаком
         window.addEventListener('vape-cloud-ready', () => {
+            if (!window.VapeCloud) return;
             const { db, appId, methods } = window.VapeCloud;
-            const isAdmin = checkAdmin();
             const coll = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
             
+            // Выполняем проверку админа ПЕРЕД тем как смотреть базу
+            forceAdminCheck();
+
             methods.onSnapshot(methods.query(coll), async (snapshot) => {
                 let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // Если облако совсем пустое и зашел админ - АВТО-НАПОЛНЕНИЕ
-                if (dbItems.length === 0 && isAdmin) {
+                // Если база пуста и мы видим админа — наполняем
+                if (dbItems.length === 0 && isUserAdmin) {
+                    console.log("Seeding empty database...");
                     for(let item of seedItems) {
                         await methods.addDoc(coll, { ...item, createdAt: Date.now() });
                     }
-                    return; // Ждем следующего снимка
+                    return;
                 }
 
                 products = dbItems;
                 renderAll();
             });
         });
+
+        // Цикл повторных проверок админа (на случай лагов Telegram)
+        [500, 2000, 5000].forEach(ms => setTimeout(forceAdminCheck, ms));
 
         window.setCat = (c) => { activeCategory = c; renderAll(); };
         window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
@@ -365,9 +378,9 @@
             if(!name || !price || !window.VapeCloud) return;
 
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = "Добавление...";
-            const { db, appId, methods } = window.VapeCloud;
+            btn.disabled = true; btn.innerText = "Сохранение...";
             
+            const { db, appId, methods } = window.VapeCloud;
             try {
                 await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
                     name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
@@ -388,7 +401,6 @@
             } catch(e) { console.error(e); }
         };
 
-        // ЛОГИКА КОРЗИНЫ
         window.addToCart = (id) => {
             const p = products.find(x => x.docId === id);
             if(!p) return;
@@ -463,9 +475,6 @@
         };
 
         window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
-
-        // Если облако не отвечает за 5 сек, рендерим пустоту
-        setTimeout(() => { if(products.length === 0) renderAll(); }, 5000);
     </script>
 </body>
 </html>
