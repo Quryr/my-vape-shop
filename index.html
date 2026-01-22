@@ -431,7 +431,7 @@
                 </div>
             </div>
 
-            <button onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
+            <button id="pay-btn" onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
                 <span>Я ОПЛАТИЛ</span>
                 <i data-lucide="check-circle" class="w-5 h-5"></i>
             </button>
@@ -524,7 +524,8 @@
                 ordersListenerUnsubscribe: null, // For admin orders
                 myOrdersListenerUnsubscribe: null, // For user orders
                 adminSelectionMode: false,
-                selectedAdminOrders: new Set()
+                selectedAdminOrders: new Set(),
+                deliveryInfo: {}
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -1071,21 +1072,26 @@
 
                 const list = document.getElementById('my-orders-list');
                 
-                // TIMEOUT SAFETY: If loading takes too long (> 5s), show error/retry
-                const loadTimeout = setTimeout(() => {
-                    const listEl = document.getElementById('my-orders-list');
-                    if (listEl && listEl.innerText.includes("Загрузка")) {
-                         listEl.innerHTML = `
-                            <div class="text-center py-10 text-gray-500">
-                                <p class="mb-2">Не удалось загрузить данные</p>
-                                <button onclick="window.shop.switchView('my-orders')" class="text-green-500 font-bold border border-green-500 rounded-lg px-4 py-2 text-xs">Повторить</button>
-                            </div>`;
-                    }
-                }, 5000);
+                // Declare loadTimeout variable outside so it can be cleared
+                let loadTimeout;
 
                 // Function to load data
                 const loadOrders = (uid) => {
                     console.log("Loading orders for:", uid);
+                    
+                    // TIMEOUT SAFETY: If loading takes too long (> 10s), show error/retry
+                    // Start timeout ONLY when we start loading
+                    loadTimeout = setTimeout(() => {
+                        const listEl = document.getElementById('my-orders-list');
+                        if (listEl && listEl.innerText.includes("Загрузка")) {
+                             listEl.innerHTML = `
+                                <div class="text-center py-10 text-gray-500">
+                                    <p class="mb-2">Не удалось загрузить данные</p>
+                                    <button onclick="window.shop.switchView('my-orders')" class="text-green-500 font-bold border border-green-500 rounded-lg px-4 py-2 text-xs">Повторить</button>
+                                </div>`;
+                        }
+                    }, 10000); // Increased timeout
+
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
                             clearTimeout(loadTimeout); // Clear timeout on success
@@ -1563,6 +1569,18 @@
                 window.shop.state.currentTotal = total;
                 // Open Delivery Form First
                 document.getElementById('delivery-modal').classList.remove('hidden');
+                
+                // Load saved delivery info if any
+                const savedInfo = localStorage.getItem('vape_delivery_info');
+                if (savedInfo) {
+                    try {
+                        const info = JSON.parse(savedInfo);
+                        document.getElementById('del-name').value = info.name || '';
+                        document.getElementById('del-phone').value = info.phone || '';
+                        document.getElementById('del-contact').value = info.contact || '';
+                        document.getElementById('del-place').value = info.place || '';
+                    } catch(e) {}
+                }
             },
 
             selectTime: (time, btn) => {
@@ -1588,6 +1606,9 @@
 
                 // Store info temporarily
                 window.shop.state.deliveryInfo = { name, phone, contact, place, time };
+                
+                // Save info to local storage for convenience
+                localStorage.setItem('vape_delivery_info', JSON.stringify({ name, phone, contact, place }));
 
                 // Switch Modals
                 document.getElementById('delivery-modal').classList.add('hidden');
@@ -1597,6 +1618,14 @@
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
                 window.shop.state.currentOrderId = orderId;
+                
+                // Reset button state
+                const btn = document.getElementById('pay-btn');
+                if(btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
+                    if(window.lucide) window.lucide.createIcons();
+                }
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
             },
@@ -1608,6 +1637,12 @@
             },
 
             completeOrder: async () => {
+                const btn = document.getElementById('pay-btn');
+                if(btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="animate-pulse">ОБРАБОТКА...</span>`;
+                }
+
                 // FORCE AUTH CHECK:
                 // Ensure we have a valid UID before saving anything private
                 let uid = auth.currentUser ? auth.currentUser.uid : null;
@@ -1621,6 +1656,11 @@
                     } catch (e) {
                         console.error("Critical Auth Fail in Checkout", e);
                         window.shop.showToast("Ошибка авторизации. Попробуйте снова.", "Сбой");
+                        if(btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
+                            if(window.lucide) window.lucide.createIcons();
+                        }
                         return; // Stop here
                     }
                 }
