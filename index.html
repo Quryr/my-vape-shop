@@ -1,598 +1,561 @@
 <!DOCTYPE html>
-<html lang="ru" class="dark">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>VΛPOR CLOUD PREMIUM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VΛPOR CLOUD | Premium Store</title>
+    
+    <!-- Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        window.fb = { initializeApp, getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
+    </script>
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
         :root {
-            --primary: #22c55e;
-            --primary-glow: rgba(34, 197, 94, 0.5);
-            --bg: #050505;
+            --primary-glow: #22c55e; /* Toxic Green */
+            --bg-deep: #050505;
+            --card-bg: rgba(15, 15, 15, 0.75);
+            --border-white: rgba(255, 255, 255, 0.1);
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: white;
+            background-color: var(--bg-deep);
+            color: #ffffff;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Динамический Vapor-Background */
-        .app-bg {
+        .cyber-bg {
+            background: radial-gradient(circle at 50% 120%, rgba(34, 197, 94, 0.15), transparent 70%);
             position: fixed;
             inset: 0;
             z-index: -1;
-            background: 
-                radial-gradient(circle at 50% 120%, var(--primary-glow), transparent 70%),
-                radial-gradient(circle at -10% -10%, rgba(255,255,255,0.02) 0%, transparent 40%);
         }
 
-        .smoke-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
-            opacity: 0.12;
-            pointer-events: none;
-        }
-
-        /* Анимированное облако пара */
         .vapor-cloud {
             position: fixed;
-            width: 700px;
-            height: 700px;
-            background: var(--primary);
-            filter: blur(180px);
+            width: 400px;
+            height: 400px;
+            background: var(--primary-glow);
+            filter: blur(150px);
             opacity: 0.04;
             border-radius: 50%;
-            animation: moveCloud 25s infinite alternate ease-in-out;
+            pointer-events: none;
             z-index: -1;
+            animation: drift 20s infinite alternate ease-in-out;
         }
 
-        @keyframes moveCloud {
-            0% { transform: translate(-30%, -20%) rotate(0deg); }
-            100% { transform: translate(40%, 30%) rotate(90deg); }
+        @keyframes drift {
+            from { transform: translate(-10%, -10%); }
+            to { transform: translate(20%, 30%); }
         }
 
-        /* Стеклянные панели */
         .glass {
-            backdrop-filter: blur(45px) saturate(180%);
-            background: rgba(15, 15, 15, 0.75);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(40px) saturate(180%);
+            background: var(--card-bg);
+            border: 1px solid var(--border-white);
         }
 
-        /* Премиальный Логотип */
-        .vapor-logo-box {
-            font-weight: 900;
-            text-transform: uppercase;
-            font-size: 1.75rem;
-            letter-spacing: -0.04em;
-            background: linear-gradient(135deg, #ffffff 40%, var(--primary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 15px var(--primary-glow));
-            line-height: 1;
+        .neon-drop {
+            filter: drop-shadow(0 0 8px var(--primary-glow));
         }
 
-        /* Категории (Исправлено обрезание неона) */
-        .category-wrapper {
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            padding: 15px 10px; /* Отступы для теней */
-            margin: -5px -10px;
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .active-tab {
+            color: var(--primary-glow);
+            filter: drop-shadow(0 0 5px var(--primary-glow));
         }
 
-        .category-pill {
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            white-space: nowrap;
-        }
-        .category-pill.active {
-            background: var(--primary);
+        .btn-primary {
+            background: var(--primary-glow);
             color: black;
-            border-color: var(--primary);
-            transform: translateY(-3px) scale(1.04);
-            filter: drop-shadow(0 8px 12px var(--primary-glow));
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
         }
 
-        /* Объемная нижняя навигация (Floating Island) */
-        .nav-island {
-            background: rgba(12, 12, 12, 0.96);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 
-                0 -25px 60px rgba(0, 0, 0, 0.95),
-                inset 0 1px 1px rgba(255, 255, 255, 0.15),
-                inset 0 -1px 2px rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(35px);
-            border-radius: 36px;
+        .btn-primary:active {
+            transform: scale(0.95);
+            opacity: 0.9;
         }
 
-        .nav-link {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            color: rgba(255, 255, 255, 0.3);
-        }
-        .nav-link.active {
-            color: var(--primary);
-            filter: drop-shadow(0 0 12px var(--primary));
-            transform: translateY(-4px);
-        }
-
-        /* Карточка девайса */
-        .device-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-        }
-        .device-card:active { transform: scale(0.96); }
-
-        .loader-wrap {
+        .loader-screen {
             position: fixed;
             inset: 0;
-            background: #000;
-            z-index: 10000;
+            background: var(--bg-deep);
+            z-index: 9999;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.5s ease;
         }
 
-        .bottom-sheet {
-            transform: translateY(100%);
-            transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+        .admin-badge {
+            background: linear-gradient(90deg, #facc15, #eab308);
+            color: black;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
         }
-        .bottom-sheet.active {
-            transform: translateY(0);
-        }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        .theme-toxic { --primary: #22c55e; --primary-glow: rgba(34, 197, 94, 0.5); }
-        .theme-ice { --primary: #0ea5e9; --primary-glow: rgba(14, 165, 233, 0.5); }
-        .theme-magma { --primary: #f97316; --primary-glow: rgba(249, 115, 22, 0.5); }
     </style>
-
-    <script>
-        // SAFETY EXIT: Loader will hide regardless after 3s
-        window.forceHideLoader = function() {
-            const l = document.getElementById('loader');
-            const a = document.getElementById('app-main');
-            if (l && l.style.display !== 'none') {
-                l.style.opacity = '0';
-                setTimeout(() => { 
-                    l.style.display = 'none'; 
-                    if(a) a.classList.remove('hidden');
-                }, 800);
-            }
-        };
-        setTimeout(window.forceHideLoader, 3000);
-    </script>
 </head>
-<body class="theme-toxic">
-    <!-- Loader -->
-    <div id="loader" class="loader-wrap">
-        <div class="flex flex-col items-center">
-            <div class="relative w-20 h-20">
-                <div class="absolute inset-0 border-[3px] border-white/5 border-t-primary rounded-full animate-spin"></div>
-                <div class="absolute inset-4 border-[2px] border-white/5 border-b-primary rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
-            </div>
-            <p class="mt-8 text-[11px] font-black tracking-[0.6em] uppercase text-primary animate-pulse">Syncing System</p>
-        </div>
-    </div>
+<body class="selection:bg-green-500/30">
 
-    <div class="app-bg"></div>
-    <div class="smoke-overlay"></div>
+    <!-- Background Elements -->
+    <div class="cyber-bg"></div>
     <div class="vapor-cloud"></div>
 
-    <!-- App Container -->
-    <div id="app-main" class="px-5 pb-44 pt-12 max-w-2xl mx-auto min-h-screen relative z-10 hidden">
+    <!-- Loader -->
+    <div id="loader" class="loader-screen">
+        <div class="w-16 h-16 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin mb-4"></div>
+        <h1 class="font-black italic text-xl tracking-tighter">VΛPOR CLOUD</h1>
+    </div>
+
+    <!-- Main Container -->
+    <div id="app" class="hidden min-h-screen pb-32">
         
+        <!-- Header -->
+        <header class="p-6 flex justify-between items-center sticky top-0 z-40 glass border-b-0 rounded-b-3xl">
+            <div>
+                <h1 class="font-black italic text-2xl tracking-tighter leading-none">VΛPOR <span class="text-green-500">CLOUD</span></h1>
+                <p id="user-greeting" class="text-[10px] text-white/40 uppercase tracking-widest mt-1">Загрузка профиля...</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button id="admin-add-btn" class="hidden glass p-3 rounded-2xl neon-drop" onclick="window.ui.toggleModal('add-product-modal')">
+                    <i data-lucide="plus" class="w-5 h-5 text-green-500"></i>
+                </button>
+                <div class="relative" onclick="window.ui.switchView('cart')">
+                    <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full hidden">0</span>
+                </div>
+            </div>
+        </header>
+
         <!-- View: Store -->
-        <div id="view-store" class="view-content">
-            <header class="flex items-center justify-between mb-12">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 glass rounded-2xl flex items-center justify-center border-primary/20 shadow-[0_0_25px_rgba(34,197,94,0.15)]">
-                        <i data-lucide="shield" class="text-primary w-6 h-6"></i>
-                    </div>
-                    <div>
-                        <h1 id="admin-status" class="text-[9px] font-black tracking-[0.4em] text-white/20 mb-1 uppercase">VΛPOR.OS // Build 3.0</h1>
-                        <div class="vapor-logo-box italic">VΛPOR CLOUD</div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button id="admin-btn" onclick="window.ui.showAddProduct()" class="hidden p-3.5 glass rounded-2xl text-primary border-primary/30 active:scale-90 shadow-xl">
-                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
-                    </button>
-                    <button onclick="window.ui.nextTheme()" class="p-3.5 glass rounded-2xl text-white/80 active:scale-90 border-white/5">
-                        <i data-lucide="palette" class="w-6 h-6"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Search -->
-            <div class="glass rounded-[28px] flex items-center px-6 py-5 mb-10 border border-white/5 shadow-inner">
-                <i data-lucide="search" class="w-5 h-5 text-primary opacity-60 mr-4"></i>
-                <input type="text" oninput="window.store.filter(this.value)" placeholder="Поиск девайса..." class="bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-white/20">
-            </div>
-
+        <main id="view-store" class="p-4 space-y-6">
             <!-- Categories -->
-            <div class="category-wrapper no-scrollbar snap-x">
-                <button onclick="window.store.setCategory('all')" class="category-pill active shrink-0 px-8 py-4 glass rounded-[24px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="all">Все</button>
-                <button onclick="window.store.setCategory('Device')" class="category-pill shrink-0 px-8 py-4 glass rounded-[24px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Device">Девайсы</button>
-                <button onclick="window.store.setCategory('Disposable')" class="category-pill shrink-0 px-8 py-4 glass rounded-[24px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Disposable">Одноразки</button>
-                <button onclick="window.store.setCategory('Liquid')" class="category-pill shrink-0 px-8 py-4 glass rounded-[24px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Liquid">Жидкости</button>
+            <div class="flex overflow-x-auto hide-scrollbar gap-3 py-4">
+                <button onclick="window.ui.filterCategory('all')" class="cat-btn px-6 py-3 rounded-2xl glass whitespace-nowrap text-sm font-bold border-green-500/50 text-green-500">Все</button>
+                <button onclick="window.ui.filterCategory('devices')" class="cat-btn px-6 py-3 rounded-2xl glass whitespace-nowrap text-sm font-bold opacity-50">Устройства</button>
+                <button onclick="window.ui.filterCategory('disposables')" class="cat-btn px-6 py-3 rounded-2xl glass whitespace-nowrap text-sm font-bold opacity-50">Одноразки</button>
+                <button onclick="window.ui.filterCategory('liquids')" class="cat-btn px-6 py-3 rounded-2xl glass whitespace-nowrap text-sm font-bold opacity-50">Жидкости</button>
             </div>
 
-            <div id="products-grid" class="grid grid-cols-2 gap-5 mt-8">
-                <!-- Skeletons -->
-                <div class="glass p-6 rounded-[44px] animate-pulse h-80"></div>
-                <div class="glass p-6 rounded-[44px] animate-pulse h-80"></div>
+            <!-- Grid -->
+            <div id="product-grid" class="grid grid-cols-2 gap-4">
+                <!-- Skeleton / Dynamic items -->
             </div>
-        </div>
+        </main>
 
         <!-- View: Profile -->
-        <div id="view-profile" class="view-content hidden">
-            <h2 class="text-5xl font-black uppercase mb-12 italic tracking-tighter leading-none">System <br/><span class="text-primary">Profile</span></h2>
+        <main id="view-profile" class="hidden p-6 space-y-6">
+            <div class="glass rounded-3xl p-8 text-center space-y-4">
+                <div id="profile-avatar" class="w-24 h-24 bg-green-500/10 rounded-full mx-auto flex items-center justify-center border-2 border-green-500/20">
+                    <i data-lucide="user" class="w-12 h-12 text-green-500"></i>
+                </div>
+                <div>
+                    <h2 id="profile-name" class="text-2xl font-bold">Пользователь</h2>
+                    <p id="profile-username" class="text-white/40">@username</p>
+                    <div id="profile-rank" class="mt-2 flex justify-center"></div>
+                </div>
+            </div>
             
-            <div class="glass rounded-[48px] p-10 text-center mb-8 relative border-white/10 overflow-hidden">
-                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-40"></div>
-                <div class="relative inline-block mb-8">
-                    <div class="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 shadow-[0_0_50px_rgba(34,197,94,0.15)]">
-                        <i data-lucide="fingerprint" class="w-16 h-16 text-primary"></i>
-                    </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-5 rounded-3xl text-center">
+                    <p class="text-xs text-white/40 uppercase">Заказов</p>
+                    <p class="text-xl font-bold mt-1">0</p>
                 </div>
-                <h3 id="profile-name" class="text-3xl font-black mb-2 tracking-tight italic uppercase">Anonymous</h3>
-                <p id="profile-tag" class="text-primary/70 font-black text-xs uppercase tracking-[0.2em] mb-10">@connect_tg</p>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-black/50 p-6 rounded-[30px] border border-white/5 text-left">
-                        <p class="text-[9px] uppercase font-black opacity-30 mb-2 tracking-widest">Global ID</p>
-                        <p id="profile-id" class="font-mono text-[11px] font-black tracking-tighter opacity-80">00000000</p>
-                    </div>
-                    <div class="bg-black/50 p-6 rounded-[30px] border border-white/5 text-left">
-                        <p class="text-[9px] uppercase font-black opacity-30 mb-2 tracking-widest">Access Rank</p>
-                        <p id="profile-rank" class="text-[10px] font-black uppercase italic text-white/80">Standard</p>
-                    </div>
+                <div class="glass p-5 rounded-3xl text-center">
+                    <p class="text-xs text-white/40 uppercase">Скидка</p>
+                    <p class="text-xl font-bold mt-1">3%</p>
                 </div>
+            </div>
+
+            <button class="w-full glass p-5 rounded-3xl flex justify-between items-center" onclick="window.Telegram.WebApp.close()">
+                <span class="font-bold">Выйти из приложения</span>
+                <i data-lucide="log-out" class="w-5 h-5 text-red-500"></i>
+            </button>
+        </main>
+
+        <!-- Floating Bottom Nav -->
+        <nav class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[85%] max-w-md glass rounded-[2.5rem] p-3 flex justify-between items-center shadow-2xl z-50">
+            <button onclick="window.ui.switchView('store')" id="nav-store" class="flex-1 flex flex-col items-center gap-1 active-tab">
+                <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                <span class="text-[9px] uppercase font-bold tracking-tighter">Магазин</span>
+            </button>
+            <button onclick="window.ui.switchView('profile')" id="nav-profile" class="flex-1 flex flex-col items-center gap-1 opacity-40">
+                <i data-lucide="user" class="w-6 h-6"></i>
+                <span class="text-[9px] uppercase font-bold tracking-tighter">Профиль</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Cart Sidebar / Bottom Sheet -->
+    <div id="cart-sheet" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute bottom-0 left-0 right-0 glass rounded-t-[3rem] p-8 translate-y-full transition-transform duration-300 max-h-[85vh] flex flex-col">
+            <div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-6"></div>
+            
+            <h2 class="text-2xl font-black italic tracking-tighter mb-6 flex justify-between items-center">
+                КОРЗИНА
+                <button onclick="window.ui.toggleCart(false)"><i data-lucide="x" class="w-6 h-6"></i></button>
+            </h2>
+
+            <div id="cart-items" class="flex-grow overflow-y-auto space-y-4 pr-2 mb-6">
+                <!-- Cart Content -->
+            </div>
+
+            <div class="border-t border-white/10 pt-6 space-y-4">
+                <div class="flex justify-between items-center text-lg font-bold">
+                    <span class="text-white/40">ИТОГО</span>
+                    <span id="cart-total" class="text-green-500">0 ₽</span>
+                </div>
+                <button onclick="window.ui.initCheckout()" class="btn-primary w-full py-5 rounded-2xl shadow-[0_0_20px_rgba(34,197,94,0.3)]">Оформить заказ</button>
             </div>
         </div>
     </div>
 
-    <!-- Floating Navigation -->
-    <nav class="fixed bottom-10 left-8 right-8 h-22 nav-island flex items-center justify-around z-50 px-6 max-w-2xl mx-auto border-white/10 backdrop-blur-3xl">
-        <button onclick="window.ui.switchView('store')" id="nav-store" class="nav-link active flex flex-col items-center gap-2 flex-1">
-            <i data-lucide="grid-3x3" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-widest">Store</span>
-        </button>
-        <button onclick="window.ui.toggleCart()" class="nav-link flex flex-col items-center gap-2 flex-1 relative">
-            <div class="absolute -top-1 right-1/4 bg-primary text-black text-[9px] font-black w-6 h-6 flex items-center justify-center rounded-full border-[3px] border-[#0a0a0a] hidden transition-all duration-300" id="cart-counter">0</div>
-            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-widest">Cart</span>
-        </button>
-        <button onclick="window.ui.switchView('profile')" id="nav-profile" class="nav-link flex flex-col items-center gap-2 flex-1">
-            <i data-lucide="user" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-widest">User</span>
-        </button>
-    </nav>
-
-    <!-- Cart Bottom Sheet -->
-    <div id="cart-sheet" class="fixed inset-0 z-[60] pointer-events-none">
-        <div id="cart-overlay" onclick="window.ui.toggleCart()" class="absolute inset-0 bg-black/95 opacity-0 transition-opacity pointer-events-none"></div>
-        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-[#070707] border-t border-white/10 rounded-t-[56px] max-h-[90vh] flex flex-col pointer-events-auto shadow-2xl">
-            <div class="w-20 h-1.5 bg-white/10 rounded-full mx-auto my-7"></div>
-            <div class="px-12 pb-10 flex items-center justify-between">
-                <h3 class="text-4xl font-black italic uppercase italic tracking-tighter italic">Bask<span class="text-primary">et</span></h3>
-                <button onclick="window.ui.toggleCart()" class="p-4 glass rounded-full border-white/10"><i data-lucide="x" class="w-6 h-6"></i></button>
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 z-[70] flex items-center justify-center p-6 hidden">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-xl"></div>
+        <div class="glass relative w-full max-w-sm rounded-[3rem] p-8 text-center space-y-6">
+            <div class="w-20 h-20 bg-green-500/10 rounded-full mx-auto flex items-center justify-center border-2 border-green-500/20">
+                <i data-lucide="credit-card" class="w-10 h-10 text-green-500"></i>
             </div>
-            <div id="cart-items-list" class="flex-grow overflow-y-auto px-10 space-y-5 no-scrollbar"></div>
-            <div class="p-12 glass border-t border-white/5 rounded-t-[48px]">
-                <div class="flex justify-between mb-8">
-                    <span class="opacity-40 font-black uppercase text-[10px] tracking-widest">Total Value</span>
-                    <span id="cart-total-price" class="text-4xl font-black tracking-tighter">0 ₽</span>
+            <div>
+                <h3 class="text-2xl font-bold mb-2">Оплата заказа</h3>
+                <p class="text-sm text-white/60">Переведите сумму на указанные реквизиты:</p>
+            </div>
+            
+            <div class="bg-white/5 rounded-3xl p-6 text-left space-y-3">
+                <div>
+                    <p class="text-[10px] uppercase text-white/40">ОЗОН БАНК</p>
+                    <p class="font-mono text-lg select-all">2204 3209 2444 1944</p>
                 </div>
-                <button onclick="window.store.checkout()" class="w-full bg-primary text-black py-7 rounded-[30px] flex items-center justify-center gap-5 italic active:scale-95 transition-all text-lg font-black uppercase tracking-widest shadow-2xl">
-                    Finalize Transaction
-                    <i data-lucide="arrow-right" class="w-7 h-7"></i>
-                </button>
+                <div>
+                    <p class="text-[10px] uppercase text-white/40">ПОЛУЧАТЕЛЬ</p>
+                    <p class="font-bold">Иван В. Р.</p>
+                </div>
+                <div class="pt-2 border-t border-white/5">
+                    <p class="text-[10px] uppercase text-white/40">КОД ЗАКАЗА (Укажите в комментарии)</p>
+                    <p id="order-code" class="text-green-500 font-black text-xl tracking-widest"></p>
+                </div>
             </div>
+
+            <button onclick="window.ui.finishOrder()" class="btn-primary w-full py-4 rounded-2xl">Я ОПЛАТИЛ</button>
         </div>
     </div>
 
-    <!-- Admin Modal -->
-    <div id="modal-add" class="fixed inset-0 z-[100] glass hidden items-center justify-center p-8">
-        <div class="bg-[#080808] border border-white/10 w-full max-w-sm rounded-[48px] p-10 shadow-2xl">
-            <h3 class="text-2xl font-black italic uppercase mb-10 text-primary">New Entry</h3>
-            <div class="space-y-5">
-                <input type="text" id="p-name" placeholder="Device Name" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
-                <input type="number" id="p-price" placeholder="Price RUB" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
-                <input type="text" id="p-icon" placeholder="Emoji Asset" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
-                <select id="p-type" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold appearance-none">
-                    <option value="Device">Под-система</option>
-                    <option value="Disposable">Одноразка</option>
-                    <option value="Liquid">Жидкость</option>
-                </select>
-                <div class="flex gap-5 pt-6">
-                    <button onclick="window.ui.closeAddProduct()" class="flex-1 py-5 text-[11px] font-black uppercase opacity-40">Abort</button>
-                    <button onclick="window.store.saveProduct()" class="flex-1 bg-primary text-black font-black py-5 rounded-2xl uppercase italic tracking-widest">Commit</button>
-                </div>
-            </div>
+    <!-- Admin Add Product Modal -->
+    <div id="add-product-modal" class="fixed inset-0 z-[70] flex items-center justify-center p-6 hidden">
+        <div class="absolute inset-0 bg-black/95" onclick="window.ui.toggleModal('add-product-modal')"></div>
+        <div class="glass relative w-full max-w-sm rounded-[3rem] p-8 space-y-4">
+            <h3 class="text-xl font-bold">Добавить товар</h3>
+            <input id="admin-p-name" type="text" placeholder="Название" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl focus:border-green-500 outline-none">
+            <input id="admin-p-price" type="number" placeholder="Цена (₽)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl focus:border-green-500 outline-none">
+            <select id="admin-p-cat" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl focus:border-green-500 outline-none text-white/40">
+                <option value="devices">Устройства</option>
+                <option value="disposables">Одноразки</option>
+                <option value="liquids">Жидкости</option>
+            </select>
+            <input id="admin-p-emoji" type="text" placeholder="Эмодзи (например 💨)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl focus:border-green-500 outline-none">
+            <button onclick="window.ui.adminSaveProduct()" class="btn-primary w-full py-4 rounded-2xl">Сохранить</button>
         </div>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        const { initializeApp, getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.fb;
 
-        // CONFIG & CONSTANTS
-        const tg = window.Telegram?.WebApp;
+        // Constants
         const ADMIN_ID = 1262669099;
-        const ADMIN_USER = "Tru5tNoBody";
-        
-        let firebaseConfig, appId, initialAuthToken;
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-cloud-ultra-v3';
-            initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        } catch (e) {
-            console.warn("Config missing. Running safety mode.");
-            window.forceHideLoader();
-        }
+        const ADMIN_USERNAME = "Tru5tNoBody";
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-v1';
+        const firebaseConfig = JSON.parse(__firebase_config);
 
-        const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
-        const auth = app ? getAuth(app) : null;
-        const db = app ? getFirestore(app) : null;
+        // State
+        let db, auth, user;
+        let products = [];
+        let cart = [];
+        let currentCategory = 'all';
 
-        window.state = { products: [], cart: [], user: null, isAdmin: false, cat: 'all', theme: 'toxic' };
-
-        // --- GLOBAL UI HANDLERS ---
+        // Initial Registry
         window.ui = {
-            hideLoader: () => {
-                const l = document.getElementById('loader');
-                const a = document.getElementById('app-main');
-                if (l) {
-                    l.style.opacity = '0';
-                    setTimeout(() => { 
-                        l.style.display = 'none'; 
-                        if(a) a.classList.remove('hidden'); 
-                    }, 800);
-                }
+            switchView: (view) => {
+                document.querySelectorAll('main').forEach(m => m.classList.add('hidden'));
+                document.getElementById(`view-${view}`).classList.remove('hidden');
+                
+                // Nav UI
+                document.querySelectorAll('nav button').forEach(b => b.classList.add('opacity-40'));
+                document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+                document.getElementById(`nav-${view}`).classList.remove('opacity-40');
+                document.getElementById(`nav-${view}`).classList.add('active-tab');
             },
-            switchView: (v) => {
-                tg?.HapticFeedback.impactOccurred('light');
-                document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden'));
-                document.getElementById(`view-${v}`).classList.remove('hidden');
-                document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
-                document.getElementById(`nav-${v}`).classList.add('active');
-                if(v === 'profile') window.sys.syncUser();
-                lucide.createIcons();
-            },
-            toggleCart: () => {
-                const s = document.getElementById('cart-sheet');
-                const o = document.getElementById('cart-overlay');
-                const c = s.querySelector('.bottom-sheet');
-                if (c.classList.contains('active')) {
-                    c.classList.remove('active');
-                    o.classList.add('opacity-0');
-                    setTimeout(() => s.classList.add('pointer-events-none'), 500);
+
+            toggleCart: (show) => {
+                const sheet = document.getElementById('cart-sheet');
+                const content = sheet.querySelector('div');
+                if (show) {
+                    sheet.classList.remove('hidden');
+                    setTimeout(() => {
+                        sheet.classList.remove('opacity-0');
+                        content.classList.remove('translate-y-full');
+                    }, 10);
+                    window.ui.renderCart();
                 } else {
-                    s.classList.remove('pointer-events-none');
-                    o.classList.remove('opacity-0');
-                    c.classList.add('active');
-                    tg?.HapticFeedback.impactOccurred('medium');
-                }
-                lucide.createIcons();
-            },
-            nextTheme: () => {
-                const themes = ['toxic', 'ice', 'magma'];
-                let idx = (themes.indexOf(window.state.theme) + 1) % themes.length;
-                window.state.theme = themes[idx];
-                document.body.className = `theme-${window.state.theme}`;
-                tg?.HapticFeedback.impactOccurred('light');
-            },
-            showAddProduct: () => document.getElementById('modal-add').classList.replace('hidden', 'flex'),
-            closeAddProduct: () => document.getElementById('modal-add').classList.replace('flex', 'hidden')
-        };
-
-        window.store = {
-            setCategory: (c) => {
-                tg?.HapticFeedback.selectionChanged();
-                window.state.cat = c;
-                document.querySelectorAll('.category-pill').forEach(b => b.classList.toggle('active', b.dataset.cat === c));
-                window.store.render();
-            },
-            filter: (val) => window.store.render(val.toLowerCase()),
-            addToCart: (id) => {
-                const p = window.state.products.find(x => x.id === id);
-                const exist = window.state.cart.find(x => x.id === id);
-                if (exist) exist.qty++;
-                else window.state.cart.push({ ...p, qty: 1 });
-                window.store.updateCartUI();
-                tg?.HapticFeedback.notificationOccurred('success');
-            },
-            changeQty: (id, d) => {
-                const i = window.state.cart.find(x => x.id === id);
-                if (i) {
-                    i.qty += d;
-                    if (i.qty <= 0) window.state.cart = window.state.cart.filter(x => x.id !== id);
-                    window.store.updateCartUI();
-                    tg?.HapticFeedback.impactOccurred('light');
+                    sheet.classList.add('opacity-0');
+                    content.classList.add('translate-y-full');
+                    setTimeout(() => sheet.classList.add('hidden'), 300);
                 }
             },
-            render: (search = "") => {
-                const grid = document.getElementById('products-grid');
-                if (!grid) return;
-                let items = window.state.products;
-                if (window.state.cat !== 'all') items = items.filter(i => i.tag === window.state.cat);
-                if (search) items = items.filter(i => i.name.toLowerCase().includes(search));
 
-                if (items.length === 0) {
-                    grid.innerHTML = `<div class="col-span-2 py-32 text-center font-black opacity-10 uppercase italic tracking-tighter">No Assets Detected</div>`;
-                    return;
-                }
-
-                grid.innerHTML = items.map(p => `
-                    <div class="device-card p-6 rounded-[48px] relative group overflow-hidden border-white/5">
-                        ${window.state.isAdmin ? `
-                            <button onclick="window.store.delProduct('${p.id}')" class="absolute top-4 right-4 p-3 text-red-500 bg-red-500/10 rounded-2xl active:scale-90 z-20">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>` : ''}
-                        <div class="flex-grow flex flex-col">
-                            <!-- BUTTON ALIGNMENT: Button stays at the bottom due to flex-grow -->
-                            <div class="w-full aspect-square bg-white/[0.04] rounded-[36px] flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-105 transition-all duration-700">
-                                ${p.icon || '💨'}
-                            </div>
-                            <p class="text-[9px] font-black text-primary uppercase tracking-[0.3em] mb-2 opacity-60">${p.tag}</p>
-                            <h3 class="font-black text-[16px] leading-tight line-clamp-2 uppercase italic tracking-tighter">${p.name}</h3>
-                        </div>
-                        <div class="flex items-center justify-between mt-8">
-                            <span class="font-black text-xl tracking-tighter">${p.price} ₽</span>
-                            <button onclick="window.store.addToCart('${p.id}')" class="bg-primary text-black p-4 rounded-[24px] active:scale-90 shadow-2xl">
-                                <i data-lucide="plus" class="w-6 h-6"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-                lucide.createIcons();
-            },
-            updateCartUI: () => {
-                const count = window.state.cart.reduce((a, b) => a + b.qty, 0);
-                const badge = document.getElementById('cart-counter');
-                if (badge) { badge.innerText = count; badge.classList.toggle('hidden', count === 0); }
-                const list = document.getElementById('cart-items-list');
-                if (!list) return;
-                if (window.state.cart.length === 0) {
-                    list.innerHTML = `<p class="text-center py-24 font-black opacity-10 uppercase italic tracking-[0.3em]">Empty Matrix</p>`;
+            addToCart: (pid) => {
+                const p = products.find(x => x.id === pid);
+                const exists = cart.find(x => x.id === pid);
+                if (exists) {
+                    exists.qty++;
                 } else {
-                    list.innerHTML = window.state.cart.map(i => `
-                        <div class="flex items-center gap-6 glass p-6 rounded-[35px] border border-white/5">
-                            <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-3xl shadow-inner">${i.icon}</div>
-                            <div class="flex-grow">
-                                <h4 class="text-xs font-black uppercase tracking-tight italic leading-none mb-1">${i.name}</h4>
-                                <p class="text-primary font-black text-base">${i.price} ₽</p>
-                            </div>
+                    cart.push({ ...p, qty: 1 });
+                }
+                window.ui.updateCartBadge();
+                window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            },
+
+            updateCartQty: (pid, delta) => {
+                const idx = cart.findIndex(x => x.id === pid);
+                if (idx === -1) return;
+                cart[idx].qty += delta;
+                if (cart[idx].qty <= 0) cart.splice(idx, 1);
+                window.ui.updateCartBadge();
+                window.ui.renderCart();
+            },
+
+            updateCartBadge: () => {
+                const count = cart.reduce((a, b) => a + b.qty, 0);
+                const badge = document.getElementById('cart-count');
+                if (count > 0) {
+                    badge.innerText = count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            },
+
+            renderCart: () => {
+                const container = document.getElementById('cart-items');
+                if (cart.length === 0) {
+                    container.innerHTML = `<div class="text-center py-20 text-white/20"><i data-lucide="shopping-bag" class="w-12 h-12 mx-auto mb-4 opacity-20"></i><p>Корзина пуста</p></div>`;
+                } else {
+                    container.innerHTML = cart.map(item => `
+                        <div class="glass p-4 rounded-2xl flex items-center justify-between">
                             <div class="flex items-center gap-4">
-                                <button onclick="window.store.changeQty('${i.id}', -1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">-</button>
-                                <span class="font-black text-sm">${i.qty}</span>
-                                <button onclick="window.store.changeQty('${i.id}', 1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">+</button>
+                                <div class="w-12 h-12 glass rounded-xl flex items-center justify-center text-xl">${item.emoji || '💨'}</div>
+                                <div>
+                                    <p class="font-bold text-sm leading-tight">${item.name}</p>
+                                    <p class="text-green-500 text-xs">${item.price} ₽</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 glass p-1 rounded-xl">
+                                <button onclick="window.ui.updateCartQty('${item.id}', -1)" class="w-8 h-8 flex items-center justify-center text-white/40">-</button>
+                                <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
+                                <button onclick="window.ui.updateCartQty('${item.id}', 1)" class="w-8 h-8 flex items-center justify-center text-green-500">+</button>
                             </div>
                         </div>
                     `).join('');
                 }
-                const total = window.state.cart.reduce((a, b) => a + (b.price * b.qty), 0);
-                document.getElementById('cart-total-price').innerText = `${total} ₽`;
+                const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
+                document.getElementById('cart-total').innerText = `${total} ₽`;
+            },
+
+            filterCategory: (cat) => {
+                currentCategory = cat;
+                document.querySelectorAll('.cat-btn').forEach(btn => {
+                    btn.classList.add('opacity-50');
+                    btn.classList.remove('border-green-500/50', 'text-green-500');
+                });
+                event.target.classList.remove('opacity-50');
+                event.target.classList.add('border-green-500/50', 'text-green-500');
+                window.ui.renderProducts();
+            },
+
+            renderProducts: () => {
+                const grid = document.getElementById('product-grid');
+                const filtered = currentCategory === 'all' ? products : products.filter(p => p.category === currentCategory);
+                
+                grid.innerHTML = filtered.map(p => `
+                    <div class="glass p-4 rounded-[2rem] flex flex-col h-full relative group">
+                        ${user?.id === ADMIN_ID || user?.username === ADMIN_USERNAME ? 
+                            `<button onclick="window.ui.adminDelete('${p.id}')" class="absolute top-3 right-3 p-2 bg-red-500/10 text-red-500 rounded-full">
+                                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            </button>` : ''}
+                        <div class="aspect-square glass rounded-2xl mb-4 flex items-center justify-center text-4xl shadow-inner">
+                            ${p.emoji || '💨'}
+                        </div>
+                        <div class="flex-grow">
+                            <h3 class="font-bold text-sm leading-tight mb-1">${p.name}</h3>
+                            <p class="text-green-500 font-black text-lg">${p.price} ₽</p>
+                        </div>
+                        <button onclick="window.ui.addToCart('${p.id}')" class="mt-4 w-full glass py-3 rounded-xl text-xs font-black uppercase tracking-widest text-white active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="plus" class="w-3 h-3"></i> В корзину
+                        </button>
+                    </div>
+                `).join('');
                 lucide.createIcons();
             },
-            saveProduct: async () => {
-                const name = document.getElementById('p-name').value;
-                const price = parseInt(document.getElementById('p-price').value);
-                const icon = document.getElementById('p-icon').value;
-                const tag = document.getElementById('p-type').value;
-                if (name && price && auth.currentUser) {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, icon: icon || '💨', tag });
-                    window.ui.closeAddProduct();
+
+            toggleModal: (id) => {
+                const el = document.getElementById(id);
+                el.classList.toggle('hidden');
+            },
+
+            adminSaveProduct: async () => {
+                const name = document.getElementById('admin-p-name').value;
+                const price = Number(document.getElementById('admin-p-price').value);
+                const cat = document.getElementById('admin-p-cat').value;
+                const emoji = document.getElementById('admin-p-emoji').value;
+                
+                if (!name || !price) return;
+                
+                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'), {
+                    name, price, category: cat, emoji, created: Date.now()
+                });
+                
+                window.ui.toggleModal('add-product-modal');
+                // Form cleanup
+                document.getElementById('admin-p-name').value = '';
+                document.getElementById('admin-p-price').value = '';
+            },
+
+            adminDelete: async (pid) => {
+                if(confirm("Удалить товар?")) {
+                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', pid));
                 }
             },
-            delProduct: async (id) => {
-                if (confirm('Удалить из системы?') && auth.currentUser) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                }
+
+            initCheckout: () => {
+                if (cart.length === 0) return;
+                const code = "VX-" + Math.floor(100 + Math.random() * 899);
+                document.getElementById('order-code').innerText = code;
+                window.ui.toggleCart(false);
+                window.ui.toggleModal('checkout-modal');
             },
-            checkout: () => {
-                if (window.state.cart.length === 0) return;
-                const orderCode = `VX-${Math.floor(100 + Math.random() * 899)}`;
-                const order = { 
-                    code: orderCode, 
-                    items: window.state.cart, 
-                    total: document.getElementById('cart-total-price').innerText, 
-                    user: window.state.user,
-                    payment: { bank: "Ozon Bank", acc: "2204 3209 2444 1944", owner: "Ivan V. R." }
+
+            finishOrder: () => {
+                const orderData = {
+                    code: document.getElementById('order-code').innerText,
+                    items: cart,
+                    total: cart.reduce((a, b) => a + (b.price * b.qty), 0),
+                    user: user
                 };
-                alert(`Оплата: Ozon Bank 2204 3209 2444 1944\nКод заказа: ${orderCode}`);
-                tg?.sendData(JSON.stringify(order));
-                tg?.close();
+                window.Telegram.WebApp.sendData(JSON.stringify(orderData));
+                window.Telegram.WebApp.close();
             }
         };
 
-        window.sys = {
-            syncUser: () => {
-                let u = tg?.initDataUnsafe?.user;
-                if (!u && tg?.initData) {
-                    try {
-                        const p = new URLSearchParams(tg.initData);
-                        const r = p.get('user'); if (r) u = JSON.parse(r);
-                    } catch(e) {}
-                }
-                if (!u && window.location.hash) {
-                    try {
-                        const p = new URLSearchParams(window.location.hash.substring(1));
-                        const r = p.get('user'); if (r) u = JSON.parse(r);
-                    } catch(e) {}
-                }
-
-                if (u) {
-                    window.state.user = u;
-                    const n = document.getElementById('profile-name');
-                    const t = document.getElementById('profile-tag');
-                    const i = document.getElementById('profile-id');
-                    if (n) n.innerText = u.first_name || "User";
-                    if (t) t.innerText = `@${u.username || 'cloud_user'}`;
-                    if (i) i.innerText = u.id || "000000";
-
-                    if (u.id == ADMIN_ID || u.username === ADMIN_USER) {
-                        window.state.isAdmin = true;
-                        document.getElementById('admin-btn')?.classList.remove('hidden');
-                        const r = document.getElementById('profile-rank');
-                        if (r) { r.innerText = "ROOT_ADMIN"; r.classList.add('text-primary'); }
-                        const s = document.getElementById('admin-status');
-                        if (s) { s.innerText = 'AUTHORIZED_ADMIN_ACCESS'; s.classList.add('text-primary/60'); }
-                        window.store.render();
-                    }
-                }
-            },
-            init: async () => {
-                if (!auth) return;
-                try {
-                    if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
-                    else await signInAnonymously(auth);
-                    
-                    onAuthStateChanged(auth, u => {
-                        if (u) {
-                            window.sys.syncUser();
-                            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), snap => {
-                                let items = [];
-                                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-                                window.state.products = items;
-                                window.store.render();
-                                window.ui.hideLoader();
-                            }, () => window.ui.hideLoader());
-                        }
-                    });
-                } catch(e) { window.ui.hideLoader(); }
-            }
-        };
-
+        // Mutation Observer for Icons
         const observer = new MutationObserver(() => lucide.createIcons());
         observer.observe(document.body, { childList: true, subtree: true });
 
-        window.onload = () => {
-            tg?.ready();
-            tg?.expand();
-            window.sys.init();
-            [200, 1000, 3000].forEach(ms => setTimeout(window.sys.syncUser, ms));
-            lucide.createIcons();
-        };
+        // Firebase & Auth Init
+        async function initApp() {
+            // Safety Timeout
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loader').classList.add('hidden');
+                    document.getElementById('app').classList.remove('hidden');
+                }, 500);
+            }, 3000);
+
+            const fbApp = initializeApp(firebaseConfig);
+            db = getFirestore(fbApp);
+            auth = getAuth(fbApp);
+
+            // Triple-Check TG User
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            tg.expand();
+            
+            let tgUser = tg.initDataUnsafe?.user;
+            if(!tgUser) {
+                const params = new URLSearchParams(window.location.hash.slice(1));
+                try { tgUser = JSON.parse(params.get('user')); } catch(e) {}
+            }
+
+            user = tgUser || { id: 999, first_name: "Guest", username: "guest_vaper" };
+            
+            // Auth Flow
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, (fbUser) => {
+                if (!fbUser) return;
+                
+                // Set Profile
+                document.getElementById('user-greeting').innerText = `Привет, ${user.first_name}!`;
+                document.getElementById('profile-name').innerText = `${user.first_name} ${user.last_name || ''}`;
+                document.getElementById('profile-username').innerText = user.username ? `@${user.username}` : `ID: ${user.id}`;
+                
+                // Admin Check
+                if (user.id === ADMIN_ID || user.username === ADMIN_USERNAME) {
+                    document.getElementById('admin-add-btn').classList.remove('hidden');
+                    document.getElementById('profile-rank').innerHTML = `<span class="admin-badge">ADMINISTRATOR</span>`;
+                }
+
+                // Load Data
+                const productsCol = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                onSnapshot(productsCol, (snapshot) => {
+                    products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
+                    // Auto-seed if empty
+                    if (products.length === 0) seedDatabase();
+                    
+                    window.ui.renderProducts();
+                    
+                    // Hide loader after data
+                    document.getElementById('loader').classList.add('hidden');
+                    document.getElementById('app').classList.remove('hidden');
+                }, (err) => console.error("Firestore error:", err));
+            });
+        }
+
+        async function seedDatabase() {
+            const seeds = [
+                { name: "Lost Mary OS5000", price: 1200, category: "disposables", emoji: "🍓" },
+                { name: "Vaporesso XROS 3", price: 3200, category: "devices", emoji: "⚡" },
+                { name: "Bad Drip - Bad Blood", price: 1500, category: "liquids", emoji: "💉" },
+                { name: "Elf Bar BC5000", price: 1100, category: "disposables", emoji: "🍇" },
+                { name: "Geekvape Aegis L200", price: 5800, category: "devices", emoji: "🛡️" },
+                { name: "Jam Monster Apple", price: 1400, category: "liquids", emoji: "🍎" },
+                { name: "Smoant Pasito II", price: 2900, category: "devices", emoji: "🧊" },
+                { name: "HQD Cuvie Plus", price: 950, category: "disposables", emoji: "🥭" }
+            ];
+            const col = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+            for (const item of seeds) {
+                await addDoc(col, { ...item, created: Date.now() });
+            }
+        }
+
+        window.onload = initApp;
+
     </script>
 </body>
 </html>
