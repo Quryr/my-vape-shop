@@ -2,69 +2,138 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Vape Store</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Libraries -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
     <style>
         :root {
             --primary: #00FF41;
-            --primary-glow: rgba(0, 255, 65, 0.3);
+            --primary-glow: rgba(0, 255, 65, 0.4);
+            --bg-dark: #050505;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.08);
         }
 
         body {
-            background-color: #000000;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow-x: hidden;
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
             margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* Мгновенный лоадер (fix черного экрана) */
+        #initial-loader {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .loader-ring {
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255,255,255,0.05);
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         #bg-canvas {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             z-index: -1;
-            pointer-events: none;
+            filter: contrast(1.1) brightness(0.8);
         }
 
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Glassmorphism 2.0 */
+        .premium-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            transition: all 0.3s ease;
         }
 
+        .premium-card:active {
+            transform: scale(0.98);
+            border-color: var(--primary);
+        }
+
+        .primary-glow-text {
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .primary-bg { background: var(--primary); }
         .primary-text { color: var(--primary); }
-        .primary-bg { background-color: var(--primary); }
-        .primary-shadow { box-shadow: 0 0 20px var(--primary-glow); }
+        .primary-border { border-color: var(--primary); }
 
-        .bottom-sheet {
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { display: none; }
+
+        .category-tab {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .category-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        /* Bottom Sheet */
+        .sheet-up {
+            transform: translateY(0);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .sheet-down {
             transform: translateY(100%);
-            transition: transform 0.4s cubic-bezier(0.33, 1, 0.68, 1);
         }
-        .bottom-sheet.open { transform: translateY(0); }
 
-        /* Hide scrollbar */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .vignette {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, transparent 20%, rgba(0,0,0,0.4) 100%);
+            pointer-events: none;
+            z-index: 0;
         }
-        .animate-pulse-soft { animation: pulse-soft 2s infinite; }
     </style>
 </head>
 <body>
 
+    <!-- Статичный лоадер -->
+    <div id="initial-loader">
+        <div class="loader-ring"></div>
+        <div class="mt-6 text-[10px] tracking-[0.4em] uppercase font-bold opacity-40 animate-pulse">Initializing Premium</div>
+    </div>
+
     <canvas id="bg-canvas"></canvas>
+    <div class="vignette"></div>
     <div id="root"></div>
 
     <script type="module">
@@ -74,68 +143,82 @@
 
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- Firebase Config ---
+        // Firebase Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-premium';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-v3';
 
         const ADMIN_ID = 1262669099;
         const ADMIN_USERNAME = "Tru5tNoBody";
 
         const THEMES = [
-            { name: 'Toxic Green', color: '#00FF41', glow: 'rgba(0, 255, 65, 0.3)' },
-            { name: 'Ice Blue', color: '#00D1FF', glow: 'rgba(0, 209, 255, 0.3)' },
-            { name: 'Magma Orange', color: '#FF4D00', glow: 'rgba(255, 77, 0, 0.3)' }
+            { name: 'Toxic Green', color: '#00FF41', glow: 'rgba(0, 255, 65, 0.4)' },
+            { name: 'Ice Blue', color: '#00E0FF', glow: 'rgba(0, 224, 255, 0.4)' },
+            { name: 'Pure White', color: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.4)' }
         ];
 
         const SEED_DATA = [
-            { name: "HQD Cuvie Plus", price: 850, emoji: "💎", category: "Одноразки", desc: "1200 затяжек, черника-малина" },
-            { name: "Elf Bar BC5000", price: 1250, emoji: "🔋", category: "Одноразки", desc: "5000 затяжек, зарядка Type-C" },
-            { name: "Lost Mary OS5000", price: 1100, emoji: "☁️", category: "Одноразки", desc: "Индикатор заряда, сочные вкусы" },
-            { name: "Vaporesso XROS 3", price: 3200, emoji: "🛠️", category: "Под-системы", desc: "Лучшая вкусопередача 2024" },
-            { name: "Santi Pod Kit", price: 2100, emoji: "⚡", category: "Под-системы", desc: "Компактный и мощный" },
-            { name: "Maxwells Shoria", price: 650, emoji: "🧪", category: "Жидкости", desc: "Мята, хвоя и лесные ягоды" },
-            { name: "Husky Double Ice", price: 550, emoji: "🐺", category: "Жидкости", desc: "Экстремальный холод" },
-            { name: "Boshki Original", price: 600, emoji: "🌲", category: "Жидкости", desc: "Хвойный микс с колой" },
-            { name: "Испаритель XROS", price: 350, emoji: "📦", category: "Расходники", desc: "0.6 / 0.8 / 1.0 Ohm" },
-            { name: "Картридж Charon", price: 300, emoji: "🔌", category: "Расходники", desc: "Оригинал, долгий срок службы" },
-            { name: "Waka PA10000", price: 1950, emoji: "🔥", category: "Одноразки", desc: "10000 затяжек, Boost mode" }
+            { name: "HQD Cuvie Plus", price: 950, emoji: "💎", category: "Одноразки", desc: "1200 затяжек | Premium Selection" },
+            { name: "Elf Bar BC5000", price: 1400, emoji: "🔋", category: "Одноразки", desc: "5000 затяжек | USB-C Charging" },
+            { name: "Vaporesso XROS 3", price: 3450, emoji: "🛠️", category: "Устройства", desc: "Adjustable Airflow | Pro Flavor" },
+            { name: "Santi Pod Kit", price: 2300, emoji: "⚡", category: "Устройства", desc: "Smart Coil Detection | 40W" },
+            { name: "Maxwells Shoria", price: 750, emoji: "🧪", category: "Жидкости", desc: "Pine & Berries | Legend Series" },
+            { name: "Husky White", price: 600, emoji: "🐺", category: "Жидкости", desc: "Double Ice | Arctic Cold" },
+            { name: "Waka PA10000", price: 2100, emoji: "🔥", category: "Одноразки", desc: "10000 Puffs | Dual Mesh" }
         ];
 
-        // --- 3D Background Engine ---
-        const initThreeBackground = (color) => {
+        // --- Sophisticated 3D Background (Vapor Flow Field) ---
+        const initDigitalVapor = (primaryColor) => {
             const canvas = document.getElementById('bg-canvas');
             const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
             const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 30;
+
+            const particlesCount = 2500;
+            const positions = new Float32Array(particlesCount * 3);
+            const sizes = new Float32Array(particlesCount);
+
+            for(let i = 0; i < particlesCount; i++) {
+                positions[i*3] = (Math.random() - 0.5) * 60;
+                positions[i*3+1] = (Math.random() - 0.5) * 60;
+                positions[i*3+2] = (Math.random() - 0.5) * 40;
+                sizes[i] = Math.random() * 2;
+            }
 
             const geometry = new THREE.BufferGeometry();
-            const vertices = [];
-            for (let i = 0; i < 3000; i++) {
-                vertices.push(THREE.MathUtils.randFloatSpread(15)); // x
-                vertices.push(THREE.MathUtils.randFloatSpread(15)); // y
-                vertices.push(THREE.MathUtils.randFloatSpread(15)); // z
-            }
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-            const material = new THREE.PointsMaterial({ 
-                color: new THREE.Color(color), 
-                size: 0.04, 
-                transparent: true, 
-                opacity: 0.6 
+            const material = new THREE.PointsMaterial({
+                color: new THREE.Color(primaryColor),
+                size: 0.15,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.AdditiveBlending
             });
+
             const points = new THREE.Points(geometry, material);
             scene.add(points);
 
+            let time = 0;
             function animate() {
                 requestAnimationFrame(animate);
-                points.rotation.y += 0.001;
-                points.rotation.x += 0.0005;
+                time += 0.002;
+                points.rotation.y = time * 0.2;
+                points.rotation.x = time * 0.1;
+                
+                const pos = geometry.attributes.position.array;
+                for(let i = 0; i < particlesCount; i++) {
+                    pos[i*3+1] += Math.sin(time + pos[i*3]) * 0.02;
+                }
+                geometry.attributes.position.needsUpdate = true;
+                
                 renderer.render(scene, camera);
             }
             animate();
@@ -146,36 +229,34 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
-            return { scene, points, material };
+            return { material };
         };
 
         const App = () => {
             const [user, setUser] = useState(null);
-            const [products, setProducts] = useState(SEED_DATA); // Сразу показываем демо, чтобы не было пусто
+            const [products, setProducts] = useState(SEED_DATA);
             const [cart, setCart] = useState({});
             const [activeCategory, setActiveCategory] = useState("Все");
             const [themeIndex, setThemeIndex] = useState(0);
             const [isAdmin, setIsAdmin] = useState(false);
             const [isCartOpen, setIsCartOpen] = useState(false);
             const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-            const [isLoading, setIsLoading] = useState(true);
-            const threeRef = useRef(null);
-
+            const [view, setView] = useState('catalog'); // 'catalog', 'admin', 'checkout'
+            const threeEngine = useRef(null);
             const tg = window.Telegram?.WebApp;
 
             useEffect(() => {
-                // Инициализация 3D фона
-                threeRef.current = initThreeBackground(THEMES[0].color);
-
+                threeEngine.current = initDigitalVapor(THEMES[0].color);
+                
                 if (tg) {
                     tg.expand();
+                    tg.backgroundColor = "#050505";
+                    tg.headerColor = "#050505";
                     const userId = tg.initDataUnsafe?.user?.id;
-                    const username = tg.initDataUnsafe?.user?.username;
-                    if (userId === ADMIN_ID || username === ADMIN_USERNAME) {
-                        setIsAdmin(true);
-                    }
+                    if (userId === ADMIN_ID) setIsAdmin(true);
                 }
 
+                // Rule 3: Auth First
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -185,11 +266,17 @@
                         }
                     } catch (e) { console.error(e); }
                 };
-
                 initAuth();
                 onAuthStateChanged(auth, setUser);
 
-                setTimeout(() => setIsLoading(false), 2000);
+                // Убираем лоадер после готовности
+                setTimeout(() => {
+                    const ldr = document.getElementById('initial-loader');
+                    if(ldr) {
+                        ldr.style.opacity = '0';
+                        setTimeout(() => ldr.remove(), 600);
+                    }
+                }, 1500);
             }, []);
 
             useEffect(() => {
@@ -197,10 +284,8 @@
                 const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
                 return onSnapshot(q, (snapshot) => {
                     if (!snapshot.empty) {
-                        const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setProducts(items);
+                        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                     } else if (isAdmin) {
-                        // Если пусто и зашел админ - сидим базу
                         SEED_DATA.forEach(item => addDoc(q, item));
                     }
                 });
@@ -219,8 +304,8 @@
                 const theme = THEMES[next];
                 document.documentElement.style.setProperty('--primary', theme.color);
                 document.documentElement.style.setProperty('--primary-glow', theme.glow);
-                if (threeRef.current) threeRef.current.material.color.set(theme.color);
-                if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                if (threeEngine.current) threeEngine.current.material.color.set(theme.color);
+                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             };
 
             const addToCart = (id) => {
@@ -228,143 +313,143 @@
                 if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
             };
 
-            const removeFromCart = (id) => {
-                setCart(prev => {
-                    const next = { ...prev };
-                    if (next[id] > 1) next[id] -= 1;
-                    else delete next[id];
-                    return next;
-                });
-            };
-
             const totalAmount = Object.entries(cart).reduce((sum, [id, qty]) => {
-                const p = products.find(x => x.id === id || x.name === id); // поддержка демо-данных без ID
+                const p = products.find(x => x.id === id || x.name === id);
                 return sum + (p ? p.price * qty : 0);
             }, 0);
 
             const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
 
-            const handleCheckout = () => {
-                const orderId = `VX-${Math.floor(1000 + Math.random() * 9000)}`;
-                const itemsStr = Object.entries(cart).map(([id, qty]) => {
-                    const p = products.find(x => x.id === id || x.name === id);
-                    return `${p.name} x${qty}`;
-                }).join(', ');
-
-                const orderData = {
-                    orderId,
-                    items: itemsStr,
-                    total: totalAmount,
-                    customer: document.getElementById('name-input')?.value || 'Guest'
-                };
-
-                if (tg) tg.sendData(JSON.stringify(orderData));
-                else alert(`Заказ ${orderId} оформлен!`);
-                
-                setIsCheckoutOpen(false);
-                setCart({});
-            };
-
-            if (isLoading) return React.createElement('div', { className: 'fixed inset-0 bg-black flex flex-col items-center justify-center z-[100]' },
-                React.createElement('div', { className: 'w-16 h-16 border-4 border-t-green-500 border-white/10 rounded-full animate-spin mb-4' }),
-                React.createElement('div', { className: 'text-xs uppercase tracking-[0.3em] font-bold primary-text animate-pulse' }, 'Premium Vape Store')
-            );
-
-            return React.createElement('div', { className: 'p-4 pb-32 min-h-screen' },
-                // Header
-                React.createElement('header', { className: 'flex justify-between items-center mb-6 glass p-4 rounded-2xl sticky top-4 z-40' },
-                    React.createElement('div', null,
-                        React.createElement('h1', { className: 'text-xl font-black italic leading-none' }, 'PREMIUM STORE'),
-                        React.createElement('div', { className: `text-[9px] uppercase tracking-widest mt-1 ${isAdmin ? 'primary-text' : 'opacity-40'}` }, 
-                            isAdmin ? '● ADMIN ACCESS' : 'Official Catalog'
-                        )
-                    ),
-                    React.createElement('div', { className: 'flex gap-2' },
-                        isAdmin && React.createElement('button', { onClick: () => alert('Админ-панель в разработке'), className: 'w-10 h-10 glass rounded-xl flex items-center justify-center' }, 
-                            React.createElement('i', { 'data-lucide': 'shield', className: 'w-5 h-5 primary-text' })),
-                        React.createElement('button', { onClick: toggleTheme, className: 'w-10 h-10 glass rounded-xl flex items-center justify-center' }, 
-                            React.createElement('i', { 'data-lucide': 'palette', className: 'w-5 h-5' }))
+            // UI Elements
+            const Header = () => React.createElement('header', { className: 'flex justify-between items-center mb-8 sticky top-0 z-50 py-4 px-1 bg-black/20 backdrop-blur-md' },
+                React.createElement('div', { className: 'flex flex-col' },
+                    React.createElement('h1', { className: 'text-2xl font-black italic tracking-tighter primary-glow-text' }, 'PREMIUM'),
+                    React.createElement('div', { className: 'flex items-center gap-2' },
+                        React.createElement('div', { className: `w-1.5 h-1.5 rounded-full animate-pulse ${isAdmin ? 'primary-bg' : 'bg-white/20'}` }),
+                        React.createElement('span', { className: 'text-[9px] uppercase tracking-[0.3em] font-bold opacity-60' }, isAdmin ? 'Admin Mode' : 'Authentic Catalog')
                     )
                 ),
+                React.createElement('div', { className: 'flex gap-3' },
+                    isAdmin && React.createElement('button', { onClick: () => setView(view === 'admin' ? 'catalog' : 'admin'), className: 'w-11 h-11 premium-card rounded-2xl flex items-center justify-center' },
+                        React.createElement('i', { 'data-lucide': view === 'admin' ? 'layout-grid' : 'shield', className: `w-5 h-5 ${view === 'admin' ? 'primary-text' : ''}` })),
+                    React.createElement('button', { onClick: toggleTheme, className: 'w-11 h-11 premium-card rounded-2xl flex items-center justify-center' },
+                        React.createElement('i', { 'data-lucide': 'palette', className: 'w-5 h-5' }))
+                )
+            );
+
+            const ProductCard = ({ p }) => React.createElement('div', { 
+                className: 'premium-card rounded-[32px] p-5 flex flex-col h-full group relative overflow-hidden'
+            },
+                // Глубокий градиентный фон карточки
+                React.createElement('div', { className: 'absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none' }),
+                
+                isAdmin && view === 'admin' && React.createElement('button', {
+                    onClick: () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', p.id)),
+                    className: 'absolute top-3 right-3 p-2 bg-red-500/10 text-red-500 rounded-full z-10'
+                }, React.createElement('i', { 'data-lucide': 'trash-2', className: 'w-3.5 h-3.5' })),
+
+                React.createElement('div', { className: 'text-5xl mb-5 text-center drop-shadow-2xl grayscale-[0.2] group-hover:grayscale-0 transition-all' }, p.emoji),
+                
+                React.createElement('div', { className: 'flex-grow mb-5' },
+                    React.createElement('div', { className: 'text-[8px] uppercase tracking-[0.2em] font-bold primary-text mb-1.5' }, p.category),
+                    React.createElement('h3', { className: 'font-bold text-[13px] leading-tight mb-2 tracking-tight' }, p.name),
+                    React.createElement('p', { className: 'text-[10px] opacity-40 leading-relaxed font-medium' }, p.desc)
+                ),
+
+                React.createElement('div', { className: 'mt-auto' },
+                    React.createElement('div', { className: 'text-xl font-black mb-3 tracking-tighter' }, `${p.price} ₽`),
+                    React.createElement('button', {
+                        onClick: () => addToCart(p.id || p.name),
+                        className: 'w-full py-3 primary-bg text-black text-[10px] font-black uppercase rounded-2xl active:scale-95 transition-all primary-shadow'
+                    }, 'В корзину')
+                )
+            );
+
+            if (view === 'admin') {
+                return React.createElement('div', { className: 'p-6 pb-24' },
+                    Header(),
+                    React.createElement('h2', { className: 'text-3xl font-black italic mb-8' }, 'STATISTICS'),
+                    React.createElement('div', { className: 'grid grid-cols-1 gap-4 mb-10' },
+                        React.createElement('div', { className: 'premium-card p-6 rounded-3xl flex justify-between items-center' },
+                            React.createElement('div', null,
+                                React.createElement('div', { className: 'text-xs opacity-50 mb-1' }, 'Всего товаров'),
+                                React.createElement('div', { className: 'text-3xl font-black' }, products.length)
+                            ),
+                            React.createElement('i', { 'data-lucide': 'box', className: 'w-8 h-8 opacity-20' })
+                        )
+                    ),
+                    React.createElement('button', { 
+                        onClick: () => setView('catalog'),
+                        className: 'w-full py-4 premium-card rounded-2xl font-bold uppercase text-xs tracking-widest'
+                    }, 'Назад в каталог')
+                );
+            }
+
+            return React.createElement('div', { className: 'p-5 pb-32 max-w-lg mx-auto' },
+                Header(),
 
                 // Categories
-                React.createElement('div', { className: 'flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-2' },
+                React.createElement('div', { className: 'flex gap-4 overflow-x-auto no-scrollbar mb-10 pb-2 -mx-5 px-5' },
                     categories.map(cat => React.createElement('button', {
                         key: cat,
-                        onClick: () => setActiveCategory(cat),
-                        className: `px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeCategory === cat ? 'primary-bg text-black primary-shadow' : 'glass opacity-60'}`
+                        onClick: () => { setActiveCategory(cat); if(tg?.HapticFeedback) tg.HapticFeedback.selectionChanged(); },
+                        className: `category-tab px-1 py-2 text-[11px] font-black uppercase tracking-widest whitespace-nowrap opacity-40 transition-all ${activeCategory === cat ? 'active opacity-100 primary-text' : ''}`
                     }, cat))
                 ),
 
-                // Product Grid
+                // Grid
                 React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                    filteredProducts.map(p => React.createElement('div', { 
-                        key: p.id || p.name,
-                        className: 'glass rounded-[30px] p-4 flex flex-col h-full relative fade-in'
-                    },
-                        isAdmin && React.createElement('button', {
-                            onClick: () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', p.id)),
-                            className: 'absolute top-2 right-2 p-1.5 bg-red-500/20 text-red-500 rounded-full'
-                        }, React.createElement('i', { 'data-lucide': 'trash-2', className: 'w-3 h-3' })),
-
-                        React.createElement('div', { className: 'text-4xl mb-4 text-center' }, p.emoji),
-                        React.createElement('div', { className: 'flex-grow mb-4' },
-                            React.createElement('div', { className: 'text-[9px] uppercase tracking-widest opacity-40 mb-1' }, p.category),
-                            React.createElement('h3', { className: 'font-bold text-sm leading-tight' }, p.name),
-                            React.createElement('p', { className: 'text-[10px] opacity-50 mt-1 line-clamp-2' }, p.desc)
-                        ),
-                        React.createElement('div', { className: 'mt-auto pt-2' },
-                            React.createElement('div', { className: 'text-lg font-black mb-2' }, `${p.price} ₽`),
-                            React.createElement('button', {
-                                onClick: () => addToCart(p.id || p.name),
-                                className: 'w-full py-2.5 primary-bg text-black text-[10px] font-black uppercase rounded-xl active:scale-95 transition-transform'
-                            }, 'В корзину')
-                        )
-                    ))
+                    filteredProducts.map(p => React.createElement(ProductCard, { key: p.id || p.name, p }))
                 ),
 
-                // Cart FAB
-                cartCount > 0 && React.createElement('div', { className: 'fixed bottom-8 left-4 right-4 z-50' },
+                // FAB Cart
+                cartCount > 0 && React.createElement('div', { className: 'fixed bottom-10 left-5 right-5 z-[60]' },
                     React.createElement('button', {
                         onClick: () => setIsCartOpen(true),
-                        className: 'w-full py-4 primary-bg text-black rounded-2xl flex justify-between px-6 items-center primary-shadow animate-pulse-soft'
+                        className: 'w-full py-5 primary-bg text-black rounded-[24px] flex justify-between px-8 items-center primary-shadow animate-pulse-soft active:scale-95 transition-transform'
                     },
-                        React.createElement('div', { className: 'flex gap-3 items-center' },
+                        React.createElement('div', { className: 'flex gap-4 items-center' },
                             React.createElement('i', { 'data-lucide': 'shopping-cart', className: 'w-5 h-5' }),
-                            React.createElement('span', { className: 'font-black uppercase tracking-tighter' }, 'Корзина')
+                            React.createElement('span', { className: 'font-black uppercase tracking-tighter text-sm' }, 'Просмотр корзины')
                         ),
-                        React.createElement('div', { className: 'flex items-center gap-2' },
-                            React.createElement('span', { className: 'bg-black/20 px-2 rounded-md text-xs' }, cartCount),
-                            React.createElement('span', { className: 'font-black text-xl' }, `${totalAmount} ₽`)
+                        React.createElement('div', { className: 'flex items-center gap-3' },
+                            React.createElement('span', { className: 'bg-black/10 px-2 py-0.5 rounded-md text-[10px] font-bold' }, cartCount),
+                            React.createElement('span', { className: 'font-black text-xl tracking-tighter' }, `${totalAmount} ₽`)
                         )
                     )
                 ),
 
-                // Bottom Sheet Cart
+                // Cart Bottom Sheet
                 React.createElement('div', { 
-                    className: `fixed inset-0 bg-black/80 z-[60] transition-opacity ${isCartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}` ,
+                    className: `fixed inset-0 bg-black/90 z-[100] transition-opacity duration-500 ${isCartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}` ,
                     onClick: () => setIsCartOpen(false)
                 },
                     React.createElement('div', { 
-                        className: `bottom-sheet fixed bottom-0 left-0 right-0 glass rounded-t-[40px] p-6 max-h-[80vh] overflow-y-auto ${isCartOpen ? 'open' : ''}`,
+                        className: `fixed bottom-0 left-0 right-0 premium-card rounded-t-[48px] p-8 max-h-[85vh] overflow-y-auto z-[101] ${isCartOpen ? 'sheet-up' : 'sheet-down'}`,
                         onClick: e => e.stopPropagation()
                     },
-                        React.createElement('div', { className: 'w-12 h-1 bg-white/20 rounded-full mx-auto mb-6' }),
-                        React.createElement('h2', { className: 'text-2xl font-black italic mb-6' }, 'КОРЗИНА'),
+                        React.createElement('div', { className: 'w-16 h-1.5 bg-white/10 rounded-full mx-auto mb-10' }),
+                        React.createElement('h2', { className: 'text-3xl font-black italic mb-8 tracking-tighter' }, 'ВАШ ВЫБОР'),
                         
-                        React.createElement('div', { className: 'flex flex-col gap-3 mb-8' },
+                        React.createElement('div', { className: 'space-y-4 mb-12' },
                             Object.entries(cart).map(([id, qty]) => {
                                 const p = products.find(x => x.id === id || x.name === id);
                                 if (!p) return null;
-                                return React.createElement('div', { key: id, className: 'flex items-center justify-between glass p-3 rounded-2xl' },
+                                return React.createElement('div', { key: id, className: 'flex items-center justify-between glass-light p-4 rounded-3xl border border-white/5' },
                                     React.createElement('div', null,
-                                        React.createElement('div', { className: 'text-sm font-bold' }, p.name),
-                                        React.createElement('div', { className: 'text-xs primary-text' }, `${p.price} ₽`)
+                                        React.createElement('div', { className: 'text-sm font-bold tracking-tight' }, p.name),
+                                        React.createElement('div', { className: 'text-xs primary-text font-black' }, `${p.price * qty} ₽`)
                                     ),
-                                    React.createElement('div', { className: 'flex items-center gap-3' },
-                                        React.createElement('button', { onClick: () => removeFromCart(id), className: 'w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center' }, '-'),
-                                        React.createElement('span', { className: 'font-bold' }, qty),
-                                        React.createElement('button', { onClick: () => addToCart(id), className: 'w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center' }, '+')
+                                    React.createElement('div', { className: 'flex items-center gap-4 bg-white/5 p-1.5 rounded-2xl' },
+                                        React.createElement('button', { onClick: () => {
+                                            setCart(prev => {
+                                                const n = {...prev};
+                                                if(n[id] > 1) n[id]--; else delete n[id];
+                                                return n;
+                                            });
+                                        }, className: 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center' }, '-'),
+                                        React.createElement('span', { className: 'font-bold text-sm' }, qty),
+                                        React.createElement('button', { onClick: () => addToCart(id), className: 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center' }, '+')
                                     )
                                 );
                             })
@@ -372,31 +457,42 @@
 
                         React.createElement('button', {
                             onClick: () => { setIsCartOpen(false); setIsCheckoutOpen(true); },
-                            className: 'w-full py-4 primary-bg text-black font-black uppercase rounded-2xl'
-                        }, 'Оформить заказ')
+                            className: 'w-full py-5 primary-bg text-black font-black uppercase rounded-[24px] text-sm tracking-widest'
+                        }, 'Оформить и оплатить')
                     )
                 ),
 
-                // Checkout Modal
-                isCheckoutOpen && React.createElement('div', { className: 'fixed inset-0 bg-black z-[70] p-6 fade-in' },
-                    React.createElement('button', { onClick: () => setIsCheckoutOpen(false), className: 'mb-8 opacity-40' }, '← Отмена'),
-                    React.createElement('h2', { className: 'text-3xl font-black italic mb-2' }, 'ОПЛАТА'),
-                    React.createElement('div', { className: 'glass p-6 rounded-3xl mb-6' },
-                        React.createElement('div', { className: 'text-xs opacity-50 mb-1' }, 'Итоговая сумма'),
-                        React.createElement('div', { className: 'text-4xl font-black primary-text mb-6' }, `${totalAmount} ₽`),
-                        React.createElement('div', { className: 'space-y-4' },
-                            React.createElement('input', { id: 'name-input', placeholder: 'Как вас зовут?', className: 'w-full glass p-4 rounded-xl outline-none' }),
-                            React.createElement('div', { className: 'bg-white/5 p-4 rounded-2xl border border-dashed border-white/20' },
-                                React.createElement('div', { className: 'text-[10px] opacity-40 uppercase mb-2' }, 'Реквизиты для перевода (Ozon)'),
-                                React.createElement('div', { className: 'font-mono text-lg' }, '2204 3209 2444 1944'),
-                                React.createElement('div', { className: 'text-xs mt-1' }, 'Иван Владимирович Р.')
+                // Checkout Overlay
+                isCheckoutOpen && React.createElement('div', { className: 'fixed inset-0 bg-[#050505] z-[200] p-8 fade-in overflow-y-auto' },
+                    React.createElement('button', { onClick: () => setIsCheckoutOpen(false), className: 'mb-12 opacity-30 flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest' }, 
+                        React.createElement('i', { 'data-lucide': 'arrow-left', className: 'w-4 h-4' }), 'Назад к покупкам'
+                    ),
+                    React.createElement('h2', { className: 'text-4xl font-black italic mb-4 primary-glow-text' }, 'ОПЛАТА'),
+                    React.createElement('div', { className: 'premium-card p-8 rounded-[40px] mb-8' },
+                        React.createElement('div', { className: 'text-[10px] opacity-40 uppercase tracking-[0.2em] mb-2' }, 'Итого к зачислению'),
+                        React.createElement('div', { className: 'text-5xl font-black primary-text mb-10 tracking-tighter' }, `${totalAmount} ₽`),
+                        
+                        React.createElement('div', { className: 'space-y-6' },
+                            React.createElement('div', { className: 'p-5 bg-white/[0.03] rounded-3xl border border-dashed border-white/10' },
+                                React.createElement('div', { className: 'text-[9px] opacity-30 uppercase mb-3 font-bold' }, 'Перевод по реквизитам'),
+                                React.createElement('div', { className: 'font-mono text-xl mb-1 tracking-wider' }, '2204 3209 2444 1944'),
+                                React.createElement('div', { className: 'text-[10px] font-bold opacity-60' }, 'Ozon Банк | Иван В.')
+                            ),
+                            React.createElement('div', { className: 'p-5 primary-bg/10 rounded-3xl border primary-border' },
+                                React.createElement('div', { className: 'text-[9px] primary-text uppercase mb-2 font-bold' }, 'Обязательный комментарий'),
+                                React.createElement('div', { className: 'text-3xl font-black tracking-[0.3em]' }, `VX-${Math.floor(1000 + Math.random() * 9000)}`)
                             )
                         )
                     ),
                     React.createElement('button', {
-                        onClick: handleCheckout,
-                        className: 'w-full py-4 primary-bg text-black font-black uppercase rounded-2xl primary-shadow'
-                    }, 'Я оплатил')
+                        onClick: () => {
+                            if(tg) tg.sendData(JSON.stringify({order: 'paid', amount: totalAmount}));
+                            else alert('Оплата подтверждена');
+                            setIsCheckoutOpen(false);
+                            setCart({});
+                        },
+                        className: 'w-full py-6 primary-bg text-black font-black uppercase rounded-[28px] primary-shadow tracking-[0.1em]'
+                    }, 'Подтверждаю оплату')
                 )
             );
         };
