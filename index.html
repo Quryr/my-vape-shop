@@ -64,7 +64,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease, visibility 0.5s;
         }
 
         /* Кастомный скролл */
@@ -88,6 +88,23 @@
             transform: translateY(0);
         }
     </style>
+
+    <script>
+        // GLOBAL SAFETY EXIT: Если скрипты не загрузились за 2.5 сек, принудительно показываем приложение
+        window.hideLoader = function() {
+            const loader = document.getElementById('loader');
+            const app = document.getElementById('app');
+            if (loader && loader.style.display !== 'none') {
+                loader.style.opacity = '0';
+                loader.style.visibility = 'hidden';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    if (app) app.classList.remove('hidden');
+                }, 500);
+            }
+        };
+        setTimeout(window.hideLoader, 2500);
+    </script>
 </head>
 <body class="theme-toxic">
     <!-- Safety Loader -->
@@ -113,7 +130,7 @@
                 <h2 class="text-2xl font-bold tracking-tight">Vape <span class="text-primary">Cloud</span></h2>
             </div>
             <div class="flex items-center gap-3">
-                <!-- Admin Actions (Hidden by default) -->
+                <!-- Admin Actions -->
                 <div id="admin-controls" class="hidden flex items-center gap-2">
                     <button onclick="window.showAdminStats()" class="p-2 glass rounded-xl text-primary">
                         <i data-lucide="shield"></i>
@@ -133,7 +150,7 @@
         <div class="flex gap-2 mb-6">
             <div class="flex-grow glass rounded-2xl flex items-center px-4 py-3">
                 <i data-lucide="search" class="w-5 h-5 opacity-40 mr-3"></i>
-                <input type="text" placeholder="Поиск товаров..." class="bg-transparent border-none outline-none w-full text-sm">
+                <input type="text" id="search-input" oninput="window.filterProducts(this.value)" placeholder="Поиск товаров..." class="bg-transparent border-none outline-none w-full text-sm">
             </div>
         </div>
 
@@ -174,7 +191,6 @@
             </div>
 
             <div id="cart-items" class="flex-grow overflow-y-auto px-6 py-2 space-y-4">
-                <!-- Cart items here -->
                 <p class="text-center opacity-30 py-10">Корзина пуста</p>
             </div>
 
@@ -193,7 +209,7 @@
 
     <!-- Checkout Modal -->
     <div id="checkout-modal" class="fixed inset-0 z-[60] glass hidden items-center justify-center p-4">
-        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-6 flex flex-col gap-4">
+        <div class="bg-zinc-950 border border-white/10 w-full max-w-md rounded-[32px] p-6 flex flex-col gap-4">
             <div class="flex justify-between items-center mb-2">
                 <h3 class="text-xl font-bold">Данные доставки</h3>
                 <button onclick="window.closeCheckout()" class="opacity-50"><i data-lucide="x"></i></button>
@@ -203,13 +219,11 @@
                 <input type="text" id="order-name" placeholder="Имя Фамилия" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
                 <input type="tel" id="order-phone" placeholder="Номер телефона" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
                 <input type="text" id="order-address" placeholder="Адрес / Район" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
-                <div class="flex gap-2">
-                   <select id="order-time" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
-                       <option value="ASAP">Как можно скорее</option>
-                       <option value="18:00-20:00">18:00 - 20:00</option>
-                       <option value="20:00-22:00">20:00 - 22:00</option>
-                   </select>
-                </div>
+                <select id="order-time" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
+                    <option value="ASAP">Как можно скорее</option>
+                    <option value="18:00-20:00">18:00 - 20:00</option>
+                    <option value="20:00-22:00">20:00 - 22:00</option>
+                </select>
             </div>
 
             <button onclick="window.proceedToPayment()" class="w-full bg-primary text-black font-bold py-4 rounded-2xl mt-4">
@@ -220,14 +234,14 @@
 
     <!-- Payment Modal -->
     <div id="payment-modal" class="fixed inset-0 z-[70] glass hidden items-center justify-center p-4">
-        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-8 text-center">
+        <div class="bg-zinc-950 border border-white/10 w-full max-w-md rounded-[32px] p-8 text-center">
             <div class="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
                 <i data-lucide="credit-card" class="w-8 h-8"></i>
             </div>
             <h3 class="text-2xl font-bold mb-2">Оплата заказа</h3>
             <p class="text-white/50 text-sm mb-6 leading-relaxed">Переведите сумму заказа на карту Ozon Bank. В комментарии укажите код заказа.</p>
             
-            <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6 text-left relative group">
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6 text-left relative">
                 <p class="text-[10px] uppercase tracking-widest text-white/30 mb-1">Номер карты (Ozon)</p>
                 <p class="text-lg font-mono tracking-wider mb-3">2204 3209 2444 1944</p>
                 <p class="text-[10px] uppercase tracking-widest text-white/30 mb-1">Получатель</p>
@@ -253,7 +267,7 @@
 
     <!-- Admin Add Product Modal -->
     <div id="add-product-modal" class="fixed inset-0 z-[80] glass hidden items-center justify-center p-4">
-        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-6">
+        <div class="bg-zinc-950 border border-white/10 w-full max-w-md rounded-[32px] p-6">
             <h3 class="text-xl font-bold mb-6">Новый товар</h3>
             <div class="space-y-4">
                 <input type="text" id="p-name" placeholder="Название (напр. HQD Cuve)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none">
@@ -278,17 +292,14 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Config (Runtime provided)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
+        let db, auth;
+        let appId = 'vape-store-default';
         const tg = window.Telegram?.WebApp;
 
         // Global State
         window.state = {
             products: [],
+            filteredProducts: [],
             cart: [],
             user: null,
             isAdmin: false,
@@ -297,15 +308,6 @@
         };
 
         const ADMIN_DATA = { id: 1262669099, username: "Tru5tNoBody" };
-
-        // Safety Exit Loader
-        const loaderTimeout = setTimeout(() => {
-            document.getElementById('loader').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('app').classList.remove('hidden');
-            }, 500);
-        }, 2500);
 
         // Theme Management
         window.nextTheme = () => {
@@ -316,7 +318,6 @@
             document.body.className = `theme-${window.state.currentTheme}`;
         };
 
-        // Admin Logic
         const checkAdmin = (userData) => {
             if (!userData) return false;
             return userData.id === ADMIN_DATA.id || userData.username === ADMIN_DATA.username;
@@ -334,14 +335,19 @@
                     status.innerText = 'ADMIN MODE';
                     status.classList.add('text-primary');
                 }
-                renderProducts(); // Refresh to show delete buttons
+                renderProducts();
             }
         };
 
         // Auth
         const initAuth = async () => {
             try {
-                // RULE 3: Auth BEFORE queries
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
+
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -356,12 +362,12 @@
                 });
             } catch (error) {
                 console.error("Auth failed", error);
+                window.hideLoader(); // Показываем пустой интерфейс в случае ошибки
             }
         };
 
         // Firestore
         const initDataStore = () => {
-            // Guard every Firestore operation
             if (!auth.currentUser) return;
 
             const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
@@ -369,13 +375,16 @@
                 const products = [];
                 snapshot.forEach((doc) => products.push({ id: doc.id, ...doc.data() }));
                 window.state.products = products;
+                window.state.filteredProducts = products;
                 
                 if (products.length === 0 && window.state.isAdmin) {
                     seedDatabase();
                 }
                 renderProducts();
+                window.hideLoader(); // Прячем лоадер, как только получили данные
             }, (error) => {
                 console.error("Firestore error", error);
+                window.hideLoader();
             });
         };
 
@@ -401,17 +410,24 @@
             }
         };
 
-        // UI Rendering
+        window.filterProducts = (query) => {
+            const q = query.toLowerCase();
+            window.state.filteredProducts = window.state.products.filter(p => 
+                p.name.toLowerCase().includes(q) || p.tag.toLowerCase().includes(q)
+            );
+            renderProducts();
+        };
+
         const renderProducts = () => {
             const grid = document.getElementById('products-grid');
             if (!grid) return;
 
-            if (window.state.products.length === 0) {
-                grid.innerHTML = '<div class="col-span-2 text-center py-20 opacity-30">Нет товаров в наличии</div>';
+            if (window.state.filteredProducts.length === 0) {
+                grid.innerHTML = '<div class="col-span-2 text-center py-20 opacity-30">Ничего не найдено</div>';
                 return;
             }
 
-            grid.innerHTML = window.state.products.map(p => `
+            grid.innerHTML = window.state.filteredProducts.map(p => `
                 <div class="product-card glass p-4 rounded-[28px] relative overflow-hidden group">
                     ${window.state.isAdmin ? `
                         <button onclick="window.deleteProduct('${p.id}')" class="absolute top-2 right-2 p-2 bg-red-500/20 text-red-500 rounded-lg z-20">
@@ -436,7 +452,6 @@
             lucide.createIcons();
         };
 
-        // Shopping Cart
         window.addToCart = (id) => {
             tg?.HapticFeedback.notificationOccurred('success');
             const product = window.state.products.find(p => p.id === id);
@@ -518,7 +533,6 @@
             }
         };
 
-        // Checkout & Payment
         window.startCheckout = () => {
             if (window.state.cart.length === 0) return;
             window.toggleCart();
@@ -580,16 +594,13 @@
             tg?.HapticFeedback.impactOccurred('light');
         };
 
-        // Admin Actions
         window.deleteProduct = async (id) => {
             if (!auth.currentUser) return;
             if (!confirm('Удалить товар?')) return;
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
                 tg?.HapticFeedback.notificationOccurred('warning');
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         };
 
         window.showAddProduct = () => {
@@ -616,23 +627,17 @@
                 });
                 window.closeAddProduct();
                 tg?.HapticFeedback.notificationOccurred('success');
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         };
 
         // App Initialization
         window.onload = () => {
             tg?.ready();
             tg?.expand();
-            
             initAuth();
-            
-            // Recursive Admin Check
             recursiveAdminCheck();
             setTimeout(recursiveAdminCheck, 500);
             setTimeout(recursiveAdminCheck, 2000);
-
             lucide.createIcons();
         };
     </script>
