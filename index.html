@@ -1,506 +1,619 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Premium Vape Store</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & Libraries -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary: #00FF41;
-            --primary-glow: rgba(0, 255, 65, 0.4);
-            --bg-dark: #000000;
-            --card-bg: rgba(10, 10, 10, 0.8);
-            --border: rgba(255, 255, 255, 0.1);
+            --primary: #22c55e; /* Toxic Green */
+            --bg-black: #000000;
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: #ffffff;
-            font-family: 'Inter', -apple-system, system-ui, sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-black);
+            color: white;
             overflow-x: hidden;
-            user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* КРИТИЧЕСКИЙ ФИКС ЗАГРУЗКИ */
-        #initial-loader {
+        /* Анимированные сферы */
+        .orb {
             position: fixed;
-            inset: 0;
-            background: #000000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            transition: opacity 0.6s ease;
-        }
-
-        .loader-glow {
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(255,255,255,0.05);
-            border-top: 2px solid var(--primary);
+            width: 300px;
+            height: 300px;
             border-radius: 50%;
-            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            box-shadow: 0 0 15px var(--primary-glow);
+            filter: blur(120px);
+            opacity: 0.3;
+            z-index: -1;
+            animation: drift 20s infinite alternate ease-in-out;
+        }
+        .orb-1 { background: var(--primary); top: -50px; left: -50px; }
+        .orb-2 { background: #a855f7; bottom: 10%; right: -50px; animation-delay: -5s; }
+        .orb-3 { background: #3b82f6; top: 40%; left: 50%; transform: translateX(-50%); animation-delay: -10s; }
+
+        @keyframes drift {
+            from { transform: translate(0, 0) scale(1); }
+            to { transform: translate(20px, 40px) scale(1.1); }
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .glass {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-        #bg-canvas {
+        .theme-toxic { --primary: #22c55e; }
+        .theme-ice { --primary: #0ea5e9; }
+        .theme-magma { --primary: #f97316; }
+
+        .text-primary { color: var(--primary); }
+        .bg-primary { background-color: var(--primary); }
+        .border-primary { border-color: var(--primary); }
+
+        .loader-overlay {
             position: fixed;
             inset: 0;
-            z-index: -1;
-            pointer-events: none;
+            background: black;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
         }
 
-        /* Premium Glass 5.0 */
-        .vape-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid var(--border);
-            border-radius: 30px;
+        /* Кастомный скролл */
+        ::-webkit-scrollbar { width: 0px; }
+
+        .product-card {
             display: flex;
             flex-direction: column;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            height: 100%;
         }
-
-        .vape-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 100%);
-            pointer-events: none;
-        }
-
-        .primary-glow-text {
-            text-shadow: 0 0 15px var(--primary-glow);
-        }
-
-        .primary-bg { background: var(--primary); }
-        .primary-text { color: var(--primary); }
-        
-        /* Categories */
-        .category-scroll::-webkit-scrollbar { display: none; }
-        .cat-btn {
-            position: relative;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .cat-btn.active {
-            color: var(--primary);
-            font-weight: 800;
-            transform: translateY(-2px);
-        }
-        .cat-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 12px;
-            height: 2px;
-            background: var(--primary);
-            box-shadow: 0 0 8px var(--primary);
-            border-radius: 10px;
-        }
-
-        /* Выравнивание кнопок в ряд */
-        .card-body {
-            display: flex;
-            flex-direction: column;
+        .product-info {
             flex-grow: 1;
         }
-
+        
+        /* Стили для Bottom Sheet */
         .bottom-sheet {
             transform: translateY(100%);
-            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .bottom-sheet.open {
+        .bottom-sheet.active {
             transform: translateY(0);
         }
-
-        .btn-press:active { transform: scale(0.96); }
     </style>
 </head>
-<body>
-
-    <div id="initial-loader">
-        <div class="loader-glow"></div>
-        <div class="mt-6 text-[10px] tracking-[0.5em] uppercase font-bold opacity-30">Vapor Quality Control</div>
+<body class="theme-toxic">
+    <!-- Safety Loader -->
+    <div id="loader" class="loader-overlay">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+            <p class="mt-4 text-sm font-medium tracking-widest uppercase opacity-50">Loading Store</p>
+        </div>
     </div>
 
-    <canvas id="bg-canvas"></canvas>
-    <div id="root"></div>
+    <!-- Background Orbs -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
 
+    <!-- Main Content -->
+    <div id="app" class="px-4 pb-24 pt-6 max-w-2xl mx-auto min-h-screen relative z-10 hidden">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 id="admin-status" class="text-xs font-bold tracking-[0.2em] text-white/50 mb-1 uppercase">PREMIUM STORE</h1>
+                <h2 class="text-2xl font-bold tracking-tight">Vape <span class="text-primary">Cloud</span></h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Admin Actions (Hidden by default) -->
+                <div id="admin-controls" class="hidden flex items-center gap-2">
+                    <button onclick="window.showAdminStats()" class="p-2 glass rounded-xl text-primary">
+                        <i data-lucide="shield"></i>
+                    </button>
+                    <button onclick="window.showAddProduct()" class="p-2 glass rounded-xl text-primary">
+                        <i data-lucide="plus"></i>
+                    </button>
+                </div>
+                <!-- Theme Switcher -->
+                <button onclick="window.nextTheme()" class="p-2 glass rounded-xl">
+                    <i data-lucide="palette"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search & Filter -->
+        <div class="flex gap-2 mb-6">
+            <div class="flex-grow glass rounded-2xl flex items-center px-4 py-3">
+                <i data-lucide="search" class="w-5 h-5 opacity-40 mr-3"></i>
+                <input type="text" placeholder="Поиск товаров..." class="bg-transparent border-none outline-none w-full text-sm">
+            </div>
+        </div>
+
+        <!-- Products Grid -->
+        <div id="products-grid" class="grid grid-cols-2 gap-3">
+            <!-- Skeleton Loader -->
+            <div class="glass p-4 rounded-3xl animate-pulse h-64"></div>
+            <div class="glass p-4 rounded-3xl animate-pulse h-64"></div>
+        </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="fixed bottom-4 left-4 right-4 h-16 glass rounded-2xl flex items-center justify-around z-40 px-2 max-w-2xl mx-auto border border-white/10">
+        <button class="flex flex-col items-center justify-center w-full gap-1 text-primary">
+            <i data-lucide="home" class="w-6 h-6"></i>
+            <span class="text-[10px] font-medium uppercase tracking-wider">Главная</span>
+        </button>
+        <button onclick="window.toggleCart()" class="flex flex-col items-center justify-center w-full gap-1 opacity-40 relative">
+            <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+            <span class="text-[10px] font-medium uppercase tracking-wider">Корзина</span>
+            <div id="cart-badge" class="hidden absolute top-0 right-1/4 bg-primary text-black text-[10px] font-bold px-1.5 rounded-full border-2 border-black">0</div>
+        </button>
+        <button class="flex flex-col items-center justify-center w-full gap-1 opacity-40">
+            <i data-lucide="user" class="w-6 h-6"></i>
+            <span class="text-[10px] font-medium uppercase tracking-wider">Профиль</span>
+        </button>
+    </nav>
+
+    <!-- Cart Modal (Bottom Sheet) -->
+    <div id="cart-sheet" class="fixed inset-0 z-50 pointer-events-none">
+        <div id="cart-overlay" onclick="window.toggleCart()" class="absolute inset-0 bg-black/60 opacity-0 transition-opacity pointer-events-none"></div>
+        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-zinc-950 border-t border-white/10 rounded-t-[32px] max-h-[85vh] flex flex-col pointer-events-auto">
+            <div class="w-12 h-1 bg-white/10 rounded-full mx-auto my-4 shrink-0"></div>
+            
+            <div class="px-6 pb-4 flex items-center justify-between shrink-0">
+                <h3 class="text-xl font-bold">Корзина</h3>
+                <button onclick="window.toggleCart()" class="p-2 opacity-50"><i data-lucide="x"></i></button>
+            </div>
+
+            <div id="cart-items" class="flex-grow overflow-y-auto px-6 py-2 space-y-4">
+                <!-- Cart items here -->
+                <p class="text-center opacity-30 py-10">Корзина пуста</p>
+            </div>
+
+            <div id="cart-footer" class="p-6 glass border-t border-white/10 shrink-0">
+                <div class="flex justify-between mb-4">
+                    <span class="opacity-50">Итого:</span>
+                    <span id="cart-total" class="text-xl font-bold">0 ₽</span>
+                </div>
+                <button onclick="window.startCheckout()" class="w-full bg-primary text-black font-bold py-4 rounded-2xl flex items-center justify-center gap-2">
+                    Оформить заказ
+                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 z-[60] glass hidden items-center justify-center p-4">
+        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-6 flex flex-col gap-4">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-bold">Данные доставки</h3>
+                <button onclick="window.closeCheckout()" class="opacity-50"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="space-y-3" id="checkout-form">
+                <input type="text" id="order-name" placeholder="Имя Фамилия" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
+                <input type="tel" id="order-phone" placeholder="Номер телефона" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
+                <input type="text" id="order-address" placeholder="Адрес / Район" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
+                <div class="flex gap-2">
+                   <select id="order-time" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-primary">
+                       <option value="ASAP">Как можно скорее</option>
+                       <option value="18:00-20:00">18:00 - 20:00</option>
+                       <option value="20:00-22:00">20:00 - 22:00</option>
+                   </select>
+                </div>
+            </div>
+
+            <button onclick="window.proceedToPayment()" class="w-full bg-primary text-black font-bold py-4 rounded-2xl mt-4">
+                Перейти к оплате
+            </button>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="fixed inset-0 z-[70] glass hidden items-center justify-center p-4">
+        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-8 text-center">
+            <div class="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="credit-card" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">Оплата заказа</h3>
+            <p class="text-white/50 text-sm mb-6 leading-relaxed">Переведите сумму заказа на карту Ozon Bank. В комментарии укажите код заказа.</p>
+            
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6 text-left relative group">
+                <p class="text-[10px] uppercase tracking-widest text-white/30 mb-1">Номер карты (Ozon)</p>
+                <p class="text-lg font-mono tracking-wider mb-3">2204 3209 2444 1944</p>
+                <p class="text-[10px] uppercase tracking-widest text-white/30 mb-1">Получатель</p>
+                <p class="text-lg font-medium">Ivan V. R.</p>
+                
+                <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-widest text-white/30">Код заказа</p>
+                        <p id="payment-code" class="text-xl font-bold text-primary">VX-404</p>
+                    </div>
+                    <button onclick="window.copyToClipboard('2204320924441944')" class="p-3 glass rounded-xl active:scale-95 transition-transform">
+                        <i data-lucide="copy" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="window.confirmOrder()" class="w-full bg-primary text-black font-bold py-4 rounded-2xl">
+                Я оплатил (Подтвердить)
+            </button>
+            <button onclick="window.closePayment()" class="w-full py-4 text-white/40 text-sm">Вернуться</button>
+        </div>
+    </div>
+
+    <!-- Admin Add Product Modal -->
+    <div id="add-product-modal" class="fixed inset-0 z-[80] glass hidden items-center justify-center p-4">
+        <div class="bg-black border border-white/10 w-full max-w-md rounded-[32px] p-6">
+            <h3 class="text-xl font-bold mb-6">Новый товар</h3>
+            <div class="space-y-4">
+                <input type="text" id="p-name" placeholder="Название (напр. HQD Cuve)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none">
+                <input type="number" id="p-price" placeholder="Цена (₽)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none">
+                <input type="text" id="p-image" placeholder="Emoji / Иконка" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none">
+                <select id="p-tag" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none">
+                    <option value="Disposable">Одноразка</option>
+                    <option value="Liquid">Жидкость</option>
+                    <option value="Device">Устройство</option>
+                </select>
+                <div class="flex gap-3 pt-4">
+                    <button onclick="window.closeAddProduct()" class="w-full py-4 text-white/50">Отмена</button>
+                    <button onclick="window.saveProduct()" class="w-full bg-primary text-black font-bold py-4 rounded-2xl">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const { useState, useEffect, useMemo, useRef } = React;
-
-        // Безопасная инициализация конфигурации
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            console.error("Config missing");
-        }
-
+        // Firebase Config (Runtime provided)
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-luxury-shop';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
+        const tg = window.Telegram?.WebApp;
 
-        const ADMIN_ID = 1262669099;
+        // Global State
+        window.state = {
+            products: [],
+            cart: [],
+            user: null,
+            isAdmin: false,
+            currentTheme: 'toxic',
+            orderCode: 'VX-000'
+        };
 
-        const THEMES = [
-            { name: 'Toxic Green', color: '#00FF41', glow: 'rgba(0, 255, 65, 0.4)' },
-            { name: 'Ice Blue', color: '#00D1FF', glow: 'rgba(0, 209, 255, 0.4)' },
-            { name: 'Magma Red', color: '#FF3300', glow: 'rgba(255, 51, 0, 0.4)' }
-        ];
+        const ADMIN_DATA = { id: 1262669099, username: "Tru5tNoBody" };
 
-        const SEED_DATA = [
-            { name: "HQD Cuvie Plus", price: 950, emoji: "💎", category: "Одноразки", desc: "1200 затяжек | Насыщенный вкус" },
-            { name: "Elf Bar BC5000", price: 1450, emoji: "🔋", category: "Одноразки", desc: "5000 затяжек | С зарядкой" },
-            { name: "Lost Mary MO5000", price: 1350, emoji: "☁️", category: "Одноразки", desc: "Mesh Coil | 13.5ml Premium" },
-            { name: "Vaporesso XROS 3", price: 3400, emoji: "🛠️", category: "Pod-системы", desc: "Эталон вкуса и надежности" },
-            { name: "Smoant Charon Baby", price: 2100, emoji: "⚡", category: "Pod-системы", desc: "Компактная легенда" },
-            { name: "Maxwells Shoria", price: 800, emoji: "🧪", category: "Жидкости", desc: "Хвоя, мята, лесные ягоды" },
-            { name: "Husky White", price: 650, emoji: "🐺", category: "Жидкости", desc: "Сибирский холод | 20mg" },
-            { name: "Картридж XROS", price: 400, emoji: "📦", category: "Расходники", desc: "0.6 / 0.8 Ohm | 2ml" },
-            { name: "Испаритель PnP", price: 350, emoji: "🔌", category: "Расходники", desc: "VM1 0.3ohm | High Power" },
-            { name: "Waka PA10000", price: 2200, emoji: "🔥", category: "Одноразки", desc: "10000 тяг | Режим Boost" }
-        ];
+        // Safety Exit Loader
+        const loaderTimeout = setTimeout(() => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('app').classList.remove('hidden');
+            }, 500);
+        }, 2500);
 
-        // --- Realistic Premium Vapor Engine ---
-        const initVaporBackground = (color) => {
-            const canvas = document.getElementById('bg-canvas');
-            const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // Theme Management
+        window.nextTheme = () => {
+            tg?.HapticFeedback.selectionChanged();
+            const themes = ['toxic', 'ice', 'magma'];
+            let nextIdx = (themes.indexOf(window.state.currentTheme) + 1) % themes.length;
+            window.state.currentTheme = themes[nextIdx];
+            document.body.className = `theme-${window.state.currentTheme}`;
+        };
 
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 8;
+        // Admin Logic
+        const checkAdmin = (userData) => {
+            if (!userData) return false;
+            return userData.id === ADMIN_DATA.id || userData.username === ADMIN_DATA.username;
+        };
 
-            // Создаем мягкую текстуру пара
-            const createVaporTexture = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 128;
-                canvas.height = 128;
-                const ctx = canvas.getContext('2d');
-                const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-                gradient.addColorStop(0, 'rgba(255,255,255,0.2)');
-                gradient.addColorStop(1, 'rgba(255,255,255,0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, 128, 128);
-                return new THREE.CanvasTexture(canvas);
-            };
+        const recursiveAdminCheck = () => {
+            const userData = tg?.initDataUnsafe?.user;
+            if (checkAdmin(userData)) {
+                window.state.isAdmin = true;
+                document.getElementById('admin-controls').classList.remove('hidden');
+                document.getElementById('admin-status').innerText = 'ADMIN MODE';
+                document.getElementById('admin-status').classList.add('text-primary');
+                renderProducts(); // Refresh to show delete buttons
+            }
+        };
 
-            const smokeTexture = createVaporTexture();
-            const smokeParticles = [];
-            const smokeCount = 35;
-
-            for (let i = 0; i < smokeCount; i++) {
-                const material = new THREE.SpriteMaterial({
-                    map: smokeTexture,
-                    color: new THREE.Color(color),
-                    transparent: true,
-                    opacity: 0.1,
-                    blending: THREE.AdditiveBlending
+        // Auth
+        const initAuth = async () => {
+            try {
+                await signInAnonymously(auth);
+                onAuthStateChanged(auth, (user) => {
+                    window.state.user = user;
+                    if (user) {
+                        initDataStore();
+                    }
                 });
-                const sprite = new THREE.Sprite(material);
-                sprite.position.set(
-                    (Math.random() - 0.5) * 15,
-                    (Math.random() - 0.5) * 15,
-                    (Math.random() - 0.5) * 10
-                );
-                sprite.scale.set(5, 5, 1);
-                sprite.userData = {
-                    vx: (Math.random() - 0.5) * 0.005,
-                    vy: (Math.random() - 0.5) * 0.005,
-                    rotation: (Math.random() - 0.5) * 0.01
-                };
-                scene.add(sprite);
-                smokeParticles.push(sprite);
+            } catch (error) {
+                console.error("Auth failed", error);
+            }
+        };
+
+        // Firestore
+        const initDataStore = () => {
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            onSnapshot(q, (snapshot) => {
+                const products = [];
+                snapshot.forEach((doc) => products.push({ id: doc.id, ...doc.data() }));
+                window.state.products = products;
+                
+                if (products.length === 0 && window.state.isAdmin) {
+                    seedDatabase();
+                }
+                renderProducts();
+            }, (error) => console.error("Firestore error", error));
+        };
+
+        const seedDatabase = async () => {
+            const starters = [
+                { name: "HQD Cuve Plus", price: 1200, icon: "💨", tag: "Disposable" },
+                { name: "Elf Bar BC5000", price: 1450, icon: "🔋", tag: "Disposable" },
+                { name: "Lost Mary OS5000", price: 1500, icon: "🍓", tag: "Disposable" },
+                { name: "Vaporesso XROS 3", price: 2800, icon: "⚡", tag: "Device" },
+                { name: "Brusko Salt Liquid", price: 450, icon: "💧", tag: "Liquid" },
+                { name: "Geekvape Aegis L200", price: 5400, icon: "🛠️", tag: "Device" },
+                { name: "HQD Titan", price: 1800, icon: "🌪️", tag: "Disposable" },
+                { name: "Waka SoPro 10k", price: 2100, icon: "🍇", tag: "Disposable" },
+                { name: "Maxwell's Shoria", price: 650, icon: "🌲", tag: "Liquid" },
+                { name: "Voopoo Drag S", price: 3200, icon: "🔥", tag: "Device" },
+                { name: "Gang Force 10000", price: 1900, icon: "👽", tag: "Disposable" }
+            ];
+
+            const coll = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            for (const item of starters) {
+                await addDoc(coll, item);
+            }
+        };
+
+        // UI Rendering
+        const renderProducts = () => {
+            const grid = document.getElementById('products-grid');
+            if (window.state.products.length === 0) {
+                grid.innerHTML = '<div class="col-span-2 text-center py-20 opacity-30">Нет товаров в наличии</div>';
+                return;
             }
 
-            const light = new THREE.PointLight(color, 1.5, 20);
-            light.position.set(0, 0, 5);
-            scene.add(light);
+            grid.innerHTML = window.state.products.map(p => `
+                <div class="product-card glass p-4 rounded-[28px] relative overflow-hidden group">
+                    ${window.state.isAdmin ? `
+                        <button onclick="window.deleteProduct('${p.id}')" class="absolute top-2 right-2 p-2 bg-red-500/20 text-red-500 rounded-lg z-20">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    ` : ''}
+                    <div class="product-info">
+                        <div class="w-full aspect-square bg-white/5 rounded-2xl flex items-center justify-center text-5xl mb-4 group-hover:scale-110 transition-transform duration-500">
+                            ${p.icon || '💨'}
+                        </div>
+                        <span class="text-[10px] uppercase tracking-widest text-primary font-bold mb-1 block">${p.tag || 'NEW'}</span>
+                        <h3 class="font-bold text-sm leading-tight mb-2">${p.name}</h3>
+                    </div>
+                    <div class="mt-2 flex items-center justify-between">
+                        <span class="font-bold text-lg">${p.price} ₽</span>
+                        <button onclick="window.addToCart('${p.id}')" class="bg-primary text-black p-2.5 rounded-xl active:scale-90 transition-transform">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        };
 
-            const animate = () => {
-                requestAnimationFrame(animate);
-                smokeParticles.forEach(s => {
-                    s.position.x += s.userData.vx;
-                    s.position.y += s.userData.vy;
-                    if (Math.abs(s.position.x) > 10) s.userData.vx *= -1;
-                    if (Math.abs(s.position.y) > 10) s.userData.vy *= -1;
-                    s.material.rotation += s.userData.rotation;
+        // Shopping Cart
+        window.addToCart = (id) => {
+            tg?.HapticFeedback.notificationOccurred('success');
+            const product = window.state.products.find(p => p.id === id);
+            const inCart = window.state.cart.find(item => item.id === id);
+            
+            if (inCart) {
+                inCart.qty++;
+            } else {
+                window.state.cart.push({ ...product, qty: 1 });
+            }
+            updateCartUI();
+        };
+
+        window.updateQty = (id, delta) => {
+            const item = window.state.cart.find(i => i.id === id);
+            if (item) {
+                item.qty += delta;
+                if (item.qty <= 0) {
+                    window.state.cart = window.state.cart.filter(i => i.id !== id);
+                }
+                updateCartUI();
+            }
+        };
+
+        const updateCartUI = () => {
+            const badge = document.getElementById('cart-badge');
+            const totalCount = window.state.cart.reduce((sum, i) => sum + i.qty, 0);
+            
+            if (totalCount > 0) {
+                badge.innerText = totalCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            const itemsContainer = document.getElementById('cart-items');
+            if (window.state.cart.length === 0) {
+                itemsContainer.innerHTML = '<p class="text-center opacity-30 py-10">Корзина пуста</p>';
+            } else {
+                itemsContainer.innerHTML = window.state.cart.map(item => `
+                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
+                        <div class="w-12 h-12 glass rounded-xl flex items-center justify-center text-xl">${item.icon}</div>
+                        <div class="flex-grow">
+                            <h4 class="text-sm font-bold">${item.name}</h4>
+                            <p class="text-xs opacity-50">${item.price} ₽</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.updateQty('${item.id}', -1)" class="w-8 h-8 glass rounded-lg flex items-center justify-center">-</button>
+                            <span class="text-sm font-bold">${item.qty}</span>
+                            <button onclick="window.updateQty('${item.id}', 1)" class="w-8 h-8 glass rounded-lg flex items-center justify-center">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const totalAmount = window.state.cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            document.getElementById('cart-total').innerText = `${totalAmount} ₽`;
+            lucide.createIcons();
+        };
+
+        window.toggleCart = () => {
+            tg?.HapticFeedback.impactOccurred('medium');
+            const sheet = document.getElementById('cart-sheet');
+            const overlay = document.getElementById('cart-overlay');
+            const content = sheet.querySelector('.bottom-sheet');
+            
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    sheet.classList.add('pointer-events-none');
+                    overlay.classList.add('pointer-events-none');
+                }, 300);
+            } else {
+                sheet.classList.remove('pointer-events-none');
+                overlay.classList.remove('pointer-events-none');
+                overlay.classList.remove('opacity-0');
+                content.classList.add('active');
+            }
+        };
+
+        // Checkout & Payment
+        window.startCheckout = () => {
+            if (window.state.cart.length === 0) return;
+            window.toggleCart();
+            document.getElementById('checkout-modal').classList.remove('hidden');
+            document.getElementById('checkout-modal').classList.add('flex');
+        };
+
+        window.closeCheckout = () => {
+            document.getElementById('checkout-modal').classList.add('hidden');
+        };
+
+        window.proceedToPayment = () => {
+            const name = document.getElementById('order-name').value;
+            const phone = document.getElementById('order-phone').value;
+            const address = document.getElementById('order-address').value;
+            
+            if (!name || !phone || !address) {
+                tg?.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+
+            window.state.orderCode = `VX-${Math.floor(100 + Math.random() * 899)}`;
+            document.getElementById('payment-code').innerText = window.state.orderCode;
+            document.getElementById('checkout-modal').classList.add('hidden');
+            document.getElementById('payment-modal').classList.remove('hidden');
+            document.getElementById('payment-modal').classList.add('flex');
+        };
+
+        window.confirmOrder = () => {
+            tg?.HapticFeedback.notificationOccurred('success');
+            const order = {
+                code: window.state.orderCode,
+                items: window.state.cart,
+                total: document.getElementById('cart-total').innerText,
+                customer: {
+                    name: document.getElementById('order-name').value,
+                    phone: document.getElementById('order-phone').value,
+                    address: document.getElementById('order-address').value,
+                    time: document.getElementById('order-time').value,
+                    username: tg?.initDataUnsafe?.user?.username || 'N/A'
+                }
+            };
+            
+            tg?.sendData(JSON.stringify(order));
+            tg?.close();
+        };
+
+        window.closePayment = () => {
+            document.getElementById('payment-modal').classList.add('hidden');
+        };
+
+        window.copyToClipboard = (text) => {
+            const el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            tg?.HapticFeedback.impactOccurred('light');
+        };
+
+        // Admin Actions
+        window.deleteProduct = async (id) => {
+            if (!confirm('Удалить товар?')) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                tg?.HapticFeedback.notificationOccurred('warning');
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        window.showAddProduct = () => {
+            document.getElementById('add-product-modal').classList.remove('hidden');
+            document.getElementById('add-product-modal').classList.add('flex');
+        };
+
+        window.closeAddProduct = () => {
+            document.getElementById('add-product-modal').classList.add('hidden');
+        };
+
+        window.saveProduct = async () => {
+            const name = document.getElementById('p-name').value;
+            const price = parseInt(document.getElementById('p-price').value);
+            const icon = document.getElementById('p-image').value;
+            const tag = document.getElementById('p-tag').value;
+
+            if (!name || isNaN(price)) return;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
+                    name, price, icon, tag
                 });
-                renderer.render(scene, camera);
-            };
-            animate();
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            return { smokeParticles, light };
+                window.closeAddProduct();
+                tg?.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                console.error(e);
+            }
         };
 
-        const App = () => {
-            const [user, setUser] = useState(null);
-            const [products, setProducts] = useState(SEED_DATA);
-            const [cart, setCart] = useState({});
-            const [activeCategory, setActiveCategory] = useState("Все");
-            const [themeIndex, setThemeIndex] = useState(0);
-            const [isAdmin, setIsAdmin] = useState(false);
-            const [isCartOpen, setIsCartOpen] = useState(false);
-            const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-            const engineRef = useRef(null);
-            const tg = window.Telegram?.WebApp;
+        // App Initialization
+        window.onload = () => {
+            tg?.ready();
+            tg?.expand();
+            
+            initAuth();
+            
+            // Recursive Admin Check
+            recursiveAdminCheck();
+            setTimeout(recursiveAdminCheck, 500);
+            setTimeout(recursiveAdminCheck, 2000);
 
-            useEffect(() => {
-                engineRef.current = initVaporBackground(THEMES[0].color);
-                
-                // ГАРАНТИРОВАННОЕ УДАЛЕНИЕ ЛОАДЕРА (1.5 сек максимум)
-                const loaderTimer = setTimeout(() => {
-                    const ldr = document.getElementById('initial-loader');
-                    if (ldr) {
-                        ldr.style.opacity = '0';
-                        setTimeout(() => ldr.remove(), 600);
-                    }
-                }, 1500);
-
-                if (tg) {
-                    tg.expand();
-                    tg.ready();
-                    tg.backgroundColor = "#000000";
-                    tg.headerColor = "#000000";
-                    if (tg.initDataUnsafe?.user?.id === ADMIN_ID) setIsAdmin(true);
-                }
-
-                // Rule 3: Firebase Auth
-                const authInit = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (e) { console.error("Auth Fail", e); }
-                };
-                authInit();
-                onAuthStateChanged(auth, setUser);
-
-                return () => clearTimeout(loaderTimer);
-            }, []);
-
-            useEffect(() => {
-                if (!user) return;
-                const q = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-                return onSnapshot(q, (snapshot) => {
-                    if (!snapshot.empty) {
-                        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                    } else if (isAdmin) {
-                        SEED_DATA.forEach(item => addDoc(q, item));
-                    }
-                }, (err) => console.error("Firestore Fail", err));
-            }, [user, isAdmin]);
-
-            useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
-
-            const categories = ["Все", "Одноразки", "Жидкости", "Pod-системы", "Расходники"];
-            const filteredProducts = products.filter(p => activeCategory === "Все" || p.category === activeCategory);
-
-            const toggleTheme = () => {
-                const next = (themeIndex + 1) % THEMES.length;
-                setThemeIndex(next);
-                const theme = THEMES[next];
-                document.documentElement.style.setProperty('--primary', theme.color);
-                document.documentElement.style.setProperty('--primary-glow', theme.glow);
-                if (engineRef.current) {
-                    engineRef.current.smokeParticles.forEach(p => p.material.color.set(theme.color));
-                    engineRef.current.light.color.set(theme.color);
-                }
-                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            };
-
-            const totalAmount = Object.entries(cart).reduce((sum, [id, qty]) => {
-                const p = products.find(x => x.id === id || x.name === id);
-                return sum + (p ? p.price * qty : 0);
-            }, 0);
-
-            const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
-
-            return React.createElement('div', { className: 'p-5 pb-36 max-w-xl mx-auto min-h-screen' },
-                // Header
-                React.createElement('header', { className: 'flex justify-between items-center mb-10 sticky top-0 z-50 py-4 bg-black/40 backdrop-blur-xl -mx-5 px-5' },
-                    React.createElement('div', null,
-                        React.createElement('h1', { className: 'text-2xl font-black italic primary-glow-text tracking-tighter' }, 'PREMIUM STORE'),
-                        React.createElement('div', { className: 'flex items-center gap-2 mt-0.5' },
-                            React.createElement('div', { className: `w-1 h-1 rounded-full ${isAdmin ? 'primary-bg animate-pulse' : 'bg-white/20'}` }),
-                            React.createElement('span', { className: 'text-[9px] uppercase tracking-[0.4em] font-bold opacity-30' }, isAdmin ? 'Admin Mode' : 'Authentic Catalog')
-                        )
-                    ),
-                    React.createElement('div', { className: 'flex gap-3' },
-                        isAdmin && React.createElement('button', { 
-                            onClick: () => {
-                                const name = prompt("Название:");
-                                const cat = prompt("Категория:");
-                                if(name && cat) addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
-                                    name, price: 1000, emoji: "🆕", category: cat, desc: "Добавлено владельцем"
-                                });
-                            },
-                            className: 'w-10 h-10 vape-card flex items-center justify-center btn-press' 
-                        }, React.createElement('i', { 'data-lucide': 'plus', className: 'w-5 h-5 primary-text' })),
-                        React.createElement('button', { onClick: toggleTheme, className: 'w-10 h-10 vape-card flex items-center justify-center btn-press' },
-                            React.createElement('i', { 'data-lucide': 'palette', className: 'w-5 h-5' }))
-                    )
-                ),
-
-                // Categories
-                React.createElement('div', { className: 'category-scroll flex gap-8 overflow-x-auto mb-10 pb-4 border-b border-white/5' },
-                    categories.map(cat => React.createElement('button', {
-                        key: cat,
-                        onClick: () => { setActiveCategory(cat); if(tg?.HapticFeedback) tg.HapticFeedback.selectionChanged(); },
-                        className: `cat-btn text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap ${activeCategory === cat ? 'active' : 'opacity-25'}`
-                    }, cat))
-                ),
-
-                // Grid
-                React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                    filteredProducts.map(p => React.createElement('div', { 
-                        key: p.id || p.name,
-                        className: 'vape-card p-5'
-                    },
-                        isAdmin && React.createElement('button', {
-                            onClick: () => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', p.id)),
-                            className: 'absolute top-3 right-3 p-1.5 bg-red-500/10 text-red-500 rounded-full z-10'
-                        }, React.createElement('i', { 'data-lucide': 'trash', className: 'w-3 h-3' })),
-
-                        React.createElement('div', { className: 'text-5xl mb-5 text-center' }, p.emoji),
-                        
-                        React.createElement('div', { className: 'card-body' },
-                            React.createElement('div', { className: 'text-[8px] uppercase tracking-widest primary-text font-black mb-1.5' }, p.category),
-                            React.createElement('h3', { className: 'font-bold text-xs leading-tight mb-2' }, p.name),
-                            React.createElement('p', { className: 'text-[9px] opacity-40 leading-snug mb-4' }, p.desc)
-                        ),
-
-                        React.createElement('div', { className: 'mt-auto' },
-                            React.createElement('div', { className: 'text-base font-black mb-3 primary-glow-text' }, `${p.price} ₽`),
-                            React.createElement('button', {
-                                onClick: () => {
-                                    setCart(prev => ({ ...prev, [p.id || p.name]: (prev[p.id || p.name] || 0) + 1 }));
-                                    if(tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-                                },
-                                className: 'w-full py-3.5 primary-bg text-black text-[10px] font-bold uppercase rounded-2xl btn-press primary-shadow'
-                            }, 'Купить')
-                        )
-                    ))
-                ),
-
-                // Floating Cart FAB
-                cartCount > 0 && React.createElement('div', { className: 'fixed bottom-10 left-6 right-6 z-[60]' },
-                    React.createElement('button', {
-                        onClick: () => setIsCartOpen(true),
-                        className: 'w-full py-5 primary-bg text-black rounded-[28px] flex justify-between px-10 items-center shadow-2xl btn-press'
-                    },
-                        React.createElement('div', { className: 'flex gap-4 items-center' },
-                            React.createElement('i', { 'data-lucide': 'shopping-bag', className: 'w-5 h-5' }),
-                            React.createElement('span', { className: 'font-black uppercase tracking-widest text-sm' }, 'Корзина')
-                        ),
-                        React.createElement('div', { className: 'font-black text-xl tracking-tighter' }, `${totalAmount} ₽`)
-                    )
-                ),
-
-                // Cart Sheet
-                React.createElement('div', { 
-                    className: `fixed inset-0 bg-black/90 z-[100] transition-opacity duration-500 ${isCartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}` ,
-                    onClick: () => setIsCartOpen(false)
-                },
-                    React.createElement('div', { 
-                        className: `fixed bottom-0 left-0 right-0 vape-card rounded-t-[50px] p-10 max-h-[85vh] overflow-y-auto z-[101] bottom-sheet ${isCartOpen ? 'open' : ''}`,
-                        onClick: e => e.stopPropagation()
-                    },
-                        React.createElement('div', { className: 'w-16 h-1 bg-white/10 rounded-full mx-auto mb-10' }),
-                        React.createElement('h2', { className: 'text-3xl font-black italic mb-8' }, 'КОРЗИНА'),
-                        
-                        React.createElement('div', { className: 'space-y-4 mb-12' },
-                            Object.entries(cart).map(([id, qty]) => {
-                                const p = products.find(x => x.id === id || x.name === id);
-                                if (!p) return null;
-                                return React.createElement('div', { key: id, className: 'flex items-center justify-between bg-white/[0.03] p-5 rounded-3xl border border-white/5' },
-                                    React.createElement('div', null,
-                                        React.createElement('div', { className: 'text-sm font-bold' }, p.name),
-                                        React.createElement('div', { className: 'text-xs primary-text font-black mt-1' }, `${p.price * qty} ₽`)
-                                    ),
-                                    React.createElement('div', { className: 'flex items-center gap-5 bg-black/20 p-1.5 rounded-2xl' },
-                                        React.createElement('button', { onClick: () => setCart(prev => { const n={...prev}; if(n[id]>1) n[id]--; else delete n[id]; return n; }), className: 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center font-bold' }, '-'),
-                                        React.createElement('span', { className: 'font-black text-sm' }, qty),
-                                        React.createElement('button', { onClick: () => setCart(prev => ({...prev, [id]: prev[id]+1})), className: 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center font-bold' }, '+')
-                                    )
-                                );
-                            })
-                        ),
-
-                        React.createElement('button', {
-                            onClick: () => { setIsCartOpen(false); setIsCheckoutOpen(true); },
-                            className: 'w-full py-5 primary-bg text-black font-black uppercase rounded-[24px] shadow-xl shadow-green-500/10'
-                        }, 'Оформить заказ')
-                    )
-                ),
-
-                // Checkout Modal
-                isCheckoutOpen && React.createElement('div', { className: 'fixed inset-0 bg-black z-[200] p-10 fade-in overflow-y-auto' },
-                    React.createElement('button', { onClick: () => setIsCheckoutOpen(false), className: 'mb-12 opacity-30 text-[10px] font-black uppercase tracking-widest' }, '← Магазин'),
-                    React.createElement('h2', { className: 'text-4xl font-black italic mb-6 primary-glow-text' }, 'ОПЛАТА'),
-                    React.createElement('div', { className: 'vape-card p-10 rounded-[44px] mb-8' },
-                        React.createElement('div', { className: 'text-[10px] opacity-40 uppercase tracking-[0.3em] mb-4' }, 'Сумма к переводу'),
-                        React.createElement('div', { className: 'text-6xl font-black primary-text mb-12 tracking-tighter' }, `${totalAmount} ₽`),
-                        
-                        React.createElement('div', { className: 'space-y-6' },
-                            React.createElement('div', { className: 'p-6 bg-white/[0.03] rounded-[32px] border border-white/5' },
-                                React.createElement('div', { className: 'text-[10px] opacity-30 uppercase mb-4 font-bold' }, 'Ozon Банк Реквизиты'),
-                                React.createElement('div', { className: 'font-mono text-xl tracking-wider mb-1' }, '2204 3209 2444 1944'),
-                                React.createElement('div', { className: 'text-[10px] font-bold opacity-60 uppercase' }, 'Иван Владимирович Р.')
-                            ),
-                            React.createElement('div', { className: 'p-6 primary-bg/5 rounded-[32px] border border-dashed primary-border' },
-                                React.createElement('div', { className: 'text-[10px] primary-text uppercase mb-2 font-black' }, 'Важный комментарий:'),
-                                React.createElement('div', { className: 'text-4xl font-black tracking-widest' }, `VX-${Math.floor(1000 + Math.random() * 9000)}`)
-                            )
-                        )
-                    ),
-                    React.createElement('button', {
-                        onClick: () => {
-                            if(tg) tg.sendData(JSON.stringify({paid: true, amount: totalAmount}));
-                            setCart({}); setIsCheckoutOpen(false);
-                        },
-                        className: 'w-full py-6 primary-bg text-black font-black uppercase rounded-[32px] primary-shadow'
-                    }, 'Оплата совершена')
-                )
-            );
+            lucide.createIcons();
         };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
     </script>
 </body>
 </html>
