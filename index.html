@@ -1038,26 +1038,32 @@
 
             // --- USER: RENDER MY ORDERS (FIXED) ---
             renderMyOrders: (container) => {
+                // UI Setup
                 container.innerHTML = `
                     <div class="flex items-center gap-3 mb-6">
                         <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                         <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка данных...</div>
                     </div>
                 `;
                 if(window.lucide) window.lucide.createIcons();
 
+                // Clear previous listener
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
+                    window.shop.state.myOrdersListenerUnsubscribe = null;
                 }
 
-                const setupListener = (uid) => {
+                const list = document.getElementById('my-orders-list');
+
+                // Function to load data
+                const loadOrders = (uid) => {
+                    console.log("Loading orders for:", uid);
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
-                            const list = document.getElementById('my-orders-list');
-                            if (!list) return;
+                            if (!document.getElementById('my-orders-list')) return;
 
                             if (snapshot.empty) {
                                 list.innerHTML = `
@@ -1109,38 +1115,36 @@
                             if(window.lucide) window.lucide.createIcons();
                         }, (error) => {
                             console.error("My Orders Error:", error);
-                            const list = document.getElementById('my-orders-list');
-                            if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
+                            // Only show error if permission denied (real error) or network fails definitively
+                            // Ignore transient errors if retry works
+                            if(error.code === 'permission-denied') {
+                                list.innerHTML = `<div class="text-center text-red-500 py-10">Доступ запрещен.<br>Попробуйте перезагрузить.</div>`;
+                            } else {
+                                list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка загрузки.<br>Проверьте интернет.</div>`;
+                            }
                         });
                 };
 
-                // Logic to wait for Auth properly
+                // Authentication Flow
                 if (auth.currentUser) {
-                    setupListener(auth.currentUser.uid);
+                    loadOrders(auth.currentUser.uid);
                 } else {
-                    let authTimeout;
-                    
-                    const unsub = auth.onAuthStateChanged(user => {
+                    // Try to catch auth state change first
+                    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+                        unsubscribeAuth(); // Run once
                         if (user) {
-                            unsub();
-                            if(authTimeout) clearTimeout(authTimeout); // Cancel the fallback
-                            setupListener(user.uid);
+                            loadOrders(user.uid);
+                        } else {
+                            // If still no user, force sign in immediately
+                            console.log("Force signing in anonymously...");
+                            auth.signInAnonymously()
+                                .then(cred => loadOrders(cred.user.uid))
+                                .catch(e => {
+                                    console.error("Auth failed:", e);
+                                    list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось войти.<br>Повторите попытку.</div>`;
+                                });
                         }
                     });
-                    
-                    // Fallback after 6 seconds (increased to avoid premature timeout)
-                    authTimeout = setTimeout(() => {
-                        if (!auth.currentUser) {
-                            console.log("Auth timeout, forcing anonymous sign-in...");
-                            auth.signInAnonymously()
-                            .then(cred => setupListener(cred.user.uid))
-                            .catch(e => {
-                                console.error("Force auth failed", e);
-                                const list = document.getElementById('my-orders-list');
-                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка соединения.<br>Попробуйте позже.</div>`;
-                            });
-                        }
-                    }, 6000);
                 }
             },
 
