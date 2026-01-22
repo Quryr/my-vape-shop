@@ -249,7 +249,7 @@
         // --- CORE FUNCTIONS ---
 
         async function initApp() {
-            // Принудительный таймер безопасности (сработает даже если Firebase упадет)
+            // Принудительный таймер безопасности
             setTimeout(hideLoading, 3500);
 
             try {
@@ -264,7 +264,6 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
-                // Auth Logic (Rule 3)
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -276,35 +275,44 @@
                     if (user) {
                         checkAdmin();
                         startListeners();
-                        // Скрываем загрузку сразу после успешной авторизации
                         hideLoading();
                     }
                 });
             } catch (err) {
                 console.error("Init Error:", err);
                 showNotification("Ошибка загрузки", "error");
-                hideLoading(); // Скрываем в случае критической ошибки
+                hideLoading();
             }
         }
 
         function checkAdmin() {
-            const userId = tg.initDataUnsafe?.user?.id?.toString();
-            const username = tg.initDataUnsafe?.user?.username;
-            
+            // Переменная verify вынесена так, чтобы она заново запрашивала ID из SDK при каждом вызове
             const verify = () => {
+                const userId = tg.initDataUnsafe?.user?.id?.toString();
+                const username = tg.initDataUnsafe?.user?.username;
+
+                console.log("Checking Admin. ID:", userId, "Username:", username);
+
                 if (userId === ADMIN_ID || username === ADMIN_USERNAME) {
                     isAdmin = true;
-                    document.getElementById('admin-controls').classList.remove('hidden');
-                    document.getElementById('auth-status').innerText = 'ADMIN MODE';
-                    document.getElementById('auth-status').classList.remove('opacity-50');
-                    document.getElementById('auth-status').classList.add('accent-text', 'font-bold');
+                    const controls = document.getElementById('admin-controls');
+                    const status = document.getElementById('auth-status');
+                    
+                    if (controls) controls.classList.remove('hidden');
+                    if (status) {
+                        status.innerText = 'ADMIN MODE';
+                        status.classList.remove('opacity-50');
+                        status.classList.add('accent-text', 'font-bold');
+                    }
                     renderProducts(); 
                 }
             };
 
+            // Запускаем проверку несколько раз, так как initData может подгружаться с задержкой
             verify();
             setTimeout(verify, 500);
-            setTimeout(verify, 2000);
+            setTimeout(verify, 1500);
+            setTimeout(verify, 3000);
         }
 
         function startListeners() {
