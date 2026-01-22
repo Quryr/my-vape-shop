@@ -443,7 +443,6 @@
         // 2. FIREBASE & APP ID SETUP
         // ---------------------------------------------------------
         
-        // ВАЖНО: Твои данные Firebase
         const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyDCXGwD1a3dJ73JJ2TxShZack-KLCteABI",
             authDomain: "vape-store-60093.firebaseapp.com",
@@ -1144,25 +1143,66 @@
                 });
             },
 
+            // --- MAIN LOGIC FOR BOT INTEGRATION ---
             completeOrder: async () => {
-                const order = {
+                // 1. Prepare raw data for Database backup
+                const rawOrder = {
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: new Date().toISOString(),
                     user: window.shop.state.user,
-                    delivery: window.shop.state.deliveryInfo // Add delivery info to order
+                    delivery: window.shop.state.deliveryInfo 
                 };
 
+                // 2. Save to Firestore (Backup)
                 try {
                     const uid = auth.currentUser.uid;
                      if (window.shop.state.user.id !== 999999 && uid) {
-                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(order);
+                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(rawOrder);
                      }
                 } catch(e) {}
 
-                window.Telegram.WebApp.sendData(JSON.stringify(order));
+                // 3. TRANSFORM DATA FOR PYTHON BOT
+                // The bot expects strings, not objects, for the message display
                 
+                // 3.1 Convert Cart IDs to Readable String
+                let itemsString = [];
+                const cartIds = Object.keys(window.shop.state.cart);
+                const products = window.shop.state.products;
+
+                cartIds.forEach(id => {
+                    const product = products.find(p => p.id === id);
+                    if (product) {
+                        const qty = window.shop.state.cart[id];
+                        itemsString.push(`${product.name} (x${qty})`);
+                    }
+                });
+                const formattedItems = itemsString.join(', ');
+
+                // 3.2 Format Date
+                const now = new Date();
+                const formattedDate = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
+
+                // 3.3 Construct Payload matching Python keys
+                const botPayload = {
+                    order_key: window.shop.state.currentOrderId,
+                    items: formattedItems,
+                    total: window.shop.state.currentTotal + ' ₽',
+                    client: {
+                        name: window.shop.state.deliveryInfo.name,
+                        phone: window.shop.state.deliveryInfo.phone,
+                        username_or_contact: window.shop.state.deliveryInfo.contact, // Matches python key
+                        place: window.shop.state.deliveryInfo.place,
+                        time: window.shop.state.deliveryInfo.time
+                    },
+                    timestamp: formattedDate
+                };
+
+                // 4. Send to Telegram
+                window.Telegram.WebApp.sendData(JSON.stringify(botPayload));
+                
+                // UI Cleanup
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
