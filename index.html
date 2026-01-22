@@ -1036,7 +1036,7 @@
                 `;
             },
 
-            // --- USER: RENDER MY ORDERS ---
+            // --- USER: RENDER MY ORDERS (FIXED) ---
             renderMyOrders: (container) => {
                 container.innerHTML = `
                     <div class="flex items-center gap-3 mb-6">
@@ -1047,12 +1047,12 @@
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
                     </div>
                 `;
+                if(window.lucide) window.lucide.createIcons();
 
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
                 }
 
-                // Function to set up listener
                 const setupListener = (uid) => {
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
@@ -1065,22 +1065,19 @@
                                         <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
                                         <p>История пуста</p>
                                     </div>`;
+                                if(window.lucide) window.lucide.createIcons();
                                 return;
                             }
 
                             let docs = [];
                             snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
-                            
-                            // Client-side Sort
                             docs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                             let html = '';
                             docs.forEach(data => {
                                 const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
-                                
                                 let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
                                 let statusText = 'ОБРАБОТКА';
-                                
                                 if (data.status === 'approved') {
                                     statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
                                     statusText = 'ГОТОВ К ВЫДАЧЕ';
@@ -1088,14 +1085,13 @@
                                     statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
                                     statusText = 'ОТМЕНЕН';
                                 }
-
                                 const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
 
                                 html += `
                                     <div class="glass-panel rounded-xl p-4 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                         <div class="flex justify-between items-start mb-2">
                                             <div class="flex flex-col">
-                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
+                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substr(0,8)}</span>
                                                 <span class="text-xs text-gray-400">${itemsCount} товаров</span>
                                             </div>
                                             <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
@@ -1110,6 +1106,7 @@
                                 `;
                             });
                             list.innerHTML = html;
+                            if(window.lucide) window.lucide.createIcons();
                         }, (error) => {
                             console.error("My Orders Error:", error);
                             const list = document.getElementById('my-orders-list');
@@ -1117,29 +1114,28 @@
                         });
                 };
 
-                const handleAuth = (user) => {
-                    if (user) {
-                        setupListener(user.uid);
-                    } else {
-                        // Attempt auto-recovery
-                        console.log("Auto-authenticating user...");
-                        auth.signInAnonymously()
+                // Logic to wait for Auth properly
+                if (auth.currentUser) {
+                    setupListener(auth.currentUser.uid);
+                } else {
+                    const unsub = auth.onAuthStateChanged(user => {
+                        if (user) {
+                            unsub();
+                            setupListener(user.uid);
+                        }
+                    });
+                    
+                    // Fallback after 2 seconds if auth is still null
+                    setTimeout(() => {
+                        if (!auth.currentUser) {
+                            auth.signInAnonymously()
                             .then(cred => setupListener(cred.user.uid))
                             .catch(e => {
                                 const list = document.getElementById('my-orders-list');
-                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Обновите страницу.</div>`;
+                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации.<br>Обновите страницу.</div>`;
                             });
-                    }
-                };
-
-                // Auth Logic
-                if (auth.currentUser) {
-                    handleAuth(auth.currentUser);
-                } else {
-                    const unsub = auth.onAuthStateChanged(user => {
-                        unsub();
-                        handleAuth(user);
-                    });
+                        }
+                    }, 2000);
                 }
             },
 
@@ -1589,7 +1585,7 @@
                     };
                     
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
-                     
+                      
                 } catch(e) { 
                     console.error("DB Error", e); 
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
