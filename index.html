@@ -202,7 +202,7 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYNC SERVER...</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYNC DATABASE...</div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -566,7 +566,7 @@
                 }
 
                 window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
-                    .orderBy('createdAt', 'desc') // Ensure consistent order
+                    // .orderBy('createdAt', 'desc') // REMOVED ORDERBY to allow client-side sort and prevent index errors
                     .onSnapshot(async (snapshot) => {
                         // AUTO-SEEDING: If DB is empty, fill it with mocks so users see items
                         if (snapshot.empty) {
@@ -575,9 +575,16 @@
                             return; // Listener will fire again after seed
                         }
 
-                        const dbProducts = [];
+                        let dbProducts = [];
                         snapshot.forEach(doc => {
                             dbProducts.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // --- CLIENT SIDE SORTING (Fixed "Random Order") ---
+                        dbProducts.sort((a, b) => {
+                            const dateA = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime()) : 0;
+                            const dateB = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime()) : 0;
+                            return dateB - dateA; // Newest first
                         });
                         
                         console.log("Realtime Update Received:", dbProducts.length);
@@ -864,7 +871,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 8.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 9.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
@@ -964,6 +971,7 @@
                     // Listener will pick it up and render
                 } catch (e) {
                     console.error("Save failed (Using Offline)", e);
+                    window.shop.showToast("Ошибка сохранения", "Сбой");
                 }
             },
 
@@ -976,8 +984,14 @@
                     // GLOBAL SYNC: Delete from Firestore so OTHERS see it gone
                     if (!id.startsWith('temp-') && !id.startsWith('m')) {
                         await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
+                    } else {
+                        // This handles failed writes or old mocks that somehow persisted
+                        window.shop.showToast("Нельзя удалить (Фейк)", "Ошибка");
                     }
-                } catch (e) { console.error("Delete failed", e); }
+                } catch (e) { 
+                    console.error("Delete failed", e); 
+                    window.shop.showToast("Ошибка удаления", "Сбой");
+                }
             },
 
             initCheckout: (total) => {
