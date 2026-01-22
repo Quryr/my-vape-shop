@@ -269,6 +269,8 @@
                         <option value="Поды">Поды</option>
                         <option value="Одноразки">Одноразки</option>
                         <option value="Жидкости">Жидкости</option>
+                        <option value="Картриджи">Картриджи</option>
+                        <option value="Электроника">Электроника</option>
                     </select>
                 </div>
                 <button onclick="window.shop.addProduct()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-2 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
@@ -521,41 +523,53 @@
                 await window.shop.fetchProducts();
             },
 
-            // Hybrid Fetch: Firestore -> Fallback to Mock -> Persistence
+            // Hybrid Fetch: Persistence FIRST -> Then DB Override (Stale-While-Revalidate)
             fetchProducts: async () => {
                 let products = [];
-                // 1. Try Local Storage FIRST (Priority for persistence)
-                const localData = localStorage.getItem('vape_store_products');
                 
+                // 1. INSTANT LOAD: Try Local Storage (Priority for visual speed)
+                const localData = localStorage.getItem('vape_store_products');
                 if (localData && localData !== "[]") {
                     console.log("Loaded from LocalStorage Persistence");
-                    products = JSON.parse(localData);
-                    window.shop.state.products = products;
-                    window.shop.renderStore(); // Render local data immediately
-                } else {
-                    // Only fetch if local is empty
-                    try {
-                        const snapshot = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').get();
+                    window.shop.state.products = JSON.parse(localData);
+                    window.shop.renderStore(); // Show cached data immediately
+                }
+
+                // 2. NETWORK SYNC: Always fetch from DB to get changes from others
+                try {
+                    const snapshot = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').get();
+                    
+                    if (!snapshot.empty) {
+                        const dbProducts = [];
+                        snapshot.forEach(doc => {
+                            dbProducts.push({ id: doc.id, ...doc.data() });
+                        });
+                        console.log("Synced with Global DB:", dbProducts.length);
                         
-                        if (!snapshot.empty) {
-                            snapshot.forEach(doc => {
-                                products.push({ id: doc.id, ...doc.data() });
-                            });
-                            console.log("Loaded from Firestore:", products.length);
-                            // Save to local
-                            localStorage.setItem('vape_store_products', JSON.stringify(products));
-                        } else {
-                            console.log("Firestore empty. Seeding/Using Mock.");
-                            if (window.shop.state.isAdmin) window.shop.seedDatabase();
-                            products = [...MOCK_PRODUCTS]; 
-                            localStorage.setItem('vape_store_products', JSON.stringify(products));
+                        // Update state with global truth
+                        window.shop.state.products = dbProducts;
+                        localStorage.setItem('vape_store_products', JSON.stringify(dbProducts));
+                        
+                        // Re-render with fresh global data
+                        window.shop.renderStore();
+                    } else {
+                        // If DB is totally empty, maybe seed it (if admin)
+                        console.log("Firestore empty.");
+                        if (!localData && window.shop.state.isAdmin) {
+                             window.shop.seedDatabase();
+                        } else if (!localData) {
+                             // Use mocks if absolutely nothing exists anywhere
+                             window.shop.state.products = [...MOCK_PRODUCTS];
+                             window.shop.renderStore();
                         }
-                    } catch (e) {
-                        console.warn("Firestore access failed. Using Local Data.");
-                        products = [...MOCK_PRODUCTS];
                     }
-                    window.shop.state.products = products;
-                    window.shop.renderStore();
+                } catch (e) {
+                    console.warn("Global sync failed, sticking to local data.", e);
+                    // If we haven't rendered yet (no local data), use mocks
+                    if (window.shop.state.products.length === 0) {
+                        window.shop.state.products = [...MOCK_PRODUCTS];
+                        window.shop.renderStore();
+                    }
                 }
             },
 
@@ -634,7 +648,7 @@
             renderStore: (container = document.getElementById('main-content')) => {
                 if (!container) return;
                 
-                const categories = ['Все', 'Поды', 'Одноразки', 'Жидкости'];
+                const categories = ['Все', 'Поды', 'Одноразки', 'Жидкости', 'Картриджи', 'Электроника'];
                 let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-6 pb-2">`;
                 categories.forEach(cat => {
                     const isActive = window.shop.state.currentCategory === cat;
@@ -820,7 +834,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 5.5.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 6.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
@@ -908,12 +922,12 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // Optimistic UI Update
+                // Optimistic UI Update (Shows immediately to you)
                 const tempId = 'temp-' + Date.now();
                 const productWithId = { id: tempId, ...newProduct };
                 window.shop.state.products.unshift(productWithId);
                 
-                // SAVE PERSISTENCE IMMEDIATELY
+                // SAVE PERSISTENCE (Shows immediately next time)
                 localStorage.setItem('vape_store_products', JSON.stringify(window.shop.state.products));
                 
                 window.shop.renderStore();
@@ -921,8 +935,9 @@
                 window.shop.showToast("Товар добавлен", "Успешно");
 
                 try {
+                    // GLOBAL SYNC: Send to Firestore so OTHERS see it
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add(newProduct);
-                    await window.shop.fetchProducts(); // Refresh for real ID
+                    await window.shop.fetchProducts(); // Refresh to get real ID
                 } catch (e) {
                     console.error("Save failed (Using Offline)", e);
                 }
@@ -936,13 +951,14 @@
                 // Optimistic Delete
                 window.shop.state.products = window.shop.state.products.filter(p => p.id !== id);
                 
-                // SAVE PERSISTENCE IMMEDIATELY
+                // SAVE PERSISTENCE
                 localStorage.setItem('vape_store_products', JSON.stringify(window.shop.state.products));
                 
                 window.shop.renderStore();
                 window.shop.showToast("Товар удален", "Удалено");
 
                 try {
+                    // GLOBAL SYNC: Delete from Firestore so OTHERS see it gone
                     if (!id.startsWith('temp-') && !id.startsWith('m')) {
                         await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
                     }
