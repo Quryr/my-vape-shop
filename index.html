@@ -1117,18 +1117,28 @@
                         });
                 };
 
+                const handleAuth = (user) => {
+                    if (user) {
+                        setupListener(user.uid);
+                    } else {
+                        // Attempt auto-recovery
+                        console.log("Auto-authenticating user...");
+                        auth.signInAnonymously()
+                            .then(cred => setupListener(cred.user.uid))
+                            .catch(e => {
+                                const list = document.getElementById('my-orders-list');
+                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Обновите страницу.</div>`;
+                            });
+                    }
+                };
+
                 // Auth Logic
                 if (auth.currentUser) {
-                    setupListener(auth.currentUser.uid);
+                    handleAuth(auth.currentUser);
                 } else {
                     const unsub = auth.onAuthStateChanged(user => {
-                        unsub(); // One time listener
-                        if (user) {
-                            setupListener(user.uid);
-                        } else {
-                            const list = document.getElementById('my-orders-list');
-                            if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Попробуйте обновить страницу.</div>`;
-                        }
+                        unsub();
+                        handleAuth(user);
                     });
                 }
             },
@@ -1145,8 +1155,8 @@
                             <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                             <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
                         </div>
-                        <button onclick="window.shop.toggleAdminSelectionMode()" class="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isSelectMode ? 'bg-white text-black' : 'bg-white/10 text-gray-400 hover:text-white'}">
-                            ${isSelectMode ? 'ОТМЕНА' : 'ВЫБРАТЬ'}
+                        <button onclick="window.shop.toggleAdminSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                            ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ'}
                         </button>
                     </div>
                     <div id="admin-orders-list" class="space-y-3 pb-32">
@@ -1204,14 +1214,20 @@
                                 ? `window.shop.toggleOrderSelection('${data.firestoreId}')`
                                 : `window.shop.openOrderDetails('${data.firestoreId}')`;
 
+                            const cardStyle = isSelectMode && isSelected 
+                                ? 'border-red-500 bg-red-500/10' 
+                                : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
+
                             const checkboxHtml = isSelectMode 
                                 ? `<div class="mr-3 pt-1">
-                                     <input type="checkbox" class="admin-checkbox" ${isSelected ? 'checked' : ''} readonly>
+                                     <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-600'}">
+                                        ${isSelected ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                                     </div>
                                    </div>` 
                                 : '';
 
                             html += `
-                                <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')} flex">
+                                <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} flex mb-2">
                                     ${checkboxHtml}
                                     <div class="flex-grow">
                                         <div class="flex justify-between items-start mb-2">
@@ -1232,6 +1248,7 @@
                             `;
                         });
                         list.innerHTML = html;
+                        if(window.lucide) window.lucide.createIcons();
                     });
             },
 
