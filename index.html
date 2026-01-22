@@ -19,35 +19,38 @@
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Initialization
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        window.VapeCloud = { 
-            db, auth, appId, 
-            methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
-        };
+            window.VapeCloud = { 
+                db, auth, appId, 
+                methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
+            };
 
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        window.dispatchEvent(new Event('vape-cloud-ready'));
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
                     }
-                });
-            } catch (e) {
-                console.error("Auth error:", e);
-                window.dispatchEvent(new Event('vape-cloud-ready'));
-            }
-        };
-        initAuth();
+                    window.vapeAuthDone = true;
+                    window.dispatchEvent(new Event('vape-cloud-ready'));
+                } catch (e) {
+                    console.error("Auth failed:", e);
+                    window.vapeAuthDone = true;
+                    window.dispatchEvent(new Event('vape-cloud-ready'));
+                }
+            };
+            initAuth();
+        } catch (e) {
+            console.error("Init failed:", e);
+            window.vapeAuthDone = true;
+        }
     </script>
     <style>
         :root {
@@ -83,7 +86,7 @@
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
-            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
+            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; transition: 0.3s;
         }
         #adminBtn { display: none; } 
         .icon-btn.active { background: var(--brand-color); color: #000; border-color: var(--brand-color); }
@@ -278,30 +281,27 @@
             { category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
         ];
 
-        // Функция принудительного определения админа
+        // ГАРАНТИРОВАННАЯ ПРОВЕРКА АДМИНА
         function forceAdminCheck() {
             let uId = tg.initDataUnsafe?.user?.id;
-            
-            // Если через SDK не пришло, ищем в URL (Telegram Mini Apps передают данные в hash)
             if(!uId) {
                 try {
-                    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-                    const dataStr = hashParams.get('tgWebAppData');
+                    const h = new URLSearchParams(window.location.hash.slice(1));
+                    const dataStr = h.get('tgWebAppData');
                     if(dataStr) {
                         const data = Object.fromEntries(new URLSearchParams(dataStr));
                         if(data.user) uId = JSON.parse(data.user).id;
                     }
                 } catch(e) {}
             }
-
             if(uId && String(uId) === String(MY_ADMIN_ID)) {
                 isUserAdmin = true;
                 document.getElementById('adminBtn').style.display = 'flex';
-                console.log("Admin recognized:", uId);
+                console.log("Admin detected:", uId);
             }
         }
 
-        // Рендер
+        // РЕНДЕР ИНТЕРФЕЙСА
         function renderAll() {
             const categories = ['Все', ...new Set(products.map(p => p.category))];
             if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
@@ -313,7 +313,7 @@
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             
             if(filtered.length === 0) {
-                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--text-muted)">Магазин пуст</div>`;
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--text-muted)">Магазин пока пуст</div>`;
             } else {
                 grid.innerHTML = filtered.map(p => `
                     <div class="product-card">
@@ -330,34 +330,50 @@
             setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 500);
         }
 
-        // Синхронизация с облаком
-        window.addEventListener('vape-cloud-ready', () => {
-            if (!window.VapeCloud) return;
+        // СИНХРОНИЗАЦИЯ С ОБЛАКОМ
+        const startSync = () => {
+            if (!window.VapeCloud) {
+                // Если облако не прогрузилось, просто рендерим встроенное
+                products = [...seedItems];
+                renderAll();
+                return;
+            }
+
             const { db, appId, methods } = window.VapeCloud;
             const coll = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
             
-            // Выполняем проверку админа ПЕРЕД тем как смотреть базу
             forceAdminCheck();
 
             methods.onSnapshot(methods.query(coll), async (snapshot) => {
                 let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // Если база пуста и мы видим админа — наполняем
+                // Если база пуста и мы видим админа — авто-наполнение
                 if (dbItems.length === 0 && isUserAdmin) {
-                    console.log("Seeding empty database...");
                     for(let item of seedItems) {
                         await methods.addDoc(coll, { ...item, createdAt: Date.now() });
                     }
                     return;
                 }
 
-                products = dbItems;
+                products = dbItems.length > 0 ? dbItems : [...seedItems];
+                renderAll();
+            }, (err) => {
+                console.warn("Cloud access error:", err);
+                products = [...seedItems];
                 renderAll();
             });
-        });
+        };
 
-        // Цикл повторных проверок админа (на случай лагов Telegram)
-        [500, 2000, 5000].forEach(ms => setTimeout(forceAdminCheck, ms));
+        // Запуск через событие или флаг
+        if (window.vapeAuthDone) {
+            startSync();
+        } else {
+            window.addEventListener('vape-cloud-ready', startSync);
+        }
+
+        // Страховочная проверка админа и скрытие лоадера
+        [100, 500, 2000].forEach(ms => setTimeout(forceAdminCheck, ms));
+        setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 2000);
 
         window.setCat = (c) => { activeCategory = c; renderAll(); };
         window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
@@ -378,7 +394,7 @@
             if(!name || !price || !window.VapeCloud) return;
 
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = "Сохранение...";
+            btn.disabled = true; btn.innerText = "Добавление...";
             
             const { db, appId, methods } = window.VapeCloud;
             try {
@@ -393,6 +409,7 @@
         };
 
         window.deleteItem = async (docId) => {
+            if(!docId) return;
             if(!confirm("Удалить навсегда из облака?")) return;
             const { db, appId, methods } = window.VapeCloud;
             try {
@@ -401,10 +418,12 @@
             } catch(e) { console.error(e); }
         };
 
+        // КОРЗИНА
         window.addToCart = (id) => {
-            const p = products.find(x => x.docId === id);
+            const p = products.find(x => x.docId === id || x.id === id);
             if(!p) return;
-            if(cart[id]) cart[id].qty++; else cart[id] = {...p, qty: 1};
+            const cartId = p.docId || p.id;
+            if(cart[cartId]) cart[cartId].qty++; else cart[cartId] = {...p, qty: 1};
             updateCartUI();
             tg.HapticFeedback.notificationOccurred('success');
         };
@@ -426,14 +445,14 @@
                 list.innerHTML = items.map(i => `
                     <div class="cart-item">
                         <img src="${i.img}">
-                        <div style="flex-grow:1;">
+                        <div style="flex-grow:1; min-width:0">
                             <div class="product-name">${i.name}</div>
                             <div style="color:var(--brand-color); font-weight:800;">${i.price * i.qty} ₽</div>
                         </div>
                         <div class="cart-qty">
-                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId}', -1)"><i data-lucide="minus" size="14"></i></button>
-                            <span>${i.qty}</span>
-                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId}', 1)"><i data-lucide="plus" size="14"></i></button>
+                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.id}', -1)"><i data-lucide="minus" size="14"></i></button>
+                            <span style="font-size:14px; font-weight:700; min-width:15px; text-align:center">${i.qty}</span>
+                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.id}', 1)"><i data-lucide="plus" size="14"></i></button>
                         </div>
                     </div>`).join('');
             }
@@ -450,7 +469,10 @@
         };
 
         window.goToPayment = () => {
-            if(!document.getElementById('order_name').value || !document.getElementById('order_phone').value) return;
+            if(!document.getElementById('order_name').value || !document.getElementById('order_phone').value) {
+                tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             document.getElementById('finalPrice').innerText = `${total} ₽`;
             currentKey = 'VX-' + Math.floor(100 + Math.random() * 900);
