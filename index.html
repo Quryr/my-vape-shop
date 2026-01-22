@@ -18,7 +18,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Глобальные переменные окружения
+        // Firebase Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -37,13 +37,10 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-                window.isCloudAuth = true;
-                window.dispatchEvent(new Event('vape-auth-ready'));
-                console.log("Cloud Ready");
+                window.dispatchEvent(new Event('vape-cloud-ready'));
             } catch (e) {
                 console.error("Auth failed:", e);
-                // В случае ошибки все равно даем приложению работать локально
-                window.dispatchEvent(new Event('vape-auth-ready'));
+                window.dispatchEvent(new Event('vape-cloud-ready'));
             }
         };
         initAuth();
@@ -82,7 +79,7 @@
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
-            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; transition: 0.3s;
+            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
         }
         #adminBtn { display: none; } 
         .icon-btn.active { background: var(--brand-color); color: #000; border-color: var(--brand-color); }
@@ -117,17 +114,16 @@
             width: calc(100% - 32px); max-width: 450px; background: var(--brand-color);
             color: var(--bg-dark); height: 64px; border-radius: 22px; display: flex;
             align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 800;
-            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: 0.5s;
+            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: transform 0.5s;
         }
         .cart-fab.visible { transform: translateX(-50%) translateY(0); }
-        
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 300; opacity: 0; visibility: hidden; transition: 0.3s; }
         .overlay.active { opacity: 1; visibility: visible; }
         
         .bottom-sheet {
             position: fixed; bottom: 0; left: 0; width: 100%; background: #0a0a0a;
             border-top: 1px solid var(--glass-border); border-radius: 28px 28px 0 0;
-            z-index: 301; transform: translateY(100%); transition: 0.4s;
+            z-index: 301; transform: translateY(100%); transition: transform 0.4s;
             max-height: 85vh; padding: 20px; display: flex; flex-direction: column;
         }
         .bottom-sheet.active { transform: translateY(0); }
@@ -228,7 +224,6 @@
                 <span id="payment_key" style="font-weight: 800;">---</span>
                 <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">Копировать</span>
             </div>
-            <div style="font-size: 12px; margin-top: 15px;">Получатель: <b>Иван Владимирович Р.</b></div>
         </div>
         <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: #fff;" onclick="finishOrder()">Я оплатил(а)</button>
     </div>
@@ -264,7 +259,7 @@
         let selectedBase64 = '';
         let currentKey = '';
 
-        // Стартовый ассортимент
+        // Глобальный массив для первичного наполнения (в облако)
         const initialSeed = [
             { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -289,59 +284,58 @@
             return false;
         }
 
-        // ПЕРВИЧНЫЙ РЕНДЕР (не ждем базу)
-        products = [...initialSeed];
-        function startApp() {
-            renderAll();
-            checkAdmin();
-            setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 800);
+        // Единственная функция отрисовки данных
+        function renderAll() {
+            // Категории
+            const categories = ['Все', ...new Set(products.map(p => p.category))];
+            if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
+            document.getElementById('categories').innerHTML = categories.map(c => `
+                <button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>
+            `).join('');
+
+            // Товары
+            const grid = document.getElementById('products');
+            const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
+            
+            if(filtered.length === 0) {
+                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--text-muted)">Магазин пуст</div>`;
+            } else {
+                grid.innerHTML = filtered.map(p => `
+                    <div class="product-card">
+                        <button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>
+                        <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
+                        <div class="product-info">
+                            <span class="product-name">${p.name}</span>
+                            <span class="product-price">${p.price} ₽</span>
+                        </div>
+                        <button class="add-btn" onclick="addToCart('${p.docId}')">В корзину</button>
+                    </div>`).join('');
+            }
+            lucide.createIcons();
+            setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 500);
         }
-        startApp();
 
         // СИНХРОНИЗАЦИЯ С ОБЛАКОМ
-        window.addEventListener('vape-auth-ready', () => {
+        window.addEventListener('vape-cloud-ready', () => {
             const { db, appId, methods } = window.VapeCloud;
             const isAdmin = checkAdmin();
-
             const coll = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            
             methods.onSnapshot(methods.query(coll), async (snapshot) => {
-                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // Авто-наполнение если база пуста (только админом)
+                // АВТО-СИД: Если база пуста и зашел админ - наполняем облако
                 if (dbItems.length === 0 && isAdmin) {
-                    console.log("Empty Cloud. Auto-seeding...");
                     for(let item of initialSeed) {
                         await methods.addDoc(coll, { ...item, createdAt: Date.now() });
                     }
                     return;
                 }
 
-                if (dbItems.length > 0) {
-                    products = dbItems;
-                    renderAll();
-                }
+                products = dbItems;
+                renderAll();
             });
         });
-
-        function renderAll() {
-            const categories = ['Все', ...new Set(products.map(p => p.category))];
-            if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
-            document.getElementById('categories').innerHTML = categories.map(c => `<button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
-
-            const grid = document.getElementById('products');
-            const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
-            grid.innerHTML = filtered.map(p => `
-                <div class="product-card">
-                    <button class="delete-card-btn" onclick="deleteItem('${p.docId || ''}')"><i data-lucide="trash-2" size="14"></i></button>
-                    <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
-                    <div class="product-info">
-                        <span class="product-name">${p.name}</span>
-                        <span class="product-price">${p.price} ₽</span>
-                    </div>
-                    <button class="add-btn" onclick="addToCart('${p.docId || p.name}')">В корзину</button>
-                </div>`).join('');
-            lucide.createIcons();
-        }
 
         window.setCat = (c) => { activeCategory = c; renderAll(); };
         window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
@@ -362,9 +356,9 @@
             if(!name || !price || !window.VapeCloud) return;
 
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = "Сохранение...";
-            const { db, appId, methods } = window.VapeCloud;
+            btn.disabled = true; btn.innerText = "Добавление...";
             
+            const { db, appId, methods } = window.VapeCloud;
             try {
                 await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
                     name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
@@ -377,16 +371,17 @@
         };
 
         window.deleteItem = async (docId) => {
-            if(!docId) { alert("Товары из кода нельзя удалить. Сначала добавьте их в облако."); return; }
-            if(!confirm("Удалить навсегда?")) return;
+            if(!confirm("Удалить навсегда из облака?")) return;
             const { db, appId, methods } = window.VapeCloud;
-            await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
-            tg.HapticFeedback.impactOccurred('medium');
+            try {
+                await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+                tg.HapticFeedback.impactOccurred('medium');
+            } catch(e) { console.error(e); }
         };
 
         // КОРЗИНА
         window.addToCart = (id) => {
-            const p = products.find(x => (x.docId || x.name) === id);
+            const p = products.find(x => x.docId === id);
             if(!p) return;
             if(cart[id]) cart[id].qty++; else cart[id] = {...p, qty: 1};
             updateCartUI();
@@ -400,24 +395,34 @@
             document.getElementById('cartFab').classList.toggle('visible', count > 0 && !isAdminMode);
             document.getElementById('cartCount').innerText = `${count} ТОВАРОВ`;
             document.getElementById('cartTotal').innerText = `${total} ₽`;
-            document.getElementById('cartList').innerHTML = items.map(i => `
-                <div class="cart-item">
-                    <img src="${i.img}">
-                    <div style="flex-grow:1;">
-                        <div class="product-name">${i.name}</div>
-                        <div style="color:var(--brand-color); font-weight:800;">${i.price * i.qty} ₽</div>
-                    </div>
-                    <div class="cart-qty">
-                        <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.name}', -1)"><i data-lucide="minus" size="14"></i></button>
-                        <span>${i.qty}</span>
-                        <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.name}', 1)"><i data-lucide="plus" size="14"></i></button>
-                    </div>
-                </div>`).join('');
+            
+            const list = document.getElementById('cartList');
+            if(items.length === 0) {
+                list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
+            } else {
+                list.innerHTML = items.map(i => `
+                    <div class="cart-item">
+                        <img src="${i.img}">
+                        <div style="flex-grow:1;">
+                            <div class="product-name">${i.name}</div>
+                            <div style="color:var(--brand-color); font-weight:800;">${i.price * i.qty} ₽</div>
+                        </div>
+                        <div class="cart-qty">
+                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId}', -1)"><i data-lucide="minus" size="14"></i></button>
+                            <span>${i.qty}</span>
+                            <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId}', 1)"><i data-lucide="plus" size="14"></i></button>
+                        </div>
+                    </div>`).join('');
+            }
             lucide.createIcons();
         }
 
         window.changeQty = (id, delta) => {
-            if(cart[id]) { cart[id].qty += delta; if(cart[id].qty <= 0) delete cart[id]; updateCartUI(); }
+            if(cart[id]) {
+                cart[id].qty += delta;
+                if(cart[id].qty <= 0) delete cart[id];
+                updateCartUI();
+            }
         };
 
         window.goToPayment = () => {
@@ -446,6 +451,9 @@
         };
 
         window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
+
+        // Инициализация принудительно если облако зависнет
+        setTimeout(() => { if(products.length === 0) renderAll(); }, 5000);
     </script>
 </body>
 </html>
