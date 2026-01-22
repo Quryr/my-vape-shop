@@ -299,8 +299,8 @@
         const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
-        let isUsingCloud = false;
 
+        // ПОЛНЫЙ ВОССТАНОВЛЕННЫЙ СПИСОК (Seed)
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -316,10 +316,7 @@
         ];
 
         function checkAdminAccess() {
-            // Ищем ID в данных запуска
             let userId = tg.initDataUnsafe?.user?.id;
-            
-            // Если пусто, пробуем вытащить из параметров URL вручную
             if (!userId) {
                 try {
                     const params = new URLSearchParams(window.location.hash.substring(1));
@@ -327,7 +324,6 @@
                     if (userStr) userId = JSON.parse(userStr).id;
                 } catch(e) {}
             }
-
             if (userId && String(userId) === String(MY_ADMIN_ID)) {
                 document.getElementById('adminBtn').style.display = 'flex';
                 return true;
@@ -335,9 +331,12 @@
             return false;
         }
 
-        // Рендерим сразу
-        products = [...initialSeed];
-        renderAll();
+        // ПУСТОЙ СТАРТ - Ждем ответа от облака
+        function renderEmpty() {
+            const container = document.getElementById('products');
+            if(container) container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Загрузка данных...</div>`;
+        }
+        renderEmpty();
 
         window.addEventListener('vape-auth-ready', () => {
             const { auth, fs, db, appId } = window.VapeDB;
@@ -347,17 +346,16 @@
             fs.onSnapshot(q, (snapshot) => {
                 const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // Если облако отдало ХОТЯ БЫ ОДИН результат — мы полностью в облаке.
-                // Если результат пустой, но мы ПЕРЕШЛИ в облако (уже удалили последний товар) — мы в облаке.
-                if (dbItems.length > 0 || isUsingCloud) {
-                    isUsingCloud = true;
-                    products = dbItems;
-                    document.getElementById('adminSetup').style.display = 'none';
+                // ОБЛАКО - ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ
+                products = dbItems;
+
+                // Если база абсолютно пуста и зашел админ - предлагаем загрузить seed
+                if (products.length === 0 && isAdmin) {
+                    document.getElementById('adminSetup').style.display = 'block';
                 } else {
-                    // База ПУСТА и мы еще не начали работать с облаком.
-                    products = [...initialSeed];
-                    if(isAdmin) document.getElementById('adminSetup').style.display = 'block';
+                    document.getElementById('adminSetup').style.display = 'none';
                 }
+                
                 renderAll();
             });
         });
@@ -378,21 +376,22 @@
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
+            
             if (filtered.length === 0) {
                 container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
                 return;
             }
+
             container.innerHTML = filtered.map(p => {
-                const id = p.docId || p.id;
                 return `
                 <div class="product-card">
-                    <button class="delete-card-btn" onclick="deleteItem('${id}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>
+                    <button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${id}')">В корзину</button>
+                    <button class="add-btn" onclick="addToCart('${p.docId}')">В корзину</button>
                 </div>`;
             }).join('');
             lucide.createIcons();
@@ -426,7 +425,6 @@
             reader.readAsDataURL(file);
         };
 
-        // ПЕРЕНОС СТАРТОВОГО СПИСКА В ОБЛАКО
         window.seedDatabase = async () => {
             if (!window.VapeDB || !confirm("Загрузить стандартный ассортимент в облако?")) return;
             const { db, fs, appId } = window.VapeDB;
@@ -438,7 +436,6 @@
                         name: p.name, price: p.price, category: p.category, img: p.img, createdAt: Date.now() 
                     });
                 }
-                isUsingCloud = true;
                 setupBtn.style.display = 'none';
                 tg.HapticFeedback.notificationOccurred('success');
             } catch(e) { console.error(e); }
@@ -452,8 +449,6 @@
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
             if (!name || !price) return;
-            
-            isUsingCloud = true; // Переключаемся на облако при первом добавлении
             try {
                 await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
                 resetAdminForm(); closeSheets();
@@ -466,24 +461,17 @@
             document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = '';
         }
 
-        window.deleteItem = async (id, isFromDB) => {
-            if (!confirm("Удалить этот товар?")) return;
+        window.deleteItem = async (docId) => {
+            if (!confirm("Удалить этот товар навсегда?")) return;
             tg.HapticFeedback.impactOccurred('medium');
-            
-            if (isFromDB && window.VapeDB) {
-                const { db, fs, appId } = window.VapeDB;
-                try {
-                    await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                } catch (e) { console.error(e); }
-            } else {
-                // Временное удаление из сессии для seed-товаров
-                products = products.filter(p => p.id !== id);
-                renderAll();
-            }
+            const { db, fs, appId } = window.VapeDB;
+            try {
+                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+            } catch (e) { console.error(e); }
         };
 
         window.addToCart = (id) => {
-            const p = products.find(x => (x.docId || x.id) === id);
+            const p = products.find(x => x.docId === id);
             if (!p) return;
             tg.HapticFeedback.notificationOccurred('success');
             if (cart[id]) cart[id].qty++;
@@ -504,7 +492,6 @@
             if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`; }
             else {
                 list.innerHTML = items.map(item => {
-                    const id = item.docId || item.id;
                     return `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
                         <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;">
@@ -513,9 +500,9 @@
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 8px; border-radius:12px;">
-                            <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
+                            <button onclick="changeQty('${item.docId}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
-                            <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
+                            <button onclick="changeQty('${item.docId}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
                         </div>
                     </div>`;
                 }).join('');
