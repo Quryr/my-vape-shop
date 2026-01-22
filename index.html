@@ -146,7 +146,7 @@
     <div id="loader" class="loader-screen">
         <div class="loader-logo mb-4">VAPE<span class="text-[var(--primary)]">PRO</span></div>
         <div class="w-32 h-[2px] bg-white/10 relative overflow-hidden rounded-full">
-            <div id="loader-bar" class="absolute inset-0 bg-[var(--primary)] w-0 transition-all duration-500 ease-out"></div>
+            <div id="loader-bar" class="absolute inset-0 bg-[var(--primary)] w-0 transition-all duration-700 ease-out"></div>
         </div>
         <p class="mt-6 text-[10px] text-white/40 uppercase tracking-[0.3em]">Establishing Connection</p>
     </div>
@@ -318,272 +318,310 @@
     </div>
 
     <script type="module">
+        // 1. Сразу определяем функцию скрытия лоадера, чтобы она была доступна везде
+        const hideLoader = () => {
+            const bar = document.getElementById('loader-bar');
+            const loader = document.getElementById('loader');
+            if (!loader) return;
+            
+            bar.style.width = '100%';
+            setTimeout(() => {
+                loader.style.opacity = '0';
+                loader.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    if (loader.parentNode) loader.remove();
+                }, 600);
+            }, 500);
+        };
+
+        // 2. Глобальный "предохранитель": если через 3.5 секунды база не ответила, 
+        // всё равно пускаем пользователя в интерфейс.
+        const loaderSafetyTimer = setTimeout(hideLoader, 3500);
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-2025';
-        const ADMIN_ID = 1262669099;
+        // Оборачиваем всё в try-catch, чтобы ошибки конфига не вешали лоадер
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-2025';
+            const ADMIN_ID = 1262669099;
 
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-            tg.expand();
-            tg.enableClosingConfirmation();
-            if (tg.setHeaderColor) tg.setHeaderColor('#000000');
-        }
+            const tg = window.Telegram?.WebApp;
+            if (tg) {
+                tg.expand();
+                tg.enableClosingConfirmation();
+                if (tg.setHeaderColor) tg.setHeaderColor('#000000');
+            }
 
-        let products = [];
-        let cart = [];
-        let isAdmin = false;
+            let products = [];
+            let cart = [];
+            let isAdmin = false;
 
-        // --- LOADER LOGIC ---
-        const hideLoader = () => {
-            const bar = document.getElementById('loader-bar');
-            bar.style.width = '100%';
-            setTimeout(() => {
-                const loader = document.getElementById('loader');
-                loader.style.opacity = '0';
-                loader.style.pointerEvents = 'none';
-                setTimeout(() => loader.remove(), 600);
-            }, 400);
-        };
-
-        // Safety Timeout for Loader (Max 2.5s)
-        const loaderTimeout = setTimeout(hideLoader, 2500);
-
-        // --- AUTH ---
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+            // --- AUTH ---
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    console.error("Auth error:", e);
+                    hideLoader(); // Скрываем если ошибка авторизации
                 }
-            } catch (e) {
-                console.error("Auth error:", e);
-                hideLoader();
-            }
-        };
+            };
 
-        onAuthStateChanged(auth, (u) => {
-            if (u) {
-                checkAdmin();
-                setupListeners();
-                hideLoader();
-                clearTimeout(loaderTimeout);
-            }
-        });
-
-        const checkAdmin = () => {
-            let id = tg?.initDataUnsafe?.user?.id;
-            if (!id) {
-                const hash = window.location.hash;
-                const match = hash.match(/user=([^&]*)/);
-                if (match) id = JSON.parse(decodeURIComponent(match[1])).id;
-            }
-            if (id == ADMIN_ID) {
-                isAdmin = true;
-                document.getElementById('admin-btn').classList.remove('hidden');
-                document.getElementById('add-product-btn').classList.remove('hidden');
-            }
-            if (tg?.initDataUnsafe?.user) {
-                document.getElementById('user-name').innerText = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name;
-            }
-        };
-
-        // --- DATABASE ---
-        const setupListeners = () => {
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-            onSnapshot(colRef, (snapshot) => {
-                products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (products.length === 0 && isAdmin) seedDB();
-                else renderProducts();
+            onAuthStateChanged(auth, (u) => {
+                if (u) {
+                    checkAdmin();
+                    setupListeners();
+                    // Если авторизация успешна — скрываем лоадер и чистим таймер
+                    hideLoader();
+                    clearTimeout(loaderSafetyTimer);
+                }
             });
-        };
 
-        const seedDB = async () => {
-            const items = [
-                { name: "HQD Pro Max 10k", price: 1450, category: "Одноразка", icon: "💎" },
-                { name: "Elf Bar Lost Mary", price: 1200, category: "Одноразка", icon: "🌪️" },
-                { name: "Vaporesso XROS 4", price: 3200, category: "Устройство", icon: "🔋" },
-                { name: "Husky White 30ml", price: 650, category: "Жидкость", icon: "❄️" },
-                { name: "Boshki Exotic", price: 580, category: "Жидкость", icon: "🍍" }
-            ];
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-            for (const i of items) await addDoc(colRef, i);
-        };
+            const checkAdmin = () => {
+                let id = tg?.initDataUnsafe?.user?.id;
+                if (!id) {
+                    const hash = window.location.hash;
+                    const match = hash.match(/user=([^&]*)/);
+                    if (match) {
+                        try {
+                            id = JSON.parse(decodeURIComponent(match[1])).id;
+                        } catch(e) {}
+                    }
+                }
+                
+                if (id == ADMIN_ID) {
+                    isAdmin = true;
+                    document.getElementById('admin-btn').classList.remove('hidden');
+                    document.getElementById('add-product-btn').classList.remove('hidden');
+                }
+                
+                if (tg?.initDataUnsafe?.user) {
+                    document.getElementById('user-name').innerText = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name;
+                }
+            };
 
-        // --- RENDER ---
-        const renderProducts = () => {
-            const grid = document.getElementById('product-grid');
-            grid.innerHTML = products.map(p => `
-                <div class="product-card glass p-4 rounded-[2.5rem] fade-in relative overflow-hidden flex flex-col">
-                    ${isAdmin ? `<button onclick="window.delP('${p.id}')" class="absolute top-4 right-4 z-10 p-2 glass text-red-500 rounded-xl"><i data-lucide="trash" class="w-3 h-3"></i></button>` : ''}
-                    <div class="h-28 flex items-center justify-center text-6xl mb-4 bg-white/5 rounded-3xl">${p.icon || '📦'}</div>
-                    <div class="flex-grow flex flex-col px-1">
-                        <span class="text-[9px] uppercase font-black text-[var(--primary)] tracking-widest opacity-60 mb-1">${p.category}</span>
-                        <h3 class="text-xs font-bold leading-tight mb-3 line-clamp-2 h-8">${p.name}</h3>
-                        <div class="mt-auto">
-                            <p class="text-lg font-black italic tracking-tighter mb-4 price-tag">${p.price} ₽</p>
-                            <button onclick="window.addT('${p.id}')" class="w-full btn-primary h-11 rounded-xl text-[10px] uppercase font-black transition-all">В корзину</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        };
+            // --- DATABASE ---
+            const setupListeners = () => {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+                onSnapshot(colRef, (snapshot) => {
+                    products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    if (products.length === 0 && isAdmin) seedDB();
+                    else renderProducts();
+                }, (error) => {
+                    console.error("Firestore snapshot error:", error);
+                    hideLoader();
+                });
+            };
 
-        window.addT = (id) => {
-            const p = products.find(x => x.id === id);
-            const inCart = cart.find(x => x.id === id);
-            if (inCart) inCart.qty++;
-            else cart.push({ ...p, qty: 1 });
-            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            updateUI();
-        };
+            const seedDB = async () => {
+                const items = [
+                    { name: "HQD Pro Max 10k", price: 1450, category: "Одноразка", icon: "💎" },
+                    { name: "Elf Bar Lost Mary", price: 1200, category: "Одноразка", icon: "🌪️" },
+                    { name: "Vaporesso XROS 4", price: 3200, category: "Устройство", icon: "🔋" },
+                    { name: "Husky White 30ml", price: 650, category: "Жидкость", icon: "❄️" },
+                    { name: "Boshki Exotic", price: 580, category: "Жидкость", icon: "🍍" }
+                ];
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+                for (const i of items) await addDoc(colRef, i);
+            };
 
-        const updateUI = () => {
-            const count = cart.reduce((a, b) => a + b.qty, 0);
-            const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
-            document.getElementById('cart-count').innerText = count;
-            document.getElementById('cart-total').innerText = `${total} ₽`;
-            document.getElementById('sheet-total').innerText = `${total} ₽`;
-            document.getElementById('final-total').innerText = `${total} ₽`;
-            renderCartItems();
-        };
-
-        const renderCartItems = () => {
-            const container = document.getElementById('cart-items');
-            const empty = document.getElementById('cart-empty');
-            const footer = document.getElementById('cart-footer');
-            
-            if (cart.length === 0) {
-                container.innerHTML = '';
-                empty.classList.remove('hidden');
-                footer.classList.add('hidden');
-            } else {
-                empty.classList.add('hidden');
-                footer.classList.remove('hidden');
-                container.innerHTML = cart.map((item, i) => `
-                    <div class="flex items-center gap-4 glass p-4 rounded-2xl border-white/5">
-                        <div class="text-3xl w-12 h-12 flex items-center justify-center bg-white/5 rounded-xl">${item.icon}</div>
-                        <div class="flex-grow">
-                            <h4 class="text-xs font-bold uppercase tracking-tight">${item.name}</h4>
-                            <p class="text-[var(--primary)] text-sm font-black italic mt-1">${item.price * item.qty} ₽</p>
-                        </div>
-                        <div class="flex items-center gap-3 glass bg-white/5 border-none px-3 py-2 rounded-xl">
-                            <button onclick="window.updQty(${i}, -1)" class="opacity-40"><i data-lucide="minus" class="w-4 h-4"></i></button>
-                            <span class="text-xs font-black w-4 text-center">${item.qty}</span>
-                            <button onclick="window.updQty(${i}, 1)" class="text-[var(--primary)]"><i data-lucide="plus" class="w-4 h-4"></i></button>
+            // --- RENDER ---
+            const renderProducts = () => {
+                const grid = document.getElementById('product-grid');
+                if (!grid) return;
+                
+                grid.innerHTML = products.map(p => `
+                    <div class="product-card glass p-4 rounded-[2.5rem] fade-in relative overflow-hidden flex flex-col">
+                        ${isAdmin ? `<button onclick="window.delP('${p.id}')" class="absolute top-4 right-4 z-10 p-2 glass text-red-500 rounded-xl"><i data-lucide="trash" class="w-3 h-3"></i></button>` : ''}
+                        <div class="h-28 flex items-center justify-center text-6xl mb-4 bg-white/5 rounded-3xl">${p.icon || '📦'}</div>
+                        <div class="flex-grow flex flex-col px-1">
+                            <span class="text-[9px] uppercase font-black text-[var(--primary)] tracking-widest opacity-60 mb-1">${p.category}</span>
+                            <h3 class="text-xs font-bold leading-tight mb-3 line-clamp-2 h-8">${p.name}</h3>
+                            <div class="mt-auto">
+                                <p class="text-lg font-black italic tracking-tighter mb-4 price-tag">${p.price} ₽</p>
+                                <button onclick="window.addT('${p.id}')" class="w-full btn-primary h-11 rounded-xl text-[10px] uppercase font-black transition-all">В корзину</button>
+                            </div>
                         </div>
                     </div>
                 `).join('');
-            }
-            lucide.createIcons();
-        };
-
-        window.updQty = (i, d) => {
-            cart[i].qty += d;
-            if (cart[i].qty <= 0) cart.splice(i, 1);
-            if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
-            updateUI();
-        };
-
-        window.toggleCart = (show) => {
-            const sheet = document.getElementById('cart-sheet');
-            const overlay = document.getElementById('modal-overlay');
-            if (show) {
-                sheet.classList.add('active');
-                overlay.classList.remove('hidden');
-                setTimeout(() => overlay.style.opacity = '1', 10);
-                updateUI();
-            } else {
-                sheet.classList.remove('active');
-                overlay.style.opacity = '0';
-                setTimeout(() => { overlay.classList.add('hidden'); backToForm(); }, 400);
-            }
-        };
-
-        window.showCheckoutForm = () => {
-            document.getElementById('cart-main-view').classList.add('hidden');
-            document.getElementById('checkout-form').classList.remove('hidden');
-        };
-
-        window.backToForm = () => {
-            document.getElementById('cart-main-view').classList.remove('hidden');
-            document.getElementById('checkout-form').classList.add('hidden');
-            document.getElementById('payment-screen').classList.add('hidden');
-        };
-
-        window.proceedToPayment = () => {
-            const fields = ['order-name', 'order-phone', 'order-contact', 'order-location'];
-            let valid = true;
-            fields.forEach(f => {
-                if (!document.getElementById(f).value) {
-                    document.getElementById(f).style.borderColor = 'rgba(255,0,0,0.3)';
-                    valid = false;
-                }
-            });
-            if (!valid) return;
-
-            const oid = `VX-${Math.floor(100 + Math.random() * 899)}`;
-            document.getElementById('order-id').innerText = oid;
-            document.getElementById('checkout-form').classList.add('hidden');
-            document.getElementById('payment-screen').classList.remove('hidden');
-            if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-        };
-
-        window.confirmPayment = () => {
-            const data = {
-                id: document.getElementById('order-id').innerText,
-                user: document.getElementById('order-name').value,
-                items: cart,
-                total: document.getElementById('final-total').innerText
+                lucide.createIcons();
             };
-            if (tg) {
-                tg.sendData(JSON.stringify(data));
-                tg.close();
-            } else {
-                alert("Order Placed: " + data.id);
-                toggleCart(false);
-                cart = [];
+
+            window.addT = (id) => {
+                const p = products.find(x => x.id === id);
+                const inCart = cart.find(x => x.id === id);
+                if (inCart) inCart.qty++;
+                else cart.push({ ...p, qty: 1 });
+                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
                 updateUI();
-            }
-        };
+            };
 
-        window.delP = async (id) => {
-            if (!confirm("Delete product?")) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-        };
+            const updateUI = () => {
+                const count = cart.reduce((a, b) => a + b.qty, 0);
+                const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
+                document.getElementById('cart-count').innerText = count;
+                document.getElementById('cart-total').innerText = `${total} ₽`;
+                document.getElementById('sheet-total').innerText = `${total} ₽`;
+                document.getElementById('final-total').innerText = `${total} ₽`;
+                renderCartItems();
+            };
 
-        window.saveNewProduct = async () => {
-            const name = document.getElementById('p-name').value;
-            const price = parseInt(document.getElementById('p-price').value);
-            const category = document.getElementById('p-cat').value;
-            const icon = document.getElementById('p-img').value;
-            if (!name || !price) return;
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, icon });
-            closeAdmin();
-        };
+            const renderCartItems = () => {
+                const container = document.getElementById('cart-items');
+                const empty = document.getElementById('cart-empty');
+                const footer = document.getElementById('cart-footer');
+                
+                if (cart.length === 0) {
+                    container.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    footer.classList.add('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    footer.classList.remove('hidden');
+                    container.innerHTML = cart.map((item, i) => `
+                        <div class="flex items-center gap-4 glass p-4 rounded-2xl border-white/5">
+                            <div class="text-3xl w-12 h-12 flex items-center justify-center bg-white/5 rounded-xl">${item.icon}</div>
+                            <div class="flex-grow">
+                                <h4 class="text-xs font-bold uppercase tracking-tight">${item.name}</h4>
+                                <p class="text-[var(--primary)] text-sm font-black italic mt-1">${item.price * item.qty} ₽</p>
+                            </div>
+                            <div class="flex items-center gap-3 glass bg-white/5 border-none px-3 py-2 rounded-xl">
+                                <button onclick="window.updQty(${i}, -1)" class="opacity-40"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                                <span class="text-xs font-black w-4 text-center">${item.qty}</span>
+                                <button onclick="window.updQty(${i}, 1)" class="text-[var(--primary)]"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                lucide.createIcons();
+            };
 
-        window.closeAdmin = () => document.getElementById('admin-modal').classList.add('hidden');
+            window.updQty = (i, d) => {
+                cart[i].qty += d;
+                if (cart[i].qty <= 0) cart.splice(i, 1);
+                if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                updateUI();
+            };
 
-        // --- BINDINGS ---
-        document.getElementById('cart-trigger').onclick = () => toggleCart(true);
-        document.getElementById('theme-toggle').onclick = () => {
-            const list = ['toxic', 'ice', 'magma'];
-            let cur = document.body.className.replace('theme-', '') || 'toxic';
-            let next = list[(list.indexOf(cur) + 1) % 3];
-            document.body.className = next === 'toxic' ? '' : 'theme-' + next;
-            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-        };
-        document.getElementById('add-product-btn').onclick = () => document.getElementById('admin-modal').classList.remove('hidden');
+            window.toggleCart = (show) => {
+                const sheet = document.getElementById('cart-sheet');
+                const overlay = document.getElementById('modal-overlay');
+                if (show) {
+                    sheet.classList.add('active');
+                    overlay.classList.remove('hidden');
+                    setTimeout(() => overlay.style.opacity = '1', 10);
+                    updateUI();
+                } else {
+                    sheet.classList.remove('active');
+                    overlay.style.opacity = '0';
+                    setTimeout(() => { 
+                        overlay.classList.add('hidden'); 
+                        window.backToForm(); 
+                    }, 400);
+                }
+            };
 
-        initAuth();
+            window.showCheckoutForm = () => {
+                document.getElementById('cart-main-view').classList.add('hidden');
+                document.getElementById('checkout-form').classList.remove('hidden');
+            };
+
+            window.backToForm = () => {
+                document.getElementById('cart-main-view').classList.remove('hidden');
+                document.getElementById('checkout-form').classList.add('hidden');
+                document.getElementById('payment-screen').classList.add('hidden');
+            };
+
+            window.proceedToPayment = () => {
+                const fields = ['order-name', 'order-phone', 'order-contact', 'order-location'];
+                let valid = true;
+                fields.forEach(f => {
+                    const el = document.getElementById(f);
+                    if (!el.value) {
+                        el.style.borderColor = 'rgba(255,0,0,0.3)';
+                        valid = false;
+                    } else {
+                        el.style.borderColor = '';
+                    }
+                });
+                if (!valid) return;
+
+                const oid = `VX-${Math.floor(100 + Math.random() * 899)}`;
+                document.getElementById('order-id').innerText = oid;
+                document.getElementById('checkout-form').classList.add('hidden');
+                document.getElementById('payment-screen').classList.remove('hidden');
+                if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            };
+
+            window.confirmPayment = () => {
+                const data = {
+                    id: document.getElementById('order-id').innerText,
+                    user: document.getElementById('order-name').value,
+                    items: cart,
+                    total: document.getElementById('final-total').innerText
+                };
+                if (tg && tg.sendData) {
+                    tg.sendData(JSON.stringify(data));
+                    tg.close();
+                } else {
+                    alert("Order Placed: " + data.id);
+                    window.toggleCart(false);
+                    cart = [];
+                    updateUI();
+                }
+            };
+
+            window.delP = async (id) => {
+                if (!confirm("Delete product?")) return;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                } catch(e) { console.error(e); }
+            };
+
+            window.saveNewProduct = async () => {
+                const name = document.getElementById('p-name').value;
+                const price = parseInt(document.getElementById('p-price').value);
+                const category = document.getElementById('p-cat').value;
+                const icon = document.getElementById('p-img').value;
+                if (!name || !price) return;
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, icon });
+                    window.closeAdmin();
+                } catch(e) { console.error(e); }
+            };
+
+            window.closeAdmin = () => document.getElementById('admin-modal').classList.add('hidden');
+
+            // --- BINDINGS ---
+            document.getElementById('cart-trigger').onclick = () => window.toggleCart(true);
+            document.getElementById('theme-toggle').onclick = () => {
+                const list = ['toxic', 'ice', 'magma'];
+                let cur = document.body.className.replace('theme-', '') || 'toxic';
+                let next = list[(list.indexOf(cur) + 1) % 3];
+                document.body.className = next === 'toxic' ? '' : 'theme-' + next;
+                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            };
+            document.getElementById('add-product-btn').onclick = () => document.getElementById('admin-modal').classList.remove('hidden');
+
+            // Стартуем авторизацию
+            initAuth();
+
+        } catch (globalError) {
+            console.error("Critical app error:", globalError);
+            hideLoader(); // Если всё упало в самом начале, даем увидеть интерфейс (пустой)
+        }
+
+        // Рендерим иконки
+        lucide.createIcons();
     </script>
 </body>
 </html>
