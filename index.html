@@ -1022,9 +1022,9 @@
                 }
 
                 try {
-                    const uid = auth.currentUser.uid;
+                    const uid = auth.currentUser?.uid;
                     if (!uid) {
-                        document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500">Ошибка авторизации</div>`;
+                        document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Попробуйте обновить страницу.</div>`;
                         return;
                     }
 
@@ -1085,9 +1085,14 @@
                                 `;
                             });
                             list.innerHTML = html;
+                        }, (error) => {
+                            console.error("My Orders Error:", error);
+                            const list = document.getElementById('my-orders-list');
+                            if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
                         });
                 } catch (e) {
                     console.error(e);
+                    document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500 py-10">Сбой системы</div>`;
                 }
             },
 
@@ -1121,7 +1126,8 @@
                         }
 
                         let docs = [];
-                        snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                        // Save Firestore ID separately from Order Content ID
+                        snapshot.forEach(doc => docs.push({ firestoreId: doc.id, ...doc.data() }));
                         
                         // Sort Client Side
                         docs.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -1141,8 +1147,9 @@
                                 statusText = 'ОТКЛОНЕН';
                             }
 
+                            // Use firestoreId for clicking
                             html += `
-                                <div onclick="window.shop.openOrderDetails('${data.id}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
+                                <div onclick="window.shop.openOrderDetails('${data.firestoreId}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="flex flex-col">
                                             <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
