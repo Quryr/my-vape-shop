@@ -524,8 +524,7 @@
                 ordersListenerUnsubscribe: null, // For admin orders
                 myOrdersListenerUnsubscribe: null, // For user orders
                 adminSelectionMode: false,
-                selectedAdminOrders: new Set(),
-                isOfflineMode: false // New flag for degraded mode
+                selectedAdminOrders: new Set()
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -578,8 +577,7 @@
 
             // --- NEW: AUTO-CREATE USER PROFILE ---
             saveUserProfile: async (user) => {
-                // If offline mode, skip DB save
-                if (window.shop.state.isOfflineMode || !auth.currentUser) return;
+                if (!auth.currentUser) return;
                 
                 try {
                     // Use auth.currentUser.uid for write permission
@@ -602,12 +600,32 @@
                 }
             },
 
+            // --- HELPER: Save Cart to LocalStorage ---
+            saveCartState: () => {
+                try {
+                    localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
+                } catch (e) {
+                    console.warn("Could not save cart to storage", e);
+                }
+            },
+
             init: async () => {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand();
                 tg.setHeaderColor('#050505');
                 tg.setBackgroundColor('#050505');
+
+                // --- RESTORE CART FROM STORAGE ---
+                try {
+                    const savedCart = localStorage.getItem('vapor_cart_storage');
+                    if (savedCart) {
+                        window.shop.state.cart = JSON.parse(savedCart);
+                        window.shop.updateCartBadge();
+                    }
+                } catch (e) {
+                    console.warn("Failed to load saved cart", e);
+                }
 
                 // --- ROBUST USER PARSING ---
                 const parsed = window.shop.parseUser();
@@ -623,15 +641,6 @@
                 };
 
                 window.shop.state.user = tgUser;
-                
-                // Load Cart from LocalStorage immediately
-                const savedCart = localStorage.getItem('vape_cart');
-                if (savedCart) {
-                    try {
-                        window.shop.state.cart = JSON.parse(savedCart);
-                        window.shop.updateCartBadge();
-                    } catch (e) { console.error("Error loading cart", e); }
-                }
                 
                 // STRING COMPARISON for Admin ID to avoid type errors
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
@@ -677,16 +686,9 @@
                         await auth.signInAnonymously();
                     }
                 } catch (e) {
-                    console.error("Auth Error (Fallback to Offline):", e);
-                    // Critical: Allow app to work even if Auth fails (e.g. config error)
-                    window.shop.state.isOfflineMode = true;
-                    
-                    if (e.code === 'auth/configuration-not-found' || e.code === 'auth/operation-not-allowed') {
-                        console.warn("Anonymous auth disabled in console. Running in Guest/Offline mode.");
-                        // We continue without throwing
-                    }
+                    console.error("Auth Error (Using Offline Mode):", e);
                 }
-                // Start Realtime Listener (works if auth succeeded or if rules allow public read)
+                // Start Realtime Listener
                 window.shop.initRealtimeListener();
             },
 
@@ -697,10 +699,10 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
-                // Check connection status for Debug or Offline
-                if (FIREBASE_CONFIG.projectId === 'demo' || window.shop.state.isOfflineMode) {
-                    console.warn("OFFLINE MODE: Using local/mock data.");
-                    // In demo/offline mode, rely on local data + mocks
+                // Check connection status for Debug
+                if (FIREBASE_CONFIG.projectId === 'demo') {
+                    console.warn("DEMO MODE: Sync disabled.");
+                    // In demo mode, rely on localStorage entirely for single-session persistence
                     const localData = localStorage.getItem('vape_store_products');
                     if (localData && localData !== "[]") {
                         window.shop.state.products = JSON.parse(localData);
@@ -749,10 +751,6 @@
                         
                     }, (error) => {
                         console.error("Realtime listener error:", error);
-                        // Fallback to local data on error
-                        window.shop.state.isOfflineMode = true;
-                        window.shop.state.products = [...MOCK_PRODUCTS];
-                        window.shop.renderStore();
                     });
             },
 
@@ -1027,14 +1025,6 @@
                     ` : ''}
                     
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
-                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.switchView('my-orders')">
-                            <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="package" class="w-5 h-5"></i></div>
-                            <div class="flex-grow">
-                                <h4 class="text-sm font-bold text-white">Мои Заказы</h4>
-                                <p class="text-xs text-gray-600">История покупок</p>
-                            </div>
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
-                         </div>
                          <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.showToast('Настройки сохранены', 'Инфо')">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="settings" class="w-5 h-5"></i></div>
                             <div class="flex-grow">
@@ -1054,7 +1044,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.2.0 (Offline Mode Support)</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.1.0 (Persistent Cart) - Tap 5x for Debug</p>
                 `;
             },
 
@@ -1070,31 +1060,16 @@
                     </div>
                 `;
 
-                // If offline mode, show simple message or local history if implemented (not fully implemented in this quick fix but handles the error)
-                if (window.shop.state.isOfflineMode) {
-                    document.getElementById('my-orders-list').innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-10 text-center">
-                            <i data-lucide="wifi-off" class="w-12 h-12 mb-2 text-gray-500"></i>
-                            <p class="text-gray-400 font-bold">Нет соединения с базой</p>
-                            <p class="text-xs text-gray-600 mt-1 max-w-[200px]">История заказов доступна только в онлайн режиме (Настройте Firebase Auth).</p>
-                        </div>
-                    `;
-                    if(window.lucide) window.lucide.createIcons();
-                    return;
-                }
-
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
-                    window.shop.state.myOrdersListenerUnsubscribe = null;
                 }
 
-                const list = document.getElementById('my-orders-list');
-
                 // Function to set up listener
-                const startOrdersSync = (uid) => {
+                const setupListener = (uid) => {
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
-                            if (!document.body.contains(list)) return; // Prevents error if user left page
+                            const list = document.getElementById('my-orders-list');
+                            if (!list) return;
 
                             if (snapshot.empty) {
                                 list.innerHTML = `
@@ -1102,7 +1077,6 @@
                                         <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
                                         <p>История пуста</p>
                                     </div>`;
-                                if(window.lucide) window.lucide.createIcons();
                                 return;
                             }
 
@@ -1133,7 +1107,7 @@
                                     <div class="glass-panel rounded-xl p-4 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                         <div class="flex justify-between items-start mb-2">
                                             <div class="flex flex-col">
-                                                <span class="text-[9px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
+                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
                                                 <span class="text-xs text-gray-400">${itemsCount} товаров</span>
                                             </div>
                                             <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
@@ -1150,36 +1124,34 @@
                             list.innerHTML = html;
                         }, (error) => {
                             console.error("My Orders Error:", error);
-                            if(list && document.body.contains(list)) {
-                                list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
-                            }
+                            const list = document.getElementById('my-orders-list');
+                            if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
                         });
                 };
 
-                // Robust Auth Check
-                if (auth.currentUser) {
-                    startOrdersSync(auth.currentUser.uid);
-                } else {
-                    // Try to sign in if not signed in (Fixes "Error Auth" loop)
-                    auth.signInAnonymously()
-                        .then(cred => startOrdersSync(cred.user.uid))
-                        .catch(e => {
-                            console.error("Auth failed in My Orders:", e);
-                            if(list && document.body.contains(list)) {
-                                // If specifically config error, give hint
-                                const msg = e.code === 'auth/configuration-not-found' 
-                                    ? 'В Firebase Console не включен Anonymous Auth' 
-                                    : (e.message || 'Сбой соединения');
+                const handleAuth = (user) => {
+                    if (user) {
+                        setupListener(user.uid);
+                    } else {
+                        // Attempt auto-recovery
+                        console.log("Auto-authenticating user...");
+                        auth.signInAnonymously()
+                            .then(cred => setupListener(cred.user.uid))
+                            .catch(e => {
+                                const list = document.getElementById('my-orders-list');
+                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Обновите страницу.</div>`;
+                            });
+                    }
+                };
 
-                                list.innerHTML = `
-                                    <div class="flex flex-col items-center justify-center py-10 text-center">
-                                        <div class="text-red-500 mb-2 font-bold">Ошибка авторизации</div>
-                                        <div class="text-[10px] text-gray-500 mb-4 max-w-[250px] break-words">${msg}</div>
-                                        <button onclick="window.shop.switchView('my-orders')" class="px-4 py-2 bg-white/10 rounded-lg text-xs hover:bg-white/20 text-white transition-colors">Попробовать снова</button>
-                                    </div>
-                                `;
-                            }
-                        });
+                // Auth Logic
+                if (auth.currentUser) {
+                    handleAuth(auth.currentUser);
+                } else {
+                    const unsub = auth.onAuthStateChanged(user => {
+                        unsub();
+                        handleAuth(user);
+                    });
                 }
             },
 
@@ -1441,9 +1413,9 @@
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
                 
-                // SAVE TO STORAGE
-                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
-                
+                // SAVE CART
+                window.shop.saveCartState();
+
                 window.shop.showToast("Добавлено в корзину", "Корзина");
                 
                 if(window.Telegram.WebApp.HapticFeedback) {
@@ -1459,9 +1431,9 @@
                     delete window.shop.state.cart[productId];
                 }
                 
-                // SAVE TO STORAGE
-                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
-                
+                // SAVE CART
+                window.shop.saveCartState();
+
                 window.shop.updateCartBadge();
                 window.shop.renderCart(document.getElementById('main-content'));
                 setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
@@ -1645,11 +1617,11 @@
 
                 // 3. UI Cleanup (No more python payload)
                 document.getElementById('checkout-modal').classList.add('hidden');
-                
-                // CLEAR LOCAL STORAGE CART
-                localStorage.removeItem('vape_cart');
-                
                 window.shop.state.cart = {};
+                
+                // CLEAR SAVED CART
+                localStorage.removeItem('vapor_cart_storage');
+
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
