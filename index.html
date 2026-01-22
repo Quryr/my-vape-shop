@@ -12,7 +12,7 @@
         :root {
             --primary: #22c55e; /* Toxic Green */
             --bg-dark: #050505;
-            --accent-glow: rgba(34, 197, 94, 0.25);
+            --accent-glow: rgba(34, 197, 94, 0.35);
         }
 
         body {
@@ -30,7 +30,7 @@
             z-index: -1;
             background: 
                 radial-gradient(circle at 50% 110%, var(--accent-glow), transparent 60%),
-                radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.05), transparent 30%);
+                radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.1), transparent 30%);
         }
 
         .smoke-overlay {
@@ -38,7 +38,8 @@
             inset: 0;
             z-index: -1;
             background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
-            opacity: 0.1;
+            opacity: 0.15;
+            pointer-events: none;
         }
 
         /* Анимированный туман */
@@ -48,79 +49,80 @@
             height: 600px;
             background: var(--primary);
             filter: blur(180px);
-            opacity: 0.04;
+            opacity: 0.06;
             border-radius: 50%;
-            animation: moveCloud 20s infinite alternate ease-in-out;
+            animation: moveCloud 25s infinite alternate ease-in-out;
             z-index: -1;
         }
 
         @keyframes moveCloud {
             0% { transform: translate(-30%, -20%) rotate(0deg); }
-            100% { transform: translate(50%, 40%) rotate(90deg); }
+            100% { transform: translate(40%, 40%) rotate(120deg); }
         }
 
         .glass {
-            backdrop-filter: blur(40px) saturate(160%);
-            background: rgba(20, 20, 20, 0.75);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            backdrop-filter: blur(40px) saturate(180%);
+            background: rgba(15, 15, 15, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* Кастомный логотип VΛPOR */
         .logo-text {
             font-weight: 900;
-            letter-spacing: -0.05em;
+            letter-spacing: -0.02em;
             text-transform: uppercase;
-            font-style: italic;
-            font-size: 1.875rem;
+            font-size: 1.75rem;
             line-height: 1;
-            background: linear-gradient(to right, #fff, var(--primary));
+            background: linear-gradient(135deg, #fff 30%, var(--primary) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(34, 197, 94, 0.2));
         }
         .logo-accent {
-            filter: drop-shadow(0 0 8px var(--primary));
+            font-style: italic;
+            margin-right: -2px;
         }
 
-        /* Кнопки категорий - Исправлено обрезание неона */
+        /* Категории - Исправлен контейнер для предотвращения обрезания неона */
+        .category-container {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 20px 5px; /* Вертикальный паддинг важен для теней */
+            margin: -10px 0;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         .category-pill {
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            border: 1px solid rgba(255,255,255,0.08);
+            position: relative;
         }
         .category-pill.active {
             background: var(--primary);
             color: black;
             border-color: var(--primary);
-            transform: translateY(-2px);
-            filter: drop-shadow(0 5px 15px var(--accent-glow));
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 15px var(--accent-glow));
         }
 
-        /* Объемная нижняя панель */
+        /* Нижняя панель */
         .nav-floating {
-            background: rgba(12, 12, 12, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.9), inset 0 1px 2px rgba(255,255,255,0.1);
+            background: rgba(10, 10, 10, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.05);
         }
 
         .nav-item {
             transition: all 0.3s ease;
+            color: rgba(255,255,255,0.4);
         }
         .nav-item.active {
             color: var(--primary);
-            filter: drop-shadow(0 0 12px var(--primary));
-            transform: translateY(-4px);
+            filter: drop-shadow(0 0 10px var(--primary));
         }
-
-        .product-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            transition: all 0.3s ease;
-        }
-        .product-card:active { transform: scale(0.96); }
 
         .loader-overlay {
             position: fixed;
@@ -130,54 +132,45 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.6s ease;
+            transition: opacity 0.8s ease;
         }
 
-        .btn-primary {
-            background: var(--primary);
-            color: black;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
+        .product-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
-        /* Bottom Sheet */
         .bottom-sheet {
             transform: translateY(100%);
-            transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .bottom-sheet.active {
             transform: translateY(0);
         }
-
-        .theme-toxic { --primary: #22c55e; --accent-glow: rgba(34, 197, 94, 0.3); }
-        .theme-ice { --primary: #0ea5e9; --accent-glow: rgba(14, 165, 233, 0.3); }
-        .theme-magma { --primary: #f97316; --accent-glow: rgba(249, 115, 22, 0.3); }
     </style>
 
     <script>
-        // Глобальный предохранитель загрузки
+        // ГЛОБАЛЬНЫЙ ПРЕДОХРАНИТЕЛЬ: Принудительно скрывает лоадер через 3.5с
         window.hideLoader = function() {
             const loader = document.getElementById('loader');
-            if (loader) {
+            if (loader && loader.style.display !== 'none') {
                 loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 600);
+                setTimeout(() => loader.style.display = 'none', 800);
             }
         };
         setTimeout(window.hideLoader, 3500);
     </script>
 </head>
 <body class="theme-toxic">
+    <!-- Loader -->
     <div id="loader" class="loader-overlay">
         <div class="flex flex-col items-center">
-            <div class="relative">
-                <div class="w-16 h-16 border-[4px] border-white/5 border-t-primary rounded-full animate-spin"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="w-2 h-2 bg-primary rounded-full animate-ping"></div>
-                </div>
+            <div class="relative w-20 h-20">
+                <div class="absolute inset-0 border-[3px] border-white/5 border-t-primary rounded-full animate-spin"></div>
+                <div class="absolute inset-4 border-[2px] border-white/5 border-b-primary rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
             </div>
-            <p class="mt-8 text-[11px] font-black tracking-[0.5em] uppercase text-primary animate-pulse">Establishing Connection</p>
+            <p class="mt-8 text-[10px] font-black tracking-[0.6em] uppercase text-primary animate-pulse">Establishing Link</p>
         </div>
     </div>
 
@@ -190,144 +183,128 @@
         <!-- Store View -->
         <div id="view-store">
             <header class="flex items-center justify-between mb-12">
-                <div class="flex items-center gap-3">
-                    <div class="p-2.5 bg-primary/10 rounded-2xl border border-primary/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 glass rounded-2xl flex items-center justify-center border-primary/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                        <i data-lucide="component" class="text-primary w-6 h-6"></i>
                     </div>
                     <div>
-                        <h1 id="admin-status" class="text-[10px] font-black tracking-[0.4em] text-white/30 mb-1 uppercase">SYSTEM.OS // v2.6</h1>
+                        <h1 id="admin-status" class="text-[9px] font-black tracking-[0.4em] text-white/20 mb-1 uppercase">Cloud.OS // Build 2.6</h1>
                         <div class="logo-text">V<span class="logo-accent">Λ</span>POR CLOUD</div>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button id="admin-btn" onclick="window.showAddProduct()" class="hidden p-3.5 glass rounded-2xl text-primary border-primary/30 shadow-lg">
-                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                    <button id="admin-btn" onclick="window.showAddProduct()" class="hidden p-3.5 glass rounded-2xl text-primary border-primary/30 active:scale-90">
+                        <i data-lucide="plus" class="w-6 h-6"></i>
                     </button>
-                    <button onclick="window.nextTheme()" class="p-3.5 glass rounded-2xl text-white/80 border-white/5">
-                        <i data-lucide="palette" class="w-6 h-6"></i>
+                    <button onclick="window.nextTheme()" class="p-3.5 glass rounded-2xl text-white/80 active:scale-90">
+                        <i data-lucide="zap" class="w-6 h-6"></i>
                     </button>
                 </div>
             </header>
 
-            <!-- Search -->
             <div class="glass rounded-[24px] flex items-center px-6 py-4.5 mb-10 border border-white/5">
                 <i data-lucide="search" class="w-5 h-5 text-primary opacity-60 mr-4"></i>
                 <input type="text" oninput="window.filterProducts(this.value)" placeholder="Поиск девайса..." class="bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-white/20">
             </div>
 
-            <!-- Categories - Исправлено: py-4 дает место для Drop Shadow -->
-            <div class="flex gap-4 overflow-x-auto py-4 mb-4 no-scrollbar snap-x">
+            <div class="category-container no-scrollbar snap-x">
                 <button onclick="window.setCategory('all')" class="category-pill active shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="all">Все</button>
                 <button onclick="window.setCategory('Device')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Device">Девайсы</button>
                 <button onclick="window.setCategory('Disposable')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Disposable">Одноразки</button>
                 <button onclick="window.setCategory('Liquid')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Liquid">Жидкости</button>
             </div>
 
-            <div id="products-grid" class="grid grid-cols-2 gap-5">
-                <div class="glass p-5 rounded-[36px] animate-pulse h-80 border-white/5"></div>
-                <div class="glass p-5 rounded-[36px] animate-pulse h-80 border-white/5"></div>
+            <div id="products-grid" class="grid grid-cols-2 gap-5 mt-6">
+                <!-- Skeleton -->
+                <div class="glass p-5 rounded-[36px] animate-pulse h-80"></div>
+                <div class="glass p-5 rounded-[36px] animate-pulse h-80"></div>
             </div>
         </div>
 
         <!-- Profile View -->
         <div id="view-profile" class="hidden">
-            <h2 class="text-5xl font-black uppercase mb-12 italic tracking-tighter leading-none">User <br/><span class="text-primary">Terminal</span></h2>
+            <h2 class="text-5xl font-black uppercase mb-12 italic tracking-tighter leading-none">User<br/><span class="text-primary">Terminal</span></h2>
             
-            <div class="glass rounded-[44px] p-12 text-center mb-8 relative overflow-hidden border-white/10">
-                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-40"></div>
+            <div class="glass rounded-[44px] p-10 text-center mb-8 relative overflow-hidden border-white/10">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-40"></div>
                 <div class="relative inline-block mb-8">
-                    <div class="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 shadow-[0_0_50px_rgba(34,197,94,0.15)]">
-                        <i data-lucide="user-check" class="w-16 h-16 text-primary"></i>
-                    </div>
-                    <div class="absolute -bottom-2 -right-2 bg-primary p-2.5 rounded-2xl border-4 border-[#0c0c0c]">
-                        <i data-lucide="shield-check" class="w-5 h-5 text-black"></i>
+                    <div class="w-28 h-28 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 shadow-[0_0_40px_rgba(34,197,94,0.1)]">
+                        <i data-lucide="user" class="w-14 h-14 text-primary"></i>
                     </div>
                 </div>
-                <h3 id="user-display-name" class="text-3xl font-black mb-2 tracking-tight italic uppercase">Anonymous</h3>
-                <p id="user-tg-username" class="text-primary/70 font-black text-xs uppercase tracking-[0.2em] mb-10">@connect_tg</p>
+                <h3 id="user-display-name" class="text-3xl font-black mb-1 uppercase tracking-tight">User</h3>
+                <p id="user-tg-username" class="text-primary/70 font-black text-xs uppercase tracking-[0.2em] mb-10">@unknown</p>
                 
-                <div class="grid grid-cols-2 gap-5">
-                    <div class="bg-black/50 p-6 rounded-[28px] border border-white/5 text-left">
-                        <p class="text-[10px] uppercase font-black opacity-30 mb-2 tracking-widest">Access Key</p>
-                        <p id="user-display-id" class="font-mono text-xs font-black tracking-tighter overflow-hidden text-ellipsis">00000000</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-black/40 p-5 rounded-[28px] border border-white/5 text-left">
+                        <p class="text-[9px] uppercase font-black opacity-30 mb-1 tracking-widest">Global ID</p>
+                        <p id="user-display-id" class="font-mono text-xs font-black tracking-tighter opacity-70">00000000</p>
                     </div>
-                    <div class="bg-black/50 p-6 rounded-[28px] border border-white/5 text-left">
-                        <p class="text-[10px] uppercase font-black opacity-30 mb-2 tracking-widest">Tier Rank</p>
-                        <p id="user-display-rank" class="text-xs font-black uppercase text-white/80">Standard</p>
+                    <div class="bg-black/40 p-5 rounded-[28px] border border-white/5 text-left">
+                        <p class="text-[9px] uppercase font-black opacity-30 mb-1 tracking-widest">Rank Tier</p>
+                        <p id="user-display-rank" class="text-[10px] font-black uppercase text-white/80 tracking-tight">Standard</p>
                     </div>
                 </div>
-            </div>
-
-            <div class="space-y-4">
-                <button class="w-full glass p-7 rounded-[30px] flex items-center justify-between group active:scale-[0.97] transition-all border-white/5">
-                    <div class="flex items-center gap-6">
-                        <div class="p-4 bg-primary/10 rounded-[20px] text-primary"><i data-lucide="history"></i></div>
-                        <span class="font-black text-xs uppercase tracking-widest">Order Logs</span>
-                    </div>
-                    <i data-lucide="chevron-right" class="opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                </button>
             </div>
         </div>
     </div>
 
-    <!-- Объемная навигация -->
-    <nav class="fixed bottom-10 left-8 right-8 h-22 nav-floating rounded-[36px] flex items-center justify-around z-50 px-6 max-w-2xl mx-auto backdrop-blur-3xl">
-        <button onclick="window.switchView('store')" id="nav-store" class="nav-item active flex flex-col items-center gap-2 flex-1">
-            <div class="p-2 rounded-xl transition-colors bg-primary/5"><i data-lucide="grid" class="w-6 h-6"></i></div>
-            <span class="text-[9px] font-black uppercase tracking-[0.2em]">Shop</span>
+    <!-- Navigation -->
+    <nav class="fixed bottom-10 left-8 right-8 h-22 nav-floating rounded-[38px] flex items-center justify-around z-50 px-6 max-w-2xl mx-auto border-white/10">
+        <button onclick="window.switchView('store')" id="nav-store" class="nav-item active flex flex-col items-center gap-2">
+            <i data-lucide="layout-grid" class="w-6 h-6"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest">Store</span>
         </button>
-        <button onclick="window.toggleCart()" class="nav-item flex flex-col items-center gap-2 flex-1 relative text-white/30">
-            <div class="absolute -top-1.5 right-1/4 bg-primary text-black text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-full border-[3px] border-[#0c0c0c] hidden" id="cart-counter">0</div>
-            <div class="p-2 rounded-xl transition-colors"><i data-lucide="shopping-bag" class="w-6 h-6"></i></div>
-            <span class="text-[9px] font-black uppercase tracking-[0.2em]">Cart</span>
+        <button onclick="window.toggleCart()" class="nav-item flex flex-col items-center gap-2 relative">
+            <div class="absolute -top-1.5 right-0 bg-primary text-black text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full border-[3px] border-[#0a0a0a] hidden" id="cart-counter">0</div>
+            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest">Cart</span>
         </button>
-        <button onclick="window.switchView('profile')" id="nav-profile" class="nav-item flex flex-col items-center gap-2 flex-1 text-white/30">
-            <div class="p-2 rounded-xl transition-colors"><i data-lucide="user" class="w-6 h-6"></i></div>
-            <span class="text-[9px] font-black uppercase tracking-[0.2em]">User</span>
+        <button onclick="window.switchView('profile')" id="nav-profile" class="nav-item flex flex-col items-center gap-2">
+            <i data-lucide="fingerprint" class="w-6 h-6"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest">Auth</span>
         </button>
     </nav>
 
     <!-- Cart Sheet -->
     <div id="cart-sheet" class="fixed inset-0 z-[60] pointer-events-none">
-        <div id="cart-overlay" onclick="window.toggleCart()" class="absolute inset-0 bg-black/95 opacity-0 transition-opacity pointer-events-none"></div>
-        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-[#080808] border-t border-white/10 rounded-t-[56px] max-h-[88vh] flex flex-col pointer-events-auto shadow-2xl">
-            <div class="w-20 h-1.5 bg-white/10 rounded-full mx-auto my-7"></div>
-            <div class="px-12 pb-10 flex items-center justify-between">
-                <h3 class="text-4xl font-black italic uppercase italic tracking-tighter">Bask<span class="text-primary">et</span></h3>
-                <button onclick="window.toggleCart()" class="p-4 glass rounded-full border-white/10"><i data-lucide="x" class="w-6 h-6"></i></button>
+        <div id="cart-overlay" onclick="window.toggleCart()" class="absolute inset-0 bg-black/90 opacity-0 transition-opacity pointer-events-none"></div>
+        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-[#080808] border-t border-white/10 rounded-t-[50px] max-h-[85vh] flex flex-col pointer-events-auto">
+            <div class="w-16 h-1 bg-white/10 rounded-full mx-auto my-6"></div>
+            <div class="px-10 pb-8 flex items-center justify-between">
+                <h3 class="text-3xl font-black italic uppercase italic">Basket<span class="text-primary">.zip</span></h3>
+                <button onclick="window.toggleCart()" class="p-3 glass rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <div id="cart-items-list" class="flex-grow overflow-y-auto px-10 space-y-5 no-scrollbar">
-                <!-- Items list -->
-            </div>
-            <div class="p-12 glass border-t border-white/5 rounded-t-[48px]">
-                <div class="flex justify-between mb-10">
-                    <span class="opacity-40 font-black uppercase text-[11px] tracking-[0.2em]">Total Amount</span>
-                    <span id="cart-total-price" class="text-4xl font-black tracking-tighter">0 ₽</span>
+            <div id="cart-items-list" class="flex-grow overflow-y-auto px-8 space-y-4 no-scrollbar"></div>
+            <div class="p-10 glass border-t border-white/5 rounded-t-[40px]">
+                <div class="flex justify-between mb-8">
+                    <span class="opacity-40 font-black uppercase text-[10px] tracking-widest">Total Value</span>
+                    <span id="cart-total-price" class="text-3xl font-black tracking-tighter">0 ₽</span>
                 </div>
-                <button onclick="window.confirmOrder()" class="w-full btn-primary py-7 rounded-[28px] flex items-center justify-center gap-5 italic active:scale-95 transition-transform text-lg">
-                    Confirm Order
-                    <i data-lucide="chevron-right" class="w-7 h-7"></i>
+                <button onclick="window.confirmOrder()" class="w-full btn-primary py-6 rounded-2xl flex items-center justify-center gap-4 italic active:scale-95 transition-all">
+                    Finalize Order
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Add Product Modal -->
+    <!-- Modals -->
     <div id="modal-add" class="fixed inset-0 z-[100] glass hidden items-center justify-center p-8">
-        <div class="bg-[#080808] border border-white/10 w-full max-w-sm rounded-[48px] p-10 shadow-2xl">
-            <h3 class="text-2xl font-black italic uppercase mb-10 text-primary">New Asset</h3>
-            <div class="space-y-5">
-                <input type="text" id="p-name" placeholder="Device Model" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold text-sm">
-                <input type="number" id="p-price" placeholder="Price (RUB)" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold text-sm">
-                <input type="text" id="p-icon" placeholder="Emoji Asset" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold text-sm">
-                <select id="p-type" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold text-sm appearance-none">
-                    <option value="Device">Под-система</option>
+        <div class="bg-[#080808] border border-white/10 w-full max-w-sm rounded-[40px] p-8 shadow-2xl">
+            <h3 class="text-xl font-black italic uppercase mb-8 text-primary">Register Asset</h3>
+            <div class="space-y-4">
+                <input type="text" id="p-name" placeholder="Name" class="w-full bg-white/5 border border-white/10 p-5 rounded-xl outline-none focus:border-primary font-bold">
+                <input type="number" id="p-price" placeholder="Price" class="w-full bg-white/5 border border-white/10 p-5 rounded-xl outline-none focus:border-primary font-bold">
+                <input type="text" id="p-icon" placeholder="Emoji Asset" class="w-full bg-white/5 border border-white/10 p-5 rounded-xl outline-none focus:border-primary font-bold">
+                <select id="p-type" class="w-full bg-white/5 border border-white/10 p-5 rounded-xl outline-none focus:border-primary font-bold appearance-none">
+                    <option value="Device">Девайс</option>
                     <option value="Disposable">Одноразка</option>
                     <option value="Liquid">Жидкость</option>
                 </select>
-                <div class="flex gap-5 pt-8">
-                    <button onclick="window.closeAddProduct()" class="flex-1 py-5 text-[11px] font-black uppercase opacity-40 hover:opacity-100 transition-opacity">Abort</button>
-                    <button onclick="window.saveProduct()" class="flex-1 btn-primary py-5 rounded-2xl">Commit</button>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="window.closeAddProduct()" class="flex-1 py-4 text-[10px] font-black uppercase opacity-40">Abort</button>
+                    <button onclick="window.saveProduct()" class="flex-1 btn-primary py-4 rounded-xl">Commit</button>
                 </div>
             </div>
         </div>
@@ -338,13 +315,11 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Config
         const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-tech-pro-v4';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-tech-v4';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const tg = window.Telegram?.WebApp;
 
-        // Admin Identity
         const ADMIN_ID = 1262669099;
         const ADMIN_USER = "Tru5tNoBody";
 
@@ -352,7 +327,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Global State
         window.state = {
             products: [],
             cart: [],
@@ -362,8 +336,7 @@
             theme: 'toxic'
         };
 
-        // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ (ДЛЯ HTML) ---
-
+        // --- ATTACH TO WINDOW (Crucial for TMA) ---
         window.switchView = (v) => {
             tg?.HapticFeedback.impactOccurred('light');
             const store = document.getElementById('view-store');
@@ -375,16 +348,12 @@
                 store.classList.remove('hidden');
                 profile.classList.add('hidden');
                 nStore.classList.add('active');
-                nStore.classList.remove('text-white/30');
                 nProfile.classList.remove('active');
-                nProfile.classList.add('text-white/30');
             } else {
                 store.classList.add('hidden');
                 profile.classList.remove('hidden');
                 nProfile.classList.add('active');
-                nProfile.classList.remove('text-white/30');
                 nStore.classList.remove('active');
-                nStore.classList.add('text-white/30');
                 syncUser();
             }
             lucide.createIcons();
@@ -439,10 +408,8 @@
 
         window.confirmOrder = () => {
             if (window.state.cart.length === 0) return;
-            tg?.HapticFeedback.notificationOccurred('success');
             const code = `VX-${Math.floor(100 + Math.random() * 899)}`;
             const order = { code, items: window.state.cart, total: document.getElementById('cart-total-price').innerText, user: window.state.user };
-            alert(`Заказ подтвержден! Код: ${code}`);
             tg?.sendData(JSON.stringify(order));
             tg?.close();
         };
@@ -451,24 +418,20 @@
         window.closeAddProduct = () => document.getElementById('modal-add').classList.replace('flex', 'hidden');
 
         window.saveProduct = async () => {
-            if (!auth.currentUser) return;
             const name = document.getElementById('p-name').value;
             const price = parseInt(document.getElementById('p-price').value);
             const icon = document.getElementById('p-icon').value;
             const tag = document.getElementById('p-type').value;
-            if (name && price) {
+            if (name && price && auth.currentUser) {
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
                 await addDoc(colRef, { name, price, icon: icon || '💨', tag });
                 window.closeAddProduct();
-                tg?.HapticFeedback.notificationOccurred('success');
             }
         };
 
         window.delProduct = async (id) => {
-            if (!auth.currentUser) return;
-            if (confirm('Удалить из системы?')) {
+            if (confirm('Удалить?') && auth.currentUser) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                tg?.HapticFeedback.impactOccurred('medium');
             }
         };
 
@@ -480,40 +443,31 @@
             tg?.HapticFeedback.impactOccurred('light');
         };
 
-        // --- ВНУТРЕННЯЯ ЛОГИКА ---
-
-        const initSession = async () => {
+        // --- SYSTEM CORE ---
+        const init = async () => {
             try {
                 if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
                 else await signInAnonymously(auth);
-            } catch (err) {
-                console.error(err);
-                window.hideLoader();
-            }
-        };
-
-        onAuthStateChanged(auth, (user) => {
-            window.state.user = user;
-            if (user) {
-                syncUser();
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-                onSnapshot(colRef, (snap) => {
-                    let items = [];
-                    snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-                    window.state.products = items;
-                    renderProducts();
-                    window.hideLoader();
-                }, (err) => {
-                    console.error(err);
-                    window.hideLoader();
+                
+                onAuthStateChanged(auth, u => {
+                    if (u) {
+                        syncUser();
+                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+                        onSnapshot(colRef, snap => {
+                            let items = [];
+                            snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                            window.state.products = items;
+                            renderProducts();
+                            window.hideLoader();
+                        }, () => window.hideLoader());
+                    }
                 });
-            }
-        });
+            } catch(e) { window.hideLoader(); }
+        };
 
         const syncUser = () => {
             let userData = tg?.initDataUnsafe?.user;
             
-            // Если WebApp пустой, пытаемся парсить из строки initData
             if (!userData && tg?.initData) {
                 try {
                     const params = new URLSearchParams(tg.initData);
@@ -522,16 +476,8 @@
                 } catch(e) {}
             }
 
-            if (!userData && window.location.hash) {
-                try {
-                    const params = new URLSearchParams(window.location.hash.substring(1));
-                    const raw = params.get('user');
-                    if (raw) userData = JSON.parse(raw);
-                } catch(e) {}
-            }
-
             if (userData) {
-                window.state.user = { ...window.state.user, ...userData };
+                window.state.user = userData;
                 const nameEl = document.getElementById('user-display-name');
                 const tagEl = document.getElementById('user-tg-username');
                 const idEl = document.getElementById('user-display-id');
@@ -542,19 +488,9 @@
                 
                 if (userData.id == ADMIN_ID || userData.username === ADMIN_USER) {
                     window.state.isAdmin = true;
-                    const btn = document.getElementById('admin-btn');
+                    document.getElementById('admin-btn')?.classList.remove('hidden');
                     const rank = document.getElementById('user-display-rank');
-                    const status = document.getElementById('admin-status');
-
-                    if (btn) btn.classList.remove('hidden');
-                    if (rank) {
-                        rank.innerText = "ROOT_ADMIN";
-                        rank.classList.add('text-primary');
-                    }
-                    if (status) {
-                        status.innerText = 'AUTHORIZED_ADMIN_ACCESS';
-                        status.classList.add('text-primary/60');
-                    }
+                    if (rank) { rank.innerText = "ROOT_ADMIN"; rank.classList.add('text-primary'); }
                     renderProducts();
                 }
             }
@@ -568,18 +504,18 @@
             if (search) items = items.filter(i => i.name.toLowerCase().includes(search));
 
             if (items.length === 0) {
-                grid.innerHTML = `<div class="col-span-2 py-20 text-center font-black opacity-10 uppercase italic">Warehouse Empty</div>`;
+                grid.innerHTML = `<div class="col-span-2 py-20 text-center font-black opacity-10 uppercase italic">Empty System</div>`;
                 return;
             }
 
             grid.innerHTML = items.map(p => `
-                <div class="product-card glass p-6 rounded-[40px] relative group border-white/5">
+                <div class="product-card glass p-6 rounded-[40px] relative border-white/5 group">
                     ${window.state.isAdmin ? `
-                        <button onclick="window.delProduct('${p.id}')" class="absolute top-4 right-4 p-2.5 text-red-500 bg-red-500/10 rounded-2xl active:scale-90 z-20">
+                        <button onclick="window.delProduct('${p.id}')" class="absolute top-4 right-4 p-2 text-red-500 bg-red-500/10 rounded-xl active:scale-90 z-20">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>` : ''}
                     <div class="flex-grow flex flex-col">
-                        <div class="w-full aspect-square bg-white/5 rounded-3xl flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                        <div class="w-full aspect-square bg-white/5 rounded-3xl flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-105 transition-all duration-500">
                             ${p.icon || '💨'}
                         </div>
                         <p class="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-2 opacity-60">${p.tag}</p>
@@ -607,7 +543,7 @@
             const list = document.getElementById('cart-items-list');
             if (!list) return;
             if (window.state.cart.length === 0) {
-                list.innerHTML = `<p class="text-center py-20 font-black opacity-10 uppercase italic tracking-widest">Basket Empty</p>`;
+                list.innerHTML = `<p class="text-center py-20 font-black opacity-10 uppercase italic tracking-widest">Empty Basket</p>`;
             } else {
                 list.innerHTML = window.state.cart.map(i => `
                     <div class="flex items-center gap-6 glass p-6 rounded-[32px] border border-white/5">
@@ -616,29 +552,27 @@
                             <h4 class="text-xs font-black uppercase tracking-tight italic">${i.name}</h4>
                             <p class="text-primary font-black text-base">${i.price} ₽</p>
                         </div>
-                        <div class="flex items-center gap-5">
-                            <button onclick="window.changeQty('${i.id}', -1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">-</button>
+                        <div class="flex items-center gap-4">
+                            <button onclick="window.changeQty('${i.id}', -1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center">-</button>
                             <span class="font-black text-sm">${i.qty}</span>
-                            <button onclick="window.changeQty('${i.id}', 1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">+</button>
+                            <button onclick="window.changeQty('${i.id}', 1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center">+</button>
                         </div>
                     </div>
                 `).join('');
             }
             const total = window.state.cart.reduce((a, b) => a + (b.price * b.qty), 0);
-            const totalEl = document.getElementById('cart-total-price');
-            if (totalEl) totalEl.innerText = `${total} ₽`;
+            document.getElementById('cart-total-price').innerText = `${total} ₽`;
             lucide.createIcons();
         };
 
-        // Mutation Observer для автоматической инициализации иконок
+        // Mutation Observer для иконок
         const observer = new MutationObserver(() => lucide.createIcons());
         observer.observe(document.body, { childList: true, subtree: true });
 
         window.onload = () => {
             tg?.ready();
             tg?.expand();
-            initSession();
-            syncUser();
+            init();
             [500, 1500, 3000].forEach(ms => setTimeout(syncUser, ms));
             lucide.createIcons();
         };
