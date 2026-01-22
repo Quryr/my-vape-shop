@@ -414,19 +414,18 @@
         // 1. GLOBAL CONFIGURATION & SAFETY
         // ---------------------------------------------------------
         
-        // --- FIXED MOCK DATA (NOW WITH IDs) ---
-        // This ensures products have IDs even if Firestore fails or is in Demo mode
+        // Russian Data (Used if Firestore fails or is empty)
         const MOCK_PRODUCTS = [
-            { id: "m1", name: "Neon Pod X", price: 2500, category: "Поды", image: "zap", createdAt: 1700000000000 },
-            { id: "m2", name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", createdAt: 1700000000001 },
-            { id: "m3", name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet", createdAt: 1700000000002 },
-            { id: "m4", name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu", createdAt: 1700000000003 },
-            { id: "m5", name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake", createdAt: 1700000000004 },
-            { id: "m6", name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot", createdAt: 1700000000005 },
-            { id: "m7", name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet", createdAt: 1700000000006 },
-            { id: "m8", name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind", createdAt: 1700000000007 },
-            { id: "m9", name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb", createdAt: 1700000000008 },
-            { id: "m10", name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll", createdAt: 1700000000009 },
+            { name: "Neon Pod X", price: 2500, category: "Поды", image: "zap", createdAt: 1700000000000 },
+            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", createdAt: 1700000000001 },
+            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet", createdAt: 1700000000002 },
+            { name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu", createdAt: 1700000000003 },
+            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake", createdAt: 1700000000004 },
+            { name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot", createdAt: 1700000000005 },
+            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet", createdAt: 1700000000006 },
+            { name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind", createdAt: 1700000000007 },
+            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb", createdAt: 1700000000008 },
+            { name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll", createdAt: 1700000000009 },
         ];
 
         // Safety Loader Timeout
@@ -444,6 +443,7 @@
         // 2. FIREBASE & APP ID SETUP
         // ---------------------------------------------------------
         
+        // ВАЖНО: Твои данные Firebase
         const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyDCXGwD1a3dJ73JJ2TxShZack-KLCteABI",
             authDomain: "vape-store-60093.firebaseapp.com",
@@ -698,9 +698,7 @@
                     
                     MOCK_PRODUCTS.forEach(item => {
                         const docRef = colRef.doc(); 
-                        // IMPORTANT: Don't overwrite the fixed mock ID if we are seeding real DB
-                        const { id, ...itemData } = item;
-                        batch.set(docRef, { ...itemData, createdAt: Date.now() }); 
+                        batch.set(docRef, { ...item, createdAt: Date.now() }); // Use client timestamp for simple sorting
                     });
 
                     await batch.commit();
@@ -1146,97 +1144,67 @@
                 });
             },
 
-            // --- MAIN LOGIC FOR BOT INTEGRATION ---
             completeOrder: async () => {
-                // IMPORTANT: Wrap in try/catch to catch logical errors before sending
+                // --- 1. Подготовка данных для Бота (Строго по формату Python) ---
+                
+                // Формируем красивую строку товаров: "Название (x2), Название 2 (x1)"
+                const cartIds = Object.keys(window.shop.state.cart);
+                const cartItemsList = [];
+                
+                cartIds.forEach(id => {
+                     const product = window.shop.state.products.find(p => p.id === id);
+                     const qty = window.shop.state.cart[id];
+                     if (product) {
+                         cartItemsList.push(`${product.name} (x${qty})`);
+                     }
+                });
+                const itemsString = cartItemsList.join(', ');
+
+                // Формируем красивую дату: "22.01.2026, 02:54:06"
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
+
+                // Объект для отправки в Telegram
+                const telegramPayload = {
+                    order_key: window.shop.state.currentOrderId,
+                    items: itemsString,
+                    total: window.shop.state.currentTotal + " ₽",
+                    client: {
+                        name: window.shop.state.deliveryInfo.name,
+                        phone: window.shop.state.deliveryInfo.phone,
+                        username_or_contact: window.shop.state.deliveryInfo.contact, // Соответствует ключу в Python
+                        place: window.shop.state.deliveryInfo.place,
+                        time: window.shop.state.deliveryInfo.time
+                    },
+                    timestamp: dateStr
+                };
+
+                // --- 2. Сохранение в Firebase (История заказов пользователя) ---
+                const dbOrder = {
+                    id: window.shop.state.currentOrderId,
+                    total: window.shop.state.currentTotal,
+                    items: window.shop.state.cart, // Сохраняем raw данные для истории
+                    date: new Date().toISOString(),
+                    user: window.shop.state.user,
+                    delivery: window.shop.state.deliveryInfo
+                };
+
                 try {
-                    // 1. Prepare raw data for Database backup
-                    const rawOrder = {
-                        id: window.shop.state.currentOrderId,
-                        total: window.shop.state.currentTotal,
-                        items: window.shop.state.cart,
-                        date: new Date().toISOString(),
-                        user: window.shop.state.user,
-                        delivery: window.shop.state.deliveryInfo 
-                    };
+                    const uid = auth.currentUser.uid;
+                     if (window.shop.state.user.id !== 999999 && uid) {
+                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(dbOrder);
+                     }
+                } catch(e) {}
 
-                    // 2. Save to Firestore (Backup)
-                    try {
-                        const uid = auth.currentUser.uid;
-                         if (window.shop.state.user.id !== 999999 && uid) {
-                            await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(rawOrder);
-                         }
-                    } catch(e) {}
-
-                    // 3. TRANSFORM DATA FOR PYTHON BOT
-                    // The bot expects strings, not objects, for the message display
-                    
-                    // 3.1 Convert Cart IDs to Readable String
-                    let itemsString = [];
-                    const cartIds = Object.keys(window.shop.state.cart);
-                    const products = window.shop.state.products;
-
-                    cartIds.forEach(id => {
-                        const product = products.find(p => p.id === id);
-                        if (product) {
-                            const qty = window.shop.state.cart[id];
-                            itemsString.push(`${product.name} (x${qty})`);
-                        }
-                    });
-                    const formattedItems = itemsString.join(', ');
-
-                    // 3.2 Format Date
-                    const now = new Date();
-                    const formattedDate = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
-
-                    // --- SANITIZATION FUNCTION ---
-                    // Prevents "Bad Request: can't parse entities" error in Telegram Bot
-                    const clean = (str) => {
-                        return String(str || '')
-                            .replace(/&/g, "&amp;")
-                            .replace(/</g, "&lt;")
-                            .replace(/>/g, "&gt;")
-                            .replace(/"/g, "&quot;");
-                    };
-
-                    // 3.3 Construct Payload matching Python keys
-                    const botPayload = {
-                        order_key: window.shop.state.currentOrderId,
-                        items: clean(formattedItems),
-                        total: window.shop.state.currentTotal + ' ₽',
-                        client: {
-                            name: clean(window.shop.state.deliveryInfo.name),
-                            phone: clean(window.shop.state.deliveryInfo.phone),
-                            username_or_contact: clean(window.shop.state.deliveryInfo.contact), 
-                            place: clean(window.shop.state.deliveryInfo.place),
-                            time: clean(window.shop.state.deliveryInfo.time)
-                        },
-                        timestamp: formattedDate
-                    };
-
-                    console.log("Sending Payload to Bot:", botPayload);
-
-                    // 4. Send to Telegram
-                    if (window.Telegram.WebApp.initData === "") {
-                        window.shop.showToast("Открыто не в Telegram! Данные не отправлены.", "Ошибка среды");
-                        console.warn("WebApp initData is empty. sendData will not work.");
-                        return;
-                    }
-
-                    window.Telegram.WebApp.sendData(JSON.stringify(botPayload));
-                    
-                    // UI Cleanup
-                    document.getElementById('checkout-modal').classList.add('hidden');
-                    window.shop.state.cart = {};
-                    window.shop.updateCartBadge();
-                    window.shop.switchView('store');
-                    window.shop.showToast("Заказ отправлен в бот", "Успешно");
-
-                } catch (error) {
-                    console.error("CRITICAL ERROR IN COMPLETE ORDER:", error);
-                    window.shop.showToast("Ошибка отправки: " + error.message, "Сбой");
-                    alert("Ошибка отправки: " + error.message); // Force show error
-                }
+                // --- 3. Отправка данных в бота ---
+                window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
+                
+                // --- 4. UI Cleanup ---
+                document.getElementById('checkout-modal').classList.add('hidden');
+                window.shop.state.cart = {};
+                window.shop.updateCartBadge();
+                window.shop.switchView('store');
+                window.shop.showToast("Заказ отправлен в бот", "Успешно");
             },
 
             showToast: (msg, title = "Уведомление") => {
