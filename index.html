@@ -524,7 +524,8 @@
                 ordersListenerUnsubscribe: null, // For admin orders
                 myOrdersListenerUnsubscribe: null, // For user orders
                 adminSelectionMode: false,
-                selectedAdminOrders: new Set()
+                selectedAdminOrders: new Set(),
+                isOfflineMode: false // New flag for degraded mode
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -577,7 +578,8 @@
 
             // --- NEW: AUTO-CREATE USER PROFILE ---
             saveUserProfile: async (user) => {
-                if (!auth.currentUser) return;
+                // If offline mode, skip DB save
+                if (window.shop.state.isOfflineMode || !auth.currentUser) return;
                 
                 try {
                     // Use auth.currentUser.uid for write permission
@@ -621,6 +623,15 @@
                 };
 
                 window.shop.state.user = tgUser;
+                
+                // Load Cart from LocalStorage immediately
+                const savedCart = localStorage.getItem('vape_cart');
+                if (savedCart) {
+                    try {
+                        window.shop.state.cart = JSON.parse(savedCart);
+                        window.shop.updateCartBadge();
+                    } catch (e) { console.error("Error loading cart", e); }
+                }
                 
                 // STRING COMPARISON for Admin ID to avoid type errors
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
@@ -666,9 +677,16 @@
                         await auth.signInAnonymously();
                     }
                 } catch (e) {
-                    console.error("Auth Error (Using Offline Mode):", e);
+                    console.error("Auth Error (Fallback to Offline):", e);
+                    // Critical: Allow app to work even if Auth fails (e.g. config error)
+                    window.shop.state.isOfflineMode = true;
+                    
+                    if (e.code === 'auth/configuration-not-found' || e.code === 'auth/operation-not-allowed') {
+                        console.warn("Anonymous auth disabled in console. Running in Guest/Offline mode.");
+                        // We continue without throwing
+                    }
                 }
-                // Start Realtime Listener
+                // Start Realtime Listener (works if auth succeeded or if rules allow public read)
                 window.shop.initRealtimeListener();
             },
 
@@ -679,10 +697,10 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
-                // Check connection status for Debug
-                if (FIREBASE_CONFIG.projectId === 'demo') {
-                    console.warn("DEMO MODE: Sync disabled.");
-                    // In demo mode, rely on localStorage entirely for single-session persistence
+                // Check connection status for Debug or Offline
+                if (FIREBASE_CONFIG.projectId === 'demo' || window.shop.state.isOfflineMode) {
+                    console.warn("OFFLINE MODE: Using local/mock data.");
+                    // In demo/offline mode, rely on local data + mocks
                     const localData = localStorage.getItem('vape_store_products');
                     if (localData && localData !== "[]") {
                         window.shop.state.products = JSON.parse(localData);
@@ -731,6 +749,10 @@
                         
                     }, (error) => {
                         console.error("Realtime listener error:", error);
+                        // Fallback to local data on error
+                        window.shop.state.isOfflineMode = true;
+                        window.shop.state.products = [...MOCK_PRODUCTS];
+                        window.shop.renderStore();
                     });
             },
 
@@ -1032,7 +1054,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.1.0 (Admin Panel) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.2.0 (Offline Mode Support)</p>
                 `;
             },
 
@@ -1047,6 +1069,19 @@
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
                     </div>
                 `;
+
+                // If offline mode, show simple message or local history if implemented (not fully implemented in this quick fix but handles the error)
+                if (window.shop.state.isOfflineMode) {
+                    document.getElementById('my-orders-list').innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-10 text-center">
+                            <i data-lucide="wifi-off" class="w-12 h-12 mb-2 text-gray-500"></i>
+                            <p class="text-gray-400 font-bold">Нет соединения с базой</p>
+                            <p class="text-xs text-gray-600 mt-1 max-w-[200px]">История заказов доступна только в онлайн режиме (Настройте Firebase Auth).</p>
+                        </div>
+                    `;
+                    if(window.lucide) window.lucide.createIcons();
+                    return;
+                }
 
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
@@ -1131,10 +1166,15 @@
                         .catch(e => {
                             console.error("Auth failed in My Orders:", e);
                             if(list && document.body.contains(list)) {
+                                // If specifically config error, give hint
+                                const msg = e.code === 'auth/configuration-not-found' 
+                                    ? 'В Firebase Console не включен Anonymous Auth' 
+                                    : (e.message || 'Сбой соединения');
+
                                 list.innerHTML = `
                                     <div class="flex flex-col items-center justify-center py-10 text-center">
                                         <div class="text-red-500 mb-2 font-bold">Ошибка авторизации</div>
-                                        <div class="text-[10px] text-gray-500 mb-4 max-w-[200px]">${e.message || 'Сбой соединения'}</div>
+                                        <div class="text-[10px] text-gray-500 mb-4 max-w-[250px] break-words">${msg}</div>
                                         <button onclick="window.shop.switchView('my-orders')" class="px-4 py-2 bg-white/10 rounded-lg text-xs hover:bg-white/20 text-white transition-colors">Попробовать снова</button>
                                     </div>
                                 `;
@@ -1400,6 +1440,10 @@
                 }
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
+                
+                // SAVE TO STORAGE
+                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
+                
                 window.shop.showToast("Добавлено в корзину", "Корзина");
                 
                 if(window.Telegram.WebApp.HapticFeedback) {
@@ -1414,6 +1458,9 @@
                 if (window.shop.state.cart[productId] <= 0) {
                     delete window.shop.state.cart[productId];
                 }
+                
+                // SAVE TO STORAGE
+                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
                 
                 window.shop.updateCartBadge();
                 window.shop.renderCart(document.getElementById('main-content'));
@@ -1598,6 +1645,10 @@
 
                 // 3. UI Cleanup (No more python payload)
                 document.getElementById('checkout-modal').classList.add('hidden');
+                
+                // CLEAR LOCAL STORAGE CART
+                localStorage.removeItem('vape_cart');
+                
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
