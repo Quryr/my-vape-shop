@@ -24,7 +24,8 @@
                             panel: '#111111',
                             green: '#22c55e',
                             blue: '#0ea5e9',
-                            orange: '#f97316'
+                            orange: '#f97316',
+                            red: '#ef4444'
                         }
                     },
                     animation: {
@@ -409,6 +410,17 @@
         </div>
     </div>
 
+    <!-- ORDER DETAIL MODAL (Admin) -->
+    <div id="order-detail-modal" class="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="document.getElementById('order-detail-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+            
+            <div id="order-detail-content">
+                <!-- Content Injected via JS -->
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // ---------------------------------------------------------
         // 1. GLOBAL CONFIGURATION & SAFETY
@@ -479,7 +491,8 @@
                 debugClicks: 0,
                 pendingImage: null,
                 listenerUnsubscribe: null,
-                deliveryTime: null // New state for time selection
+                deliveryTime: null, // New state for time selection
+                ordersListenerUnsubscribe: null // For admin orders
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -765,6 +778,7 @@
                     if (viewName === 'store') window.shop.renderStore(main);
                     else if (viewName === 'cart') window.shop.renderCart(main);
                     else if (viewName === 'profile') window.shop.renderProfile(main);
+                    else if (viewName === 'admin-orders') window.shop.renderAdminOrders(main);
                     
                     main.style.opacity = '1';
                     if(window.lucide) window.lucide.createIcons();
@@ -949,6 +963,13 @@
                             <span class="text-[10px] font-black tracking-[0.2em] ${roleColor}">${roleName}</span>
                         </div>
                     </div>
+
+                    ${window.shop.state.isAdmin ? `
+                        <button onclick="window.shop.switchView('admin-orders')" class="w-full mb-6 bg-gradient-to-r from-red-600 to-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-3 animate-pulse border border-red-400/50">
+                            <i data-lucide="package-search" class="w-5 h-5"></i>
+                            УПРАВЛЕНИЕ ЗАКАЗАМИ
+                        </button>
+                    ` : ''}
                     
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
                          <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.showToast('История заказов пуста', 'Инфо')">
@@ -978,8 +999,151 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 13.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.0.0 (Admin Panel) - Tap 5x for Debug</p>
                 `;
+            },
+
+            // --- ADMIN: RENDER ORDERS ---
+            renderAdminOrders: async (container) => {
+                // Header
+                container.innerHTML = `
+                    <div class="flex items-center gap-3 mb-6">
+                        <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
+                    </div>
+                    <div id="admin-orders-list" class="space-y-3 pb-24">
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
+                    </div>
+                `;
+                
+                // Clear old listener
+                if (window.shop.state.ordersListenerUnsubscribe) {
+                    window.shop.state.ordersListenerUnsubscribe();
+                }
+
+                // Listen to Global Orders Collection
+                window.shop.state.ordersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders')
+                    .orderBy('date', 'desc')
+                    .limit(50)
+                    .onSnapshot((snapshot) => {
+                        const list = document.getElementById('admin-orders-list');
+                        if (!list) return; // View changed
+
+                        if (snapshot.empty) {
+                            list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
+                            return;
+                        }
+
+                        let html = '';
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+                            
+                            let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+                            let statusText = 'ОЖИДАЕТ';
+                            
+                            if (data.status === 'approved') {
+                                statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
+                                statusText = 'ПРИНЯТ';
+                            } else if (data.status === 'rejected') {
+                                statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
+                                statusText = 'ОТКЛОНЕН';
+                            }
+
+                            html += `
+                                <div onclick="window.shop.openOrderDetails('${doc.id}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex flex-col">
+                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.id || 'NO-ID'}</span>
+                                            <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
+                                        </div>
+                                        <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
+                                            ${statusText}
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-end">
+                                        <div class="text-xs text-gray-500">${date}</div>
+                                        <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        list.innerHTML = html;
+                    });
+            },
+
+            openOrderDetails: async (docId) => {
+                try {
+                    const doc = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).get();
+                    if (!doc.exists) return;
+                    
+                    const data = doc.data();
+                    const modal = document.getElementById('order-detail-modal');
+                    const content = document.getElementById('order-detail-content');
+                    
+                    // Render Items
+                    let itemsHtml = '';
+                    if (data.items) {
+                        for (const [key, qty] of Object.entries(data.items)) {
+                             // Try to find product name in current state
+                             const prod = window.shop.state.products.find(p => p.id === key);
+                             const name = prod ? prod.name : 'Товар (ID)';
+                             itemsHtml += `<div class="flex justify-between text-xs py-1 border-b border-white/5"><span>${name}</span> <span class="text-gray-400">x${qty}</span></div>`;
+                        }
+                    }
+
+                    content.innerHTML = `
+                        <div class="text-center mb-4">
+                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.id}</h3>
+                            <p class="text-xs text-gray-500">${new Date(data.date).toLocaleString('ru-RU')}</p>
+                        </div>
+                        
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Клиент</p>
+                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
+                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p>
+                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
+                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Где:</span> ${data.delivery?.place}</p>
+                            <p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${data.delivery?.time}</p>
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Корзина</p>
+                            ${itemsHtml}
+                            <div class="flex justify-between mt-3 pt-2 border-t border-white/10">
+                                <span class="text-white font-bold">ИТОГО</span>
+                                <span class="text-green-400 font-bold">${data.total} ₽</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                ОДОБРИТЬ
+                            </button>
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                ОТКЛОНИТЬ
+                            </button>
+                        </div>
+                    `;
+                    
+                    modal.classList.remove('hidden');
+
+                } catch (e) {
+                    console.error(e);
+                    window.shop.showToast('Ошибка загрузки', 'Сбой');
+                }
+            },
+
+            updateOrderStatus: async (docId, status) => {
+                try {
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).update({
+                        status: status
+                    });
+                    document.getElementById('order-detail-modal').classList.add('hidden');
+                    window.shop.showToast(`Статус изменен: ${status}`, 'Успешно');
+                } catch (e) {
+                     window.shop.showToast('Ошибка обновления', 'Сбой');
+                }
             },
 
             // --- Actions ---
@@ -1178,22 +1342,27 @@
                     timestamp: formattedDate
                 };
 
-                // 4. Save to Firebase (History) - Keeping original object structure for DB
+                // 4. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
                 const dbOrder = {
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: new Date().toISOString(),
                     user: window.shop.state.user,
-                    delivery: window.shop.state.deliveryInfo
+                    delivery: window.shop.state.deliveryInfo,
+                    status: 'pending' // New Status Field
                 };
 
                 try {
                     const uid = auth.currentUser.uid;
                      if (window.shop.state.user.id !== 999999 && uid) {
+                        // Save to User History
                         await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(dbOrder);
                      }
-                } catch(e) {}
+                     // Save to PUBLIC ADMIN COLLECTION
+                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(dbOrder);
+                     
+                } catch(e) { console.error("DB Error", e); }
 
                 // 5. Send Formatted Payload to Telegram Bot
                 window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
@@ -1203,7 +1372,7 @@
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
-                window.shop.showToast("Заказ отправлен в бот", "Успешно");
+                window.shop.showToast("Заказ отправлен!", "Успешно");
             },
 
             showToast: (msg, title = "Уведомление") => {
