@@ -137,10 +137,8 @@
         /* Desktop Scrollbar Fixes */
         @media (min-width: 768px) {
             .category-scroll {
-                /* Reset margins on desktop to prevent clipping */
                 margin-left: 0 !important;
                 margin-right: 0 !important;
-                /* Show scrollbar on desktop */
                 scrollbar-width: thin;
                 -ms-overflow-style: auto;
                 padding-bottom: 10px; 
@@ -157,7 +155,6 @@
                 background: #22c55e;
                 border-radius: 4px;
             }
-            /* Remove mask on desktop to see full width */
             .category-scroll {
                 mask-image: none;
                 -webkit-mask-image: none;
@@ -202,7 +199,7 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYNC DATABASE...</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">CONNECTING...</div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -210,6 +207,7 @@
         <button onclick="document.getElementById('debug-panel').classList.add('hidden')" class="mb-4 bg-red-500 text-white p-2 rounded">CLOSE DEBUG</button>
         <h3 class="text-white text-lg font-bold mb-2">DIAGNOSTICS</h3>
         <div id="debug-content" class="whitespace-pre-wrap">Loading...</div>
+        <button onclick="window.shop.seedDatabase()" class="mt-4 bg-green-600 text-white p-3 rounded font-bold">RESET DATABASE (RESTORE DEFAULTS)</button>
     </div>
 
     <!-- Toast Notification -->
@@ -358,16 +356,16 @@
         
         // Russian Data (Used if Firestore fails or is empty)
         const MOCK_PRODUCTS = [
-            { name: "Neon Pod X", price: 2500, category: "Поды", image: "zap" },
-            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging" },
-            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet" },
-            { name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu" },
-            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake" },
-            { name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot" },
-            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet" },
-            { name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind" },
-            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb" },
-            { name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll" },
+            { name: "Neon Pod X", price: 2500, category: "Поды", image: "zap", createdAt: 1700000000000 },
+            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", createdAt: 1700000000001 },
+            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet", createdAt: 1700000000002 },
+            { name: "Mech Mod Pro", price: 5000, category: "Поды", image: "cpu", createdAt: 1700000000003 },
+            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake", createdAt: 1700000000004 },
+            { name: "Magma Core Coil", price: 300, category: "Поды", image: "circle-dot", createdAt: 1700000000005 },
+            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet", createdAt: 1700000000006 },
+            { name: "Vapor Storm Kit", price: 3200, category: "Поды", image: "wind", createdAt: 1700000000007 },
+            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb", createdAt: 1700000000008 },
+            { name: "Cotton Wick Premium", price: 150, category: "Поды", image: "scroll", createdAt: 1700000000009 },
         ];
 
         // Safety Loader Timeout
@@ -566,13 +564,15 @@
                 }
 
                 window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
-                    // .orderBy('createdAt', 'desc') // REMOVED ORDERBY to allow client-side sort and prevent index errors
+                    // .orderBy('createdAt', 'desc') // Removed server-side sort to prevent index errors
                     .onSnapshot(async (snapshot) => {
-                        // AUTO-SEEDING: If DB is empty, fill it with mocks so users see items
+                        // DISABLE AUTO-SEEDING to allow true deletion
+                        // If DB is empty, it remains empty.
                         if (snapshot.empty) {
-                            console.log("DB Empty. Seeding globally...");
-                            await window.shop.seedDatabase();
-                            return; // Listener will fire again after seed
+                            console.log("DB Empty. Showing empty state.");
+                            window.shop.state.products = []; // Clear products
+                            window.shop.renderStore(); // Render empty
+                            return; 
                         }
 
                         let dbProducts = [];
@@ -582,9 +582,19 @@
                         
                         // --- CLIENT SIDE SORTING (Fixed "Random Order") ---
                         dbProducts.sort((a, b) => {
-                            const dateA = a.createdAt ? (a.createdAt.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime()) : 0;
-                            const dateB = b.createdAt ? (b.createdAt.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime()) : 0;
-                            return dateB - dateA; // Newest first
+                            // Normalize createdAt: Handle Timestamps, numbers, or missing values
+                            const getTime = (t) => {
+                                if (!t) return 0;
+                                if (typeof t === 'number') return t; // Already millis
+                                if (t.toMillis) return t.toMillis(); // Firestore Timestamp
+                                if (t instanceof Date) return t.getTime(); // JS Date
+                                return 0;
+                            };
+                            
+                            const dateA = getTime(a.createdAt);
+                            const dateB = getTime(b.createdAt);
+                            
+                            return dateB - dateA; // Descending (newest first)
                         });
                         
                         console.log("Realtime Update Received:", dbProducts.length);
@@ -599,18 +609,21 @@
 
             seedDatabase: async () => {
                 try {
+                    if (!confirm("Это действие восстановит стандартные товары и удалит текущие изменения (если база пуста). Продолжить?")) return;
+
                     const batch = db.batch();
                     const colRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products');
                     
                     MOCK_PRODUCTS.forEach(item => {
                         const docRef = colRef.doc(); 
-                        batch.set(docRef, { ...item, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        batch.set(docRef, { ...item, createdAt: Date.now() }); // Use client timestamp for simple sorting
                     });
 
                     await batch.commit();
-                    // No need to fetch, listener handles it
+                    window.shop.showToast("База данных восстановлена");
                 } catch (e) {
                     console.error("Seeding failed", e);
+                    window.shop.showToast("Ошибка восстановления");
                 }
             },
 
@@ -704,7 +717,11 @@
                 );
 
                 if (filtered.length === 0) {
-                     gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">Товаров пока нет.</div>`;
+                     gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
+                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+                        <p>Товаров пока нет</p>
+                        ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте новый товар или<br>сбросьте базу в Debug меню</p>' : ''}
+                     </div>`;
                 } else {
                     filtered.forEach((p, index) => {
                         const delay = index * 50;
@@ -871,7 +888,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 9.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 10.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
@@ -959,16 +976,11 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // No optimistic UI for add/delete to ensure sync correctness, 
-                // but we can do it if listener is fast. 
-                // For now, let the listener handle it.
                 window.shop.toggleAddModal();
-                window.shop.showToast("Товар добавляется...", "Синхронизация");
+                window.shop.showToast("Сохранение...", "Синхронизация");
 
                 try {
-                    // GLOBAL SYNC: Send to Firestore so OTHERS see it
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add(newProduct);
-                    // Listener will pick it up and render
                 } catch (e) {
                     console.error("Save failed (Using Offline)", e);
                     window.shop.showToast("Ошибка сохранения", "Сбой");
@@ -981,11 +993,9 @@
                 window.shop.showToast("Удаление...", "Синхронизация");
 
                 try {
-                    // GLOBAL SYNC: Delete from Firestore so OTHERS see it gone
                     if (!id.startsWith('temp-') && !id.startsWith('m')) {
                         await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
                     } else {
-                        // This handles failed writes or old mocks that somehow persisted
                         window.shop.showToast("Нельзя удалить (Фейк)", "Ошибка");
                     }
                 } catch (e) { 
