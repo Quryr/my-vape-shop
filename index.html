@@ -12,24 +12,27 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Telegram SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK (Admin Sync) -->
+    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        if (rawConfig) {
-            const firebaseConfig = JSON.parse(rawConfig);
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            window.db = db;
-            window.auth = auth;
-            window.appId = appId;
-            window.fs = { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously };
-        }
+        // Firebase Setup
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Экспортируем в глобальное окно для основного скрипта
+        window.VapeDB = { 
+            db, auth, appId, 
+            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously, onAuthStateChanged } 
+        };
+
+        // Запускаем инициализацию данных сразу после готовности Firebase
+        window.dispatchEvent(new Event('firebase-ready'));
     </script>
     <style>
         :root {
@@ -70,7 +73,7 @@
             padding: 8px; border-radius: 12px; cursor: pointer; transition: var(--transition);
             display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
         }
-        .icon-btn.admin-btn { display: none; } 
+        #adminBtn { display: none; } /* По умолчанию скрыт */
         .icon-btn.active { background: var(--brand-color); color: var(--bg-dark); }
         #addBtn { display: none; background: var(--brand-color); color: var(--bg-dark); border-color: var(--brand-color); }
 
@@ -138,12 +141,10 @@
         .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.3s; }
         .checkout-btn:active { transform: scale(0.98); }
 
-        /* Payment Info */
         .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
         .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
-        
         .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px 15px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; border: 1px solid var(--glass-border); }
-        .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+        .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
         body.admin-mode .delete-card-btn { display: flex; }
@@ -196,7 +197,7 @@
 
     <div class="overlay" id="overlay" onclick="closeSheets()"></div>
 
-    <!-- 1. Корзина -->
+    <!-- Корзина -->
     <div class="bottom-sheet" id="cartSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Корзина</h2>
@@ -208,7 +209,7 @@
         <button class="checkout-btn" onclick="openOrderForm()">Перейти к оформлению</button>
     </div>
 
-    <!-- 2. Форма Заказа (ДОБАВЛЕНО ИМЯ) -->
+    <!-- Форма Заказа -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Данные заказа</h2>
@@ -233,7 +234,7 @@
         <button class="checkout-btn" onclick="openPaymentSheet()">К оплате</button>
     </div>
 
-    <!-- 3. Оплата (Ozon Банк) -->
+    <!-- Оплата -->
     <div class="bottom-sheet" id="paymentSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="font-size: 18px;">Оплата заказа</h2>
@@ -259,10 +260,6 @@
                 </div>
 
                 <div style="font-size: 12px; margin-top: 15px; color: var(--text-main);">Получатель: <b>Иван Владимирович Р.</b></div>
-            </div>
-
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; font-size: 12px; color: var(--text-muted); margin-top: 15px;">
-                Оплатите по номеру карты и обязательно вставьте ключ в комментарий к платежу.
             </div>
         </div>
         <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: white; margin-top: 10px;" onclick="finishOrder()">Я оплатил(а)</button>
@@ -291,102 +288,112 @@
     </div>
 
     <script>
+        // Инициализация Telegram SDK
         const tg = window.Telegram.WebApp;
+        tg.ready();
         tg.expand();
 
-        // АВТОРИЗАЦИЯ - Фикс для отображения щита админа
         const MY_ADMIN_ID = 1262669099;
-        const userData = tg.initDataUnsafe?.user;
-        // Используем нестрогое сравнение и проверку на тип, чтобы точно сработало в боте
-        const isAdmin = userData && (userData.id == MY_ADMIN_ID || String(userData.id) == String(MY_ADMIN_ID));
-
-        const themes = ['toxic', 'ice', 'magma'];
-        let currentThemeIndex = 0;
+        
+        let products = [];
+        let cart = {};
         let activeCategory = 'Все';
         let isAdminMode = false;
-        let cart = {};
+        let currentThemeIndex = 0;
+        const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
 
-        let initialProducts = [
-            { id: 1, category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 2, category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { id: 3, category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
-            { id: 4, category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
-            { id: 5, category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 6, category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { id: 7, category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 8, category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
-            { id: 9, category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' },
-            { id: 10, category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
-            { id: 11, category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
-        ];
-
-        let dbProducts = [];
-
-        function init() {
-            // Принудительно показываем щит для админа
-            if (isAdmin) {
-                const btn = document.getElementById('adminBtn');
-                if(btn) btn.style.display = 'flex';
+        // Функция проверки админа (с повтором)
+        function checkAdminAccess() {
+            const user = tg.initDataUnsafe?.user;
+            console.log("Checking admin for ID:", user?.id);
+            if (user && (user.id == MY_ADMIN_ID || String(user.id) == String(MY_ADMIN_ID))) {
+                document.getElementById('adminBtn').style.display = 'flex';
+                return true;
             }
-            
-            if (window.fs) {
-                const q = window.fs.query(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'));
-                window.fs.onSnapshot(q, (snap) => {
-                    dbProducts = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-                    renderAll();
-                });
-            } else { renderAll(); }
-            updateCartUI();
+            return false;
         }
 
-        function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
+        // Ждем Firebase
+        window.addEventListener('firebase-ready', async () => {
+            const { auth, fs, db, appId } = window.VapeDB;
+            
+            // 1. Авторизация (ОБЯЗАТЕЛЬНО ПЕРЕД ЗАПРОСАМИ)
+            await fs.signInAnonymously(auth);
+            
+            // 2. Проверка админа
+            checkAdminAccess();
+
+            // 3. Загрузка товаров из Firebase
+            const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
+            fs.onSnapshot(q, (snapshot) => {
+                // Если база пуста, это первый запуск - можно добавить дефолтные товары вручную через админку
+                products = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                renderAll();
+            }, (error) => {
+                console.error("Firebase Error:", error);
+            });
+        });
+
+        // ПОВТОРНАЯ ПРОВЕРКА АДМИНА через 2 секунды (на случай задержки SDK)
+        setTimeout(checkAdminAccess, 2000);
+
+        function renderAll() {
+            renderCategories();
+            renderProducts();
+            lucide.createIcons();
+        }
 
         function renderCategories() {
-            const all = [...initialProducts, ...dbProducts];
-            const categories = ['Все', ...new Set(all.map(p => p.category))];
+            const categories = ['Все', ...new Set(products.map(p => p.category))];
+            if (categories.length === 1 && categories[0] === 'Все') {
+                categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
+            }
             const container = document.getElementById('categories');
             container.innerHTML = categories.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
 
         function renderProducts() {
-            const all = [...initialProducts, ...dbProducts];
-            const filtered = activeCategory === 'Все' ? all : all.filter(p => p.category === activeCategory);
+            const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
-            container.innerHTML = filtered.map(p => {
-                const itemId = p.docId || p.id;
-                return `
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров нет</div>`;
+                return;
+            }
+            container.innerHTML = filtered.map(p => `
                 <div class="product-card">
-                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${itemId}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>` : ''}
+                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>` : ''}
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${itemId}')">В корзину</button>
-                </div>`;
-            }).join('');
+                    <button class="add-btn" onclick="addToCart('${p.docId}')">В корзину</button>
+                </div>`).join('');
             lucide.createIcons();
         }
 
         window.setCategory = (cat) => { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); };
+
         window.toggleTheme = () => {
             tg.HapticFeedback.impactOccurred('medium');
             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
             document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
         };
+
         window.toggleAdminMode = () => {
-            if (!isAdmin) return;
-            tg.HapticFeedback.impactOccurred('heavy');
             isAdminMode = !isAdminMode;
             document.body.classList.toggle('admin-mode', isAdminMode);
             document.getElementById('adminBtn').classList.toggle('active', isAdminMode);
             document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
-            renderAll(); updateCartUI();
+            renderAll();
         };
 
-        window.openAdminForm = () => { document.getElementById('adminForm').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
+        window.openAdminForm = () => {
+            document.getElementById('adminForm').classList.add('active');
+            document.getElementById('overlay').classList.add('active');
+        };
 
         window.handleImageSelect = (event) => {
             const file = event.target.files[0];
@@ -401,35 +408,55 @@
             reader.readAsDataURL(file);
         };
 
+        // СОХРАНЕНИЕ В ОБЛАКО (FIXED)
         window.adminAddProduct = async () => {
+            const { db, fs, appId } = window.VapeDB;
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
+            
             if (!name || !price) return;
-            if (window.fs) {
-                await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items'), { name, price, category, img, id: Date.now() });
-            } else { initialProducts.push({ id: Date.now(), name, price, category, img }); renderAll(); }
-            resetAdminForm(); closeSheets();
+
+            const btn = document.getElementById('saveProductBtn');
+            btn.disabled = true; btn.innerText = 'Сохранение...';
+
+            try {
+                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
+                    name, price, category, img, createdAt: Date.now()
+                });
+                resetAdminForm(); 
+                closeSheets();
+                tg.HapticFeedback.notificationOccurred('success');
+            } catch (e) {
+                console.error("Save failed:", e);
+            } finally {
+                btn.disabled = false; btn.innerText = 'Добавить карточку';
+            }
         };
 
         function resetAdminForm() {
             document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; 
             document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = '';
+            document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
-        window.deleteItem = async (id, isDb) => {
-            if (!confirm("Удалить?")) return;
-            if (isDb && window.fs) {
-                await window.fs.deleteDoc(window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'vape_items', id));
-            } else { initialProducts = initialProducts.filter(p => p.id != id); renderAll(); }
+        // УДАЛЕНИЕ ИЗ ОБЛАКА (FIXED)
+        window.deleteItem = async (docId) => {
+            if (!confirm("Удалить этот товар навсегда?")) return;
+            const { db, fs, appId } = window.VapeDB;
+            try {
+                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+                tg.HapticFeedback.impactOccurred('medium');
+            } catch (e) {
+                console.error("Delete failed:", e);
+            }
         };
 
         window.addToCart = (id) => {
-            tg.HapticFeedback.notificationOccurred('success');
-            const all = [...initialProducts, ...dbProducts];
-            const p = all.find(x => (x.docId || x.id) == id);
+            const p = products.find(x => x.docId === id);
             if (!p) return;
+            tg.HapticFeedback.notificationOccurred('success');
             if (cart[id]) cart[id].qty++;
             else cart[id] = { ...p, qty: 1 };
             updateCartUI();
@@ -447,9 +474,7 @@
             const list = document.getElementById('cartList');
             if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`; }
             else {
-                list.innerHTML = items.map(item => {
-                    const id = item.docId || item.id;
-                    return `
+                list.innerHTML = items.map(item => `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
                         <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;">
                         <div style="flex-grow:1; min-width:0">
@@ -457,19 +482,22 @@
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 8px; border-radius:12px;">
-                            <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
+                            <button onclick="changeQty('${item.docId}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
-                            <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
+                            <button onclick="changeQty('${item.docId}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
                         </div>
-                    </div>`;
-                }).join('');
+                    </div>`).join('');
                 lucide.createIcons();
             }
         };
 
         window.changeQty = (id, delta) => {
             tg.HapticFeedback.impactOccurred('light');
-            if (cart[id]) { cart[id].qty += delta; if (cart[id].qty <= 0) delete cart[id]; updateCartUI(); }
+            if (cart[id]) {
+                cart[id].qty += delta;
+                if (cart[id].qty <= 0) delete cart[id];
+                updateCartUI();
+            }
         };
 
         window.openOrderForm = () => { closeSheets(); document.getElementById('orderSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
@@ -487,7 +515,6 @@
             
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             document.getElementById('finalPrice').innerText = `${total} ₽`;
-            
             currentOrderKey = 'VX-' + Math.floor(100 + Math.random() * 900);
             document.getElementById('order_key').innerText = currentOrderKey;
             
@@ -504,14 +531,11 @@
 
         window.finishOrder = () => {
             const btn = document.getElementById('finishBtn');
-            btn.disabled = true;
-            btn.innerText = "Отправка заказа...";
+            btn.disabled = true; btn.innerText = "Отправка...";
             
-            tg.HapticFeedback.notificationOccurred('success');
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
 
-            // ФИКС: Ключи синхронизированы с бэкендом (Python скриптом)
             const orderDetails = {
                 action: "NEW_ORDER",
                 order_key: currentOrderKey,
@@ -520,25 +544,20 @@
                 client: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value, // Было contact, стало username_or_contact
+                    username_or_contact: document.getElementById('order_contact').value,
                     place: document.getElementById('order_location').value,
                     time: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
             
-            // Отправляем данные боту
-            setTimeout(() => {
-                tg.sendData(JSON.stringify(orderDetails)); 
-                tg.close();
-            }, 1000);
+            tg.sendData(JSON.stringify(orderDetails)); 
+            setTimeout(() => tg.close(), 500);
         };
 
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
         window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
 
-        // Запуск приложения
-        init();
     </script>
 </body>
 </html>
