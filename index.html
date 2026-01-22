@@ -72,7 +72,7 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Hide Scrollbar */
+        /* Hide Scrollbar globally mostly, but allow on specific elements for desktop */
         ::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -127,8 +127,41 @@
         /* Clipping Fix for Category Scroll */
         .category-scroll {
             padding-top: 1rem; padding-bottom: 1rem;
-            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            /* Improved mask for better visibility on edges */
+            mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        /* Desktop Scrollbar Fixes */
+        @media (min-width: 768px) {
+            .category-scroll {
+                /* Reset margins on desktop to prevent clipping */
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                /* Show scrollbar on desktop */
+                scrollbar-width: thin;
+                -ms-overflow-style: auto;
+                padding-bottom: 10px; 
+            }
+            .category-scroll::-webkit-scrollbar {
+                display: block;
+                height: 6px;
+            }
+            .category-scroll::-webkit-scrollbar-track {
+                background: rgba(255,255,255,0.05);
+                border-radius: 4px;
+            }
+            .category-scroll::-webkit-scrollbar-thumb {
+                background: #22c55e;
+                border-radius: 4px;
+            }
+            /* Remove mask on desktop to see full width */
+            .category-scroll {
+                mask-image: none;
+                -webkit-mask-image: none;
+            }
         }
 
         /* Image Upload Preview */
@@ -169,7 +202,7 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYSTEM STARTUP</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYSTEM ONLINE</div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -376,7 +409,8 @@
                 currentCategory: 'Все',
                 isAdmin: false,
                 debugClicks: 0,
-                pendingImage: null
+                pendingImage: null,
+                listenerUnsubscribe: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -520,57 +554,59 @@
                 } catch (e) {
                     console.error("Auth Error (Using Offline Mode):", e);
                 }
-                await window.shop.fetchProducts();
+                // Start Realtime Listener
+                window.shop.initRealtimeListener();
             },
 
-            // Hybrid Fetch: Persistence FIRST -> Then DB Override (Stale-While-Revalidate)
-            fetchProducts: async () => {
-                let products = [];
-                
-                // 1. INSTANT LOAD: Try Local Storage (Priority for visual speed)
+            // --- REALTIME SYNC: The Key to Multi-User Updates ---
+            initRealtimeListener: () => {
+                // 1. Load LocalStorage first for instant view (no waiting)
                 const localData = localStorage.getItem('vape_store_products');
                 if (localData && localData !== "[]") {
-                    console.log("Loaded from LocalStorage Persistence");
+                    console.log("Showing local cache while connecting...");
                     window.shop.state.products = JSON.parse(localData);
-                    window.shop.renderStore(); // Show cached data immediately
+                    window.shop.renderStore();
+                } else {
+                    // Show Mocks if nothing local
+                    window.shop.state.products = [...MOCK_PRODUCTS];
+                    window.shop.renderStore();
                 }
 
-                // 2. NETWORK SYNC: Always fetch from DB to get changes from others
-                try {
-                    const snapshot = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').get();
-                    
-                    if (!snapshot.empty) {
+                // 2. Connect to Firestore with onSnapshot
+                if (window.shop.state.listenerUnsubscribe) {
+                    window.shop.state.listenerUnsubscribe();
+                }
+
+                window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
+                    .orderBy('createdAt', 'desc') // Ensure consistent order
+                    .onSnapshot((snapshot) => {
                         const dbProducts = [];
                         snapshot.forEach(doc => {
                             dbProducts.push({ id: doc.id, ...doc.data() });
                         });
-                        console.log("Synced with Global DB:", dbProducts.length);
                         
-                        // Update state with global truth
-                        window.shop.state.products = dbProducts;
-                        localStorage.setItem('vape_store_products', JSON.stringify(dbProducts));
+                        console.log("Realtime Update Received:", dbProducts.length);
                         
-                        // Re-render with fresh global data
-                        window.shop.renderStore();
-                    } else {
-                        // If DB is totally empty, maybe seed it (if admin)
-                        console.log("Firestore empty.");
-                        if (!localData && window.shop.state.isAdmin) {
-                             window.shop.seedDatabase();
-                        } else if (!localData) {
-                             // Use mocks if absolutely nothing exists anywhere
-                             window.shop.state.products = [...MOCK_PRODUCTS];
-                             window.shop.renderStore();
+                        if (dbProducts.length > 0) {
+                            window.shop.state.products = dbProducts;
+                            localStorage.setItem('vape_store_products', JSON.stringify(dbProducts));
+                            window.shop.renderStore();
+                        } else {
+                            // If DB is genuinely empty (admin deleted all), reflect that
+                            if (!snapshot.empty) {
+                                // Snapshot not empty but loop yielded 0? unlikely
+                            } else {
+                                // DB empty. 
+                                console.log("DB Empty");
+                                if (window.shop.state.isAdmin && (!localData || localData === "[]")) {
+                                    // Optional: Auto-seed if truly empty and admin
+                                    // window.shop.seedDatabase(); 
+                                }
+                            }
                         }
-                    }
-                } catch (e) {
-                    console.warn("Global sync failed, sticking to local data.", e);
-                    // If we haven't rendered yet (no local data), use mocks
-                    if (window.shop.state.products.length === 0) {
-                        window.shop.state.products = [...MOCK_PRODUCTS];
-                        window.shop.renderStore();
-                    }
-                }
+                    }, (error) => {
+                        console.error("Realtime listener error:", error);
+                    });
             },
 
             seedDatabase: async () => {
@@ -585,7 +621,7 @@
                     });
 
                     await batch.commit();
-                    window.shop.fetchProducts();
+                    // No need to fetch, listener handles it
                 } catch (e) {
                     console.error("Seeding failed", e);
                 }
@@ -643,6 +679,17 @@
                     main.style.opacity = '1';
                     if(window.lucide) window.lucide.createIcons();
                 }, 50);
+            },
+
+            // Added mouse wheel support for categories
+            setupCategoryScroll: () => {
+                const scrollContainer = document.querySelector('.category-scroll');
+                if (scrollContainer) {
+                    scrollContainer.addEventListener('wheel', (evt) => {
+                        evt.preventDefault();
+                        scrollContainer.scrollLeft += evt.deltaY;
+                    });
+                }
             },
 
             renderStore: (container = document.getElementById('main-content')) => {
@@ -714,6 +761,9 @@
                 }
                 gridHTML += `</div>`;
                 container.innerHTML = catHTML + gridHTML;
+                
+                // Init scroll behavior
+                window.shop.setupCategoryScroll();
             },
 
             renderCart: (container) => {
@@ -834,7 +884,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 6.0.0 (RU) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 7.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
@@ -922,40 +972,25 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
-                // Optimistic UI Update (Shows immediately to you)
-                const tempId = 'temp-' + Date.now();
-                const productWithId = { id: tempId, ...newProduct };
-                window.shop.state.products.unshift(productWithId);
-                
-                // SAVE PERSISTENCE (Shows immediately next time)
-                localStorage.setItem('vape_store_products', JSON.stringify(window.shop.state.products));
-                
-                window.shop.renderStore();
+                // No optimistic UI for add/delete to ensure sync correctness, 
+                // but we can do it if listener is fast. 
+                // For now, let the listener handle it.
                 window.shop.toggleAddModal();
-                window.shop.showToast("Товар добавлен", "Успешно");
+                window.shop.showToast("Товар добавляется...", "Синхронизация");
 
                 try {
                     // GLOBAL SYNC: Send to Firestore so OTHERS see it
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add(newProduct);
-                    await window.shop.fetchProducts(); // Refresh to get real ID
+                    // Listener will pick it up and render
                 } catch (e) {
                     console.error("Save failed (Using Offline)", e);
                 }
-                
-                setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
             },
 
             deleteProduct: async (id) => {
                 if (!confirm("Удалить этот товар?")) return;
                 
-                // Optimistic Delete
-                window.shop.state.products = window.shop.state.products.filter(p => p.id !== id);
-                
-                // SAVE PERSISTENCE
-                localStorage.setItem('vape_store_products', JSON.stringify(window.shop.state.products));
-                
-                window.shop.renderStore();
-                window.shop.showToast("Товар удален", "Удалено");
+                window.shop.showToast("Удаление...", "Синхронизация");
 
                 try {
                     // GLOBAL SYNC: Delete from Firestore so OTHERS see it gone
@@ -963,7 +998,6 @@
                         await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
                     }
                 } catch (e) { console.error("Delete failed", e); }
-                setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
             },
 
             initCheckout: (total) => {
