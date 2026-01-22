@@ -409,6 +409,28 @@
         </div>
     </div>
 
+    <!-- MANUAL ORDER FALLBACK MODAL -->
+    <div id="manual-order-modal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-6">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 border border-yellow-500/30 text-center animate-float-up">
+            <div class="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-yellow-500/30">
+                <i data-lucide="alert-triangle" class="w-8 h-8 text-yellow-500"></i>
+            </div>
+            <h3 class="text-lg font-black text-white mb-2 uppercase italic">АВТО-ОТПРАВКА НЕ СРАБОТАЛА</h3>
+            <p class="text-xs text-gray-400 mb-6 leading-relaxed">Телеграм запретил автоматическую отправку. Скопируйте код заказа и отправьте его в чат боту вручную.</p>
+            
+            <div class="bg-white/5 rounded-xl p-4 mb-6 relative border border-white/10">
+                <p id="manual-order-text" class="font-mono text-[10px] text-green-400 text-left break-all select-all"></p>
+                <button onclick="window.shop.copyManualOrder()" class="absolute top-2 right-2 p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <i data-lucide="copy" class="w-4 h-4 text-white"></i>
+                </button>
+            </div>
+
+            <button onclick="document.getElementById('manual-order-modal').classList.add('hidden')" class="w-full bg-green-500 text-black font-black uppercase py-4 rounded-xl tracking-wider hover:bg-green-400 transition-colors">
+                Я СКОПИРОВАЛ, СПАСИБО
+            </button>
+        </div>
+    </div>
+
     <script type="module">
         // ---------------------------------------------------------
         // 1. GLOBAL CONFIGURATION & SAFETY
@@ -1100,27 +1122,35 @@
                 });
             },
 
+            copyManualOrder: () => {
+                const text = document.getElementById('manual-order-text').innerText;
+                navigator.clipboard.writeText(text).then(() => {
+                    window.shop.showToast("Заказ скопирован в буфер", "Готово");
+                }).catch(() => {
+                    // Fallback for older browsers or restricted iframe
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand("Copy");
+                    textArea.remove();
+                    window.shop.showToast("Заказ скопирован (Fallback)", "Готово");
+                });
+            },
+
             completeOrder: async () => {
-                // --- 1. Подготовка данных для Бота (Строго по формату Python) ---
-                
-                // Формируем красивую строку товаров: "Название (x2), Название 2 (x1)"
+                // --- 1. Подготовка данных ---
                 const cartIds = Object.keys(window.shop.state.cart);
                 const cartItemsList = [];
-                
                 cartIds.forEach(id => {
                      const product = window.shop.state.products.find(p => p.id === id);
                      const qty = window.shop.state.cart[id];
-                     if (product) {
-                         cartItemsList.push(`${product.name} (x${qty})`);
-                     }
+                     if (product) cartItemsList.push(`${product.name} (x${qty})`);
                 });
                 const itemsString = cartItemsList.join(', ');
-
-                // Формируем красивую дату: "22.01.2026, 02:54:06"
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
 
-                // Объект для отправки в Telegram
                 const telegramPayload = {
                     order_key: window.shop.state.currentOrderId,
                     items: itemsString,
@@ -1128,25 +1158,22 @@
                     client: {
                         name: window.shop.state.deliveryInfo.name,
                         phone: window.shop.state.deliveryInfo.phone,
-                        username_or_contact: window.shop.state.deliveryInfo.contact, // Соответствует ключу в Python
+                        username_or_contact: window.shop.state.deliveryInfo.contact,
                         place: window.shop.state.deliveryInfo.place,
                         time: window.shop.state.deliveryInfo.time
                     },
                     timestamp: dateStr
                 };
 
-                // --- 2. Сохранение в Firebase (История заказов пользователя) ---
+                // --- 2. Сохранение в Firebase ---
                 const dbOrder = {
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
-                    items: window.shop.state.cart, // Сохраняем raw данные для истории
+                    items: window.shop.state.cart,
                     date: new Date().toISOString(),
                     user: window.shop.state.user,
                     delivery: window.shop.state.deliveryInfo
                 };
-
-                // UI Feedback перед отправкой
-                window.shop.showToast("Отправка заказа...", "Процесс");
 
                 try {
                     const uid = auth.currentUser.uid;
@@ -1155,21 +1182,30 @@
                      }
                 } catch(e) {}
 
-                // --- 3. Отправка данных в бота ---
+                // --- 3. Попытка отправки через sendData (для Клавиатурной кнопки) ---
+                window.shop.showToast("Отправка заказа...", "Процесс");
                 window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
                 
-                // --- 4. UI Cleanup & Failsafe Alert ---
-                // Если приложение НЕ закрылось автоматически через 1 секунду после sendData - значит отправка не сработала
-                // Это происходит, когда магазин открыт через "синюю кнопку" (Меню), где sendData не поддерживается Telegram.
+                // --- 4. FALLBACK: Если через 1 сек приложение не закрылось (значит мы в Меню) ---
+                // Генерируем текст для ручной отправки
+                const manualText = `🚀 ЗАКАЗ VX-${window.shop.state.currentOrderId}\n` +
+                                   `📦 ${itemsString}\n` +
+                                   `💰 ${window.shop.state.currentTotal} ₽\n` +
+                                   `👤 ${window.shop.state.deliveryInfo.name}, ${window.shop.state.deliveryInfo.phone}\n` +
+                                   `📍 ${window.shop.state.deliveryInfo.place} (${window.shop.state.deliveryInfo.time})`;
+
                 setTimeout(() => {
-                    alert("⚠️ ВНИМАНИЕ!\n\nЗаказ не отправился.\n\nТелеграм запрещает отправку данных через 'Синюю кнопку' (Меню).\n\nПожалуйста, вернитесь в чат и откройте магазин через кнопку 'Открыть магазин' внизу клавиатуры.");
+                    // Показываем модальное окно с инструкцией
+                    const modal = document.getElementById('manual-order-modal');
+                    const textEl = document.getElementById('manual-order-text');
+                    textEl.innerText = manualText;
+                    modal.classList.remove('hidden');
+                    document.getElementById('checkout-modal').classList.add('hidden');
                 }, 1000);
 
-                document.getElementById('checkout-modal').classList.add('hidden');
+                // Очистка корзины (визуально, чтобы не дублировать)
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
-                window.shop.switchView('store');
-                window.shop.showToast("Попытка отправки...", "Статус");
             },
 
             showToast: (msg, title = "Уведомление") => {
