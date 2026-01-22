@@ -438,9 +438,15 @@
 
             // --- NEW: AUTO-CREATE USER PROFILE ---
             saveUserProfile: async (user) => {
+                if (!auth.currentUser) return;
+                
                 try {
-                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(user.id.toString()).set({
-                        id: user.id,
+                    // Use auth.currentUser.uid for write permission
+                    const uid = auth.currentUser.uid;
+                    
+                    // Store TG ID inside the document
+                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('profile').doc('info').set({
+                        telegram_id: user.id,
                         first_name: user.first_name || '',
                         last_name: user.last_name || '',
                         username: user.username || '',
@@ -449,7 +455,7 @@
                         platform: 'Telegram WebApp'
                     }, { merge: true });
                     
-                    console.log("User profile synced to DB");
+                    console.log("User profile synced to DB under UID:", uid);
                 } catch (e) {
                     console.error("Failed to save profile:", e);
                 }
@@ -971,8 +977,10 @@
                 };
 
                 try {
-                     if (window.shop.state.user.id !== 999999) {
-                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(window.shop.state.user.id.toString()).collection('orders').add(order);
+                    // Use auth.currentUser.uid for write permission
+                    const uid = auth.currentUser.uid;
+                     if (window.shop.state.user.id !== 999999 && uid) {
+                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(order);
                      }
                 } catch(e) {}
 
