@@ -102,8 +102,9 @@
         .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 120px 16px; width: 100%; }
         .product-card {
             background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
-            border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative;
+            border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 10px; position: relative;
             animation: fadeIn 0.4s ease-out;
+            min-height: 280px; /* Фиксированная минимальная высота для стабильности */
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -113,10 +114,19 @@
             display: none; align-items: center; justify-content: center; z-index: 10; cursor: pointer;
         }
         .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.02); object-fit: cover; }
-        .product-info { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
-        .product-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .product-price { font-size: 15px; font-weight: 800; color: var(--brand-color); }
-        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 700; font-size: 12px; width: 100%; cursor: pointer; }
+        
+        /* КРИТИЧЕСКАЯ ПРАВКА ВЫРАВНИВАНИЯ */
+        .product-info { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+            padding: 4px 4px 8px 4px; 
+            flex-grow: 1; /* Этот блок растягивается и толкает кнопку вниз */
+        }
+        
+        .product-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; min-height: 32px; }
+        .product-price { font-size: 15px; font-weight: 800; color: var(--brand-color); margin-top: auto; }
+        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 800; font-size: 12px; width: 100%; cursor: pointer; margin-top: auto; }
 
         .cart-fab {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(120px);
@@ -155,12 +165,15 @@
         
         #boot-loader { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 15px; transition: 0.5s; }
         #boot-loader.hidden { opacity: 0; pointer-events: none; }
+        .spinner { width: 30px; height: 30px; border: 3px solid var(--glass); border-top-color: var(--brand-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="theme-toxic">
 
     <div id="boot-loader">
-        <div style="color: var(--brand-color); font-weight: 800; letter-spacing: 2px;">VAPE CLOUD</div>
+        <div class="spinner"></div>
+        <div style="color: var(--brand-color); font-weight: 800; letter-spacing: 2px; font-size: 12px;">ЗАГРУЗКА</div>
     </div>
 
     <div class="background-container">
@@ -199,11 +212,52 @@
         <button class="checkout-btn" id="checkout-main-btn" onclick="openSheet('orderSheet')">К оформлению</button>
     </div>
 
+    <!-- Заказ -->
+    <div class="bottom-sheet" id="orderSheet">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2>Данные заказа</h2>
+            <i data-lucide="arrow-left" onclick="openSheet('cartSheet')" style="cursor:pointer"></i>
+        </div>
+        <div style="overflow-y:auto; flex-grow:1;">
+            <input type="text" id="order_name" class="form-input" placeholder="Ваше Имя">
+            <input type="tel" id="order_phone" class="form-input" placeholder="Номер телефона">
+            <input type="text" id="order_contact" class="form-input" placeholder="Контактные данные (ТГ @юз)">
+            <input type="text" id="order_location" class="form-input" placeholder="Место встречи">
+            <select id="order_time" class="form-input">
+                <option value="6:00 - 12:00">6:00 - 12:00</option>
+                <option value="14:00 - 20:00">14:00 - 20:00</option>
+            </select>
+        </div>
+        <button class="checkout-btn" onclick="goToPayment()">К оплате</button>
+    </div>
+
+    <!-- Оплата -->
+    <div class="bottom-sheet" id="paymentSheet">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2>Оплата</h2>
+            <i data-lucide="x" onclick="closeAllSheets()" style="cursor:pointer"></i>
+        </div>
+        <div class="payment-info">
+            <div class="price-tag" id="finalPrice">0 ₽</div>
+            <div style="font-weight: 800; margin-bottom: 12px; color: var(--brand-color); letter-spacing: 1px;">OZON БАНК</div>
+            <div class="copy-info-row">
+                <span style="font-family: monospace;">2204 3209 2444 1944</span>
+                <span class="copy-btn" onclick="copyText('2204320924441944')">Копировать</span>
+            </div>
+            <div style="font-size: 12px; margin: 15px 0 10px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ:</div>
+            <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
+                <span id="payment_key" style="font-weight: 800;">---</span>
+                <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">Копировать</span>
+            </div>
+        </div>
+        <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: #fff;" onclick="finishOrder()">Я оплатил(а)</button>
+    </div>
+
     <!-- Админка -->
     <div class="bottom-sheet" id="adminSheet">
         <h2 style="margin-bottom:20px;">Новый товар</h2>
-        <input type="text" id="p_name" class="form-input" placeholder="Название товара">
-        <input type="number" id="p_price" class="form-input" placeholder="Цена в рублях">
+        <input type="text" id="p_name" class="form-input" placeholder="Название">
+        <input type="number" id="p_price" class="form-input" placeholder="Цена (₽)">
         <select id="p_cat" class="form-input">
             <option value="Одноразки">Одноразки</option>
             <option value="Жидкости">Жидкости</option>
@@ -211,45 +265,24 @@
             <option value="Расходники">Расходники</option>
         </select>
         <div style="margin-bottom: 20px;">
-            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 5px;">Фото из галереи:</p>
             <input type="file" id="p_file" accept="image/*" onchange="previewImage(event)">
             <img id="img_preview" style="width: 60px; height: 60px; border-radius: 10px; margin-top: 10px; display: none; object-fit: cover; border: 1px solid var(--brand-color);">
         </div>
-        <button class="checkout-btn" id="saveProductBtn" onclick="saveNewProduct()">Добавить в магазин</button>
-    </div>
-
-    <!-- Оплата и прочее (сокращено для примера, логика та же) -->
-    <div class="bottom-sheet" id="orderSheet">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;"><h2>Данные</h2><i data-lucide="arrow-left" onclick="openSheet('cartSheet')"></i></div>
-        <input type="text" id="order_name" class="form-input" placeholder="Имя">
-        <input type="tel" id="order_phone" class="form-input" placeholder="Телефон">
-        <input type="text" id="order_contact" class="form-input" placeholder="ТГ @юз">
-        <input type="text" id="order_location" class="form-input" placeholder="Место встречи">
-        <select id="order_time" class="form-input"><option value="6:00 - 12:00">6:00 - 12:00</option><option value="14:00 - 20:00">14:00 - 20:00</option></select>
-        <button class="checkout-btn" onclick="goToPayment()">Оплатить</button>
-    </div>
-
-    <div class="bottom-sheet" id="paymentSheet">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;"><h2>Оплата</h2><i data-lucide="x" onclick="closeAllSheets()"></i></div>
-        <div class="payment-info">
-            <div class="price-tag" id="finalPrice">0 ₽</div>
-            <p style="margin-bottom:10px;">Ozon Банк: <b>2204 3209 2444 1944</b></p>
-            <p style="font-size:12px;">Комментарий: <b id="payment_key">---</b></p>
-        </div>
-        <button class="checkout-btn" style="background:var(--success)" onclick="finishOrder()">Я оплатил(а)</button>
+        <button class="checkout-btn" id="saveProductBtn" onclick="saveNewProduct()">Добавить карточку</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready(); tg.expand();
 
-        const MY_ADMIN_ID = 1262669099;
+        const MY_ADMIN_ID = "1262669099"; // Строковое сравнение надежнее
         let products = [];
         let cart = {};
         let activeCategory = 'Все';
         let isAdminMode = false;
         let selectedBase64 = '';
-        let cloudSynced = false; // Флаг: получили ли мы ответ от облака хотя бы раз
+        let cloudSynced = false;
+        let isUserAdmin = false;
 
         const seedItems = [
             { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
@@ -259,20 +292,29 @@
             { category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
         ];
 
-        function checkAdmin() {
-            let uId = tg.initDataUnsafe?.user?.id;
+        // УСИЛЕННАЯ ПРОВЕРКА АДМИНА
+        function forceAdminCheck() {
+            const webapp = window.Telegram.WebApp;
+            let uId = webapp.initDataUnsafe?.user?.id || tg.initDataUnsafe?.user?.id;
+            
+            // Если через SDK не пришло, ищем в URL напрямую (бывает при некоторых способах открытия)
             if(!uId) {
                 try {
-                    const h = new URLSearchParams(window.location.hash.slice(1));
-                    const d = Object.fromEntries(new URLSearchParams(h.get('tgWebAppData')));
-                    uId = JSON.parse(d.user).id;
-                } catch(e){}
+                    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+                    const dataStr = hashParams.get('tgWebAppData');
+                    if(dataStr) {
+                        const data = Object.fromEntries(new URLSearchParams(dataStr));
+                        if(data.user) uId = JSON.parse(data.user).id;
+                    }
+                } catch(e) {}
             }
-            if(uId && String(uId) === String(MY_ADMIN_ID)) {
-                document.getElementById('adminBtn').style.display = 'flex';
-                return true;
+
+            if(uId && String(uId) === MY_ADMIN_ID) {
+                isUserAdmin = true;
+                const btn = document.getElementById('adminBtn');
+                if(btn) btn.style.display = 'flex';
+                console.log("Admin Authorized:", uId);
             }
-            return false;
         }
 
         function renderAll() {
@@ -285,12 +327,12 @@
             const grid = document.getElementById('products');
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             
-            if(filtered.length === 0 && cloudSynced) {
+            if(filtered.length === 0) {
                 grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--text-muted)">Магазин пуст</div>`;
             } else {
                 grid.innerHTML = filtered.map(p => `
                     <div class="product-card">
-                        <button class="delete-card-btn" onclick="deleteItem('${p.docId || ''}')"><i data-lucide="trash-2" size="14"></i></button>
+                        <button class="delete-card-btn" onclick="deleteItem('${p.docId || ''}', '${p.name}')"><i data-lucide="trash-2" size="14"></i></button>
                         <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                         <div class="product-info">
                             <span class="product-name">${p.name}</span>
@@ -300,41 +342,37 @@
                     </div>`).join('');
             }
             lucide.createIcons();
-            document.getElementById('boot-loader').classList.add('hidden');
+            setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 500);
         }
 
-        // ПОДКЛЮЧЕНИЕ ОБЛАКА
-        window.addEventListener('vape-cloud-auth-ok', () => {
+        window.addEventListener('vape-cloud-ready', () => {
             if (!window.VapeCloud) return;
             const { db, appId, methods } = window.VapeCloud;
             const coll = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
             
-            const isAdmin = checkAdmin();
+            forceAdminCheck();
 
-            // Слушаем изменения в реальном времени
-            methods.onSnapshot(methods.query(coll), (snapshot) => {
-                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+            methods.onSnapshot(methods.query(coll), async (snapshot) => {
+                let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                cloudSynced = true; // Теперь мы знаем, что облако ответило
-                products = dbItems;
-
-                // Если база совсем пуста и зашел админ — показываем баннер наполнения
-                if (products.length === 0 && isAdmin) {
+                if (dbItems.length === 0 && isUserAdmin) {
                     document.getElementById('setup-banner').style.display = 'block';
                 } else {
                     document.getElementById('setup-banner').style.display = 'none';
                 }
 
+                cloudSynced = true;
+                products = dbItems.length > 0 ? dbItems : [...seedItems];
                 renderAll();
             }, (err) => {
-                console.error("Snapshot error", err);
-                if(!cloudSynced) { products = [...seedItems]; renderAll(); }
+                console.warn("Cloud access restricted or error", err);
+                products = [...seedItems];
+                renderAll();
             });
         });
 
-        // ПЕРВИЧНЫЙ ПОКАЗ (пока облако грузится)
-        products = [...seedItems];
-        renderAll();
+        // Повторные проверки админа (для надежности)
+        [100, 500, 1500, 3000].forEach(ms => setTimeout(forceAdminCheck, ms));
 
         window.setCat = (c) => { activeCategory = c; renderAll(); };
         window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
@@ -349,7 +387,7 @@
         };
 
         window.manualSeed = async () => {
-            if(!confirm("Загрузить стандартные товары в облако?") || !window.VapeCloud) return;
+            if(!confirm("Загрузить товары в облако?") || !window.VapeCloud) return;
             const { db, appId, methods } = window.VapeCloud;
             document.getElementById('setup-banner').innerText = "ЗАГРУЗКА...";
             for(let item of seedItems) {
@@ -362,57 +400,38 @@
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
-            
-            if(!name || !price) {
-                tg.HapticFeedback.notificationOccurred('error');
-                return;
-            }
-
-            if(!window.VapeCloud) {
-                alert("Ошибка: Облако еще не подключено. Подождите 2-3 секунды.");
-                return;
-            }
+            if(!name || !price || !window.VapeCloud) return;
 
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = "СОХРАНЕНИЕ...";
-
-            const { db, appId, methods } = window.VapeCloud;
+            btn.disabled = true; btn.innerText = "...";
             try {
+                const { db, appId, methods } = window.VapeCloud;
                 await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
-                    name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
-                    createdAt: Date.now()
+                    name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200', createdAt: Date.now()
                 });
-                tg.HapticFeedback.notificationOccurred('success');
                 closeAllSheets();
-                // Сброс полей
                 document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; document.getElementById('img_preview').style.display = 'none';
                 selectedBase64 = '';
-            } catch(e) {
-                console.error(e);
-            } finally {
-                btn.disabled = false; btn.innerText = "Добавить в магазин";
-            }
+            } catch(e) {} finally { btn.disabled = false; btn.innerText = "Добавить карточку"; }
         };
 
-        window.deleteItem = async (docId) => {
-            if(!docId) {
-                alert("Этот товар находится в коде файла. Чтобы управлять им полноценно, нажмите кнопку 'Загрузить товары' сверху (для админа).");
+        window.deleteItem = async (docId, name) => {
+            if(!confirm(`Удалить ${name}?`)) return;
+            if(!docId) { 
+                products = products.filter(p => p.name !== name);
+                renderAll();
                 return;
             }
-            if(!confirm("Удалить этот товар навсегда?")) return;
             const { db, appId, methods } = window.VapeCloud;
-            try {
-                await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
-                tg.HapticFeedback.impactOccurred('medium');
-            } catch(e) { console.error(e); }
+            await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+            tg.HapticFeedback.impactOccurred('medium');
         };
 
-        // Корзина
         window.addToCart = (id) => {
-            const p = products.find(x => (x.docId || x.name) === id);
+            const p = products.find(x => x.docId === id || x.name === id);
             if(!p) return;
-            const cartKey = p.docId || p.name;
-            if(cart[cartKey]) cart[cartKey].qty++; else cart[cartKey] = {...p, qty: 1};
+            const cId = p.docId || p.name;
+            if(cart[cId]) cart[cId].qty++; else cart[cId] = {...p, qty: 1};
             updateCartUI();
             tg.HapticFeedback.notificationOccurred('success');
         };
@@ -424,7 +443,6 @@
             document.getElementById('cartFab').classList.toggle('visible', count > 0 && !isAdminMode);
             document.getElementById('cartCount').innerText = `${count} ТОВАРОВ`;
             document.getElementById('cartTotal').innerText = `${total} ₽`;
-            
             const list = document.getElementById('cartList');
             if(items.length === 0) list.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted)">Пусто</div>`;
             else list.innerHTML = items.map(i => `
@@ -440,6 +458,7 @@
                         <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.name}', 1)">+</button>
                     </div>
                 </div>`).join('');
+            lucide.createIcons();
         }
 
         window.changeQty = (id, delta) => {
@@ -455,6 +474,8 @@
             openSheet('paymentSheet');
         };
 
+        window.copyText = (t) => { const e = document.createElement('textarea'); e.value = t; document.body.appendChild(e); e.select(); document.execCommand('copy'); document.body.removeChild(e); tg.HapticFeedback.impactOccurred('medium'); };
+
         window.finishOrder = () => {
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
@@ -466,9 +487,6 @@
         };
 
         window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
-
-        // Резервное скрытие лоадера
-        setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 3000);
     </script>
 </body>
 </html>
