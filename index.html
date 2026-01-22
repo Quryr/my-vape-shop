@@ -149,7 +149,14 @@
                  <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">SYSTEM STARTUP</div>
+        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">ЗАГРУЗКА СИСТЕМЫ...</div>
+    </div>
+
+    <!-- Debug Panel (Hidden by default) -->
+    <div id="debug-panel" class="fixed inset-0 z-[100] bg-black/95 hidden flex-col p-4 overflow-auto font-mono text-[10px] text-green-400">
+        <button onclick="document.getElementById('debug-panel').classList.add('hidden')" class="mb-4 bg-red-500 text-white p-2 rounded">CLOSE DEBUG</button>
+        <h3 class="text-white text-lg font-bold mb-2">DIAGNOSTICS</h3>
+        <div id="debug-content" class="whitespace-pre-wrap">Loading...</div>
     </div>
 
     <!-- Toast Notification -->
@@ -320,7 +327,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        const ADMIN_ID = 1262669099;
+        const ADMIN_ID = "1262669099"; // String format for safer comparison
 
         // ---------------------------------------------------------
         // 3. CORE APPLICATION LOGIC
@@ -333,7 +340,51 @@
                 cart: {},
                 currentCategory: 'Все',
                 isAdmin: false,
-                debugMode: false
+                debugClicks: 0
+            },
+
+            // --- HELPER: Parse User Data from ANYWHERE ---
+            parseUser: () => {
+                const tg = window.Telegram.WebApp;
+                
+                // 1. Try initDataUnsafe directly (Standard)
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    return { source: 'initDataUnsafe', user: tg.initDataUnsafe.user };
+                }
+
+                // 2. Try parsing initData string manually
+                if (tg.initData) {
+                    try {
+                        const searchParams = new URLSearchParams(tg.initData);
+                        const userStr = searchParams.get('user');
+                        if (userStr) {
+                            return { source: 'initData_parse', user: JSON.parse(userStr) };
+                        }
+                    } catch(e) {}
+                }
+
+                // 3. Try parsing URL Hash/Search (Legacy/Web version)
+                try {
+                    const hash = window.location.hash.substring(1);
+                    const params = new URLSearchParams(hash);
+                    let tgWebAppData = params.get('tgWebAppData');
+                    
+                    if (!tgWebAppData) {
+                        const search = new URLSearchParams(window.location.search);
+                        tgWebAppData = search.get('tgWebAppData');
+                    }
+
+                    if (tgWebAppData) {
+                        const dataParams = new URLSearchParams(decodeURIComponent(tgWebAppData));
+                        const userJson = dataParams.get('user');
+                        if (userJson) {
+                             return { source: 'url_hash', user: JSON.parse(decodeURIComponent(userJson)) };
+                        }
+                    }
+                } catch(e) {}
+
+                // 4. Give up -> Guest
+                return { source: 'fallback', user: null };
             },
 
             init: async () => {
@@ -343,33 +394,19 @@
                 tg.setHeaderColor('#050505');
                 tg.setBackgroundColor('#050505');
 
-                // --- ROBUST USER PARSING (FIXED) ---
-                let tgUser = tg.initDataUnsafe?.user;
+                // --- ROBUST USER PARSING ---
+                const parsed = window.shop.parseUser();
+                let tgUser = parsed.user;
                 
-                // If initDataUnsafe is empty (common in some bot links or forwarded webapps), try parsing URL manually
-                if (!tgUser) {
-                    try {
-                        // Attempt to parse from Hash or Search params where Telegram puts tgWebAppData
-                        const urlParams = new URLSearchParams(window.location.hash.substring(1)); // Remove #
-                        const searchParams = new URLSearchParams(window.location.search);
-                        
-                        // Check Hash first, then Search
-                        let webAppDataStr = urlParams.get('tgWebAppData') || searchParams.get('tgWebAppData');
-                        
-                        if (webAppDataStr) {
-                            // DECODE URI COMPONENT IS CRITICAL HERE
-                            const webAppData = new URLSearchParams(decodeURIComponent(webAppDataStr));
-                            const userJson = webAppData.get('user');
-                            if (userJson) {
-                                tgUser = JSON.parse(decodeURIComponent(userJson));
-                                console.log("User parsed from URL parameters");
-                            }
-                        }
-                    } catch(e) { 
-                        console.error("Manual URL parsing failed", e); 
-                    }
-                }
-                
+                // Debug Log
+                console.log("User Detection Result:", parsed);
+                window.shop.debugInfo = {
+                    parsedSource: parsed.source,
+                    rawData: tgUser,
+                    initData: tg.initData,
+                    hash: window.location.hash
+                };
+
                 // Fallback for purely browser testing
                 if (!tgUser) {
                     console.log("No TG User found - Browser Mode detected");
@@ -383,14 +420,14 @@
 
                 window.shop.state.user = tgUser;
                 
-                // LOOSE COMPARISON (==) is important because IDs can be strings in URL params but numbers in object
-                window.shop.state.isAdmin = (tgUser.id == ADMIN_ID);
+                // STRING COMPARISON for Admin ID to avoid type errors
+                window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
 
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
                 document.getElementById('user-avatar').src = avatarUrl;
                 
-                // Admin Button Visibility (ONLY IF REAL ADMIN)
+                // Admin Button Visibility
                 if (window.shop.state.isAdmin) {
                     document.getElementById('admin-add-btn').classList.remove('hidden');
                 } else {
@@ -466,6 +503,27 @@
                     window.shop.fetchProducts();
                 } catch (e) {
                     console.error("Seeding failed", e);
+                }
+            },
+
+            toggleDebug: () => {
+                window.shop.state.debugClicks++;
+                if (window.shop.state.debugClicks >= 5) {
+                    const panel = document.getElementById('debug-panel');
+                    const content = document.getElementById('debug-content');
+                    panel.classList.remove('hidden');
+                    
+                    const info = {
+                        "DETECTED_USER_ID": window.shop.state.user?.id,
+                        "EXPECTED_ADMIN_ID": ADMIN_ID,
+                        "IS_ADMIN_BOOL": window.shop.state.isAdmin,
+                        "SOURCE": window.shop.debugInfo?.parsedSource,
+                        "FULL_USER_OBJ": window.shop.state.user,
+                        "RAW_INIT_DATA": window.Telegram.WebApp.initData
+                    };
+                    
+                    content.innerText = JSON.stringify(info, null, 2);
+                    window.shop.state.debugClicks = 0;
                 }
             },
 
@@ -672,7 +730,9 @@
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
                          </div>
                     </div>
-                    <p class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase">Version 2.1.0 (RU)</p>
+                    
+                    <!-- DEBUG TRIGGER -->
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 3.0.0 (RU) - Tap 5x for Debug</p>
                 `;
             },
 
