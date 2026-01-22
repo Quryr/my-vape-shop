@@ -74,7 +74,7 @@
             position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px);
             background: rgba(5, 5, 5, 0.6); border-bottom: 1px solid var(--glass-border);
         }
-        .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
@@ -104,7 +104,7 @@
         .delete-card-btn {
             position: absolute; top: 10px; right: 10px; background: var(--error);
             color: white; border: none; width: 28px; height: 28px; border-radius: 8px;
-            display: none; align-items: center; justify-content: center; z-index: 10;
+            display: flex; align-items: center; justify-content: center; z-index: 10;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.03); object-fit: cover; padding: 6px; }
@@ -148,7 +148,7 @@
         .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
-        body.admin-mode .delete-card-btn { display: flex; }
+        body:not(.admin-mode) .delete-card-btn { display: none !important; }
         body.admin-mode .cart-fab { display: none !important; }
 
         @media (max-width: 360px) { .product-name { font-size: 12px; } .products-grid { gap: 8px; padding: 0 12px 100px 12px; } }
@@ -302,26 +302,23 @@
 
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' }
+            { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 's3', category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 's4', category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' }
         ];
 
         function checkAdminAccess() {
             const user = tg.initDataUnsafe?.user;
-            // Более жесткая проверка ID
-            const isAuthorized = user && (String(user.id) === String(MY_ADMIN_ID));
-            if (isAuthorized) {
+            if (user && String(user.id) === String(MY_ADMIN_ID)) {
                 document.getElementById('adminBtn').style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        function startApp() {
-            // Сначала показываем seed, если нет облака
-            if(!cloudSynced) products = [...initialSeed];
-            renderAll();
-            checkAdminAccess();
-        }
+        // Рендерим сразу из кода
+        products = [...initialSeed];
+        renderAll();
 
         window.addEventListener('vape-auth-ready', () => {
             const { auth, fs, db, appId } = window.VapeDB;
@@ -329,46 +326,52 @@
 
             const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
             fs.onSnapshot(q, (snapshot) => {
-                // Как только облако ответило - это единственный источник правды
-                cloudSynced = true;
-                products = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                
+                // Если в облаке пусто - оставляем seed. 
+                // Если в облаке есть ХОТЯ БЫ ОДИН товар - переключаемся на облако.
+                if (dbItems.length > 0) {
+                    cloudSynced = true;
+                    products = dbItems;
+                } else if (cloudSynced) {
+                    // Если мы уже были в режиме облака и оно стало пустым (удалили последний товар)
+                    products = [];
+                }
                 renderAll();
-            }, (error) => {
-                console.error("Cloud Error:", error);
-                if(!cloudSynced) startApp();
-            });
+            }, (error) => { console.error("Cloud Error:", error); });
         });
 
-        // Запасная проверка профиля через интервал (для кнопки "Открыть магазин")
-        const adminRetry = setInterval(() => { if(checkAdminAccess()) clearInterval(adminRetry); }, 1000);
-        setTimeout(() => clearInterval(adminRetry), 10000);
+        // Жесткая проверка админа (повторы на случай задержки SDK)
+        [100, 1000, 3000].forEach(ms => setTimeout(checkAdminAccess, ms));
 
         function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
 
         function renderCategories() {
-            const categories = ['Все', ...new Set(products.map(p => p.category))];
-            if (categories.length === 1 && categories[0] === 'Все') {
-                categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
-            }
+            // Берем категории из текущего списка товаров ИЛИ дефолтный набор, если товаров 0
+            let cats = [...new Set(products.map(p => p.category))];
+            if (cats.length === 0) cats = ['Одноразки', 'Жидкости', 'Pod-системы', 'Расходники'];
+            if (!cats.includes('Все')) cats.unshift('Все');
+
             const container = document.getElementById('categories');
             if(!container) return;
-            container.innerHTML = categories.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
+            container.innerHTML = cats.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
 
         function renderProducts() {
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
+            
             if (filtered.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">В этой категории пусто</div>`;
                 return;
             }
+
             container.innerHTML = filtered.map(p => {
                 const id = p.docId || p.id;
                 return `
                 <div class="product-card">
-                    ${isAdminMode && p.docId ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>` : ''}
-                    ${isAdminMode && !p.docId ? `<button class="delete-card-btn" onclick="alert('Этот товар в коде, его нельзя удалить из облака. Добавьте его через Плюс, чтобы управлять им.')"><i data-lucide="lock" size="14"></i></button>` : ''}
+                    <button class="delete-card-btn" onclick="deleteItem('${id}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
@@ -432,13 +435,20 @@
             document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
-        window.deleteItem = async (docId) => {
-            if (!confirm("Удалить этот товар из облака навсегда?")) return;
+        window.deleteItem = async (id, isFromDB) => {
+            if (!confirm("Удалить этот товар?")) return;
             tg.HapticFeedback.impactOccurred('medium');
-            const { db, fs, appId } = window.VapeDB;
-            try {
-                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
-            } catch (e) { console.error(e); }
+            
+            if (isFromDB && window.VapeDB) {
+                const { db, fs, appId } = window.VapeDB;
+                try {
+                    await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                } catch (e) { console.error("Cloud delete failed:", e); }
+            } else {
+                // Если товар только в коде - убираем его из списка до перезагрузки
+                products = products.filter(p => p.id !== id);
+                renderAll();
+            }
         };
 
         window.addToCart = (id) => {
@@ -535,7 +545,6 @@
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
         window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); }); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
 
-        startApp();
     </script>
 </body>
 </html>
