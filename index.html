@@ -1189,26 +1189,37 @@
                     const now = new Date();
                     const formattedDate = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
 
+                    // --- SANITIZATION FUNCTION ---
+                    // Prevents "Bad Request: can't parse entities" error in Telegram Bot
+                    const clean = (str) => {
+                        return String(str || '')
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;")
+                            .replace(/"/g, "&quot;");
+                    };
+
                     // 3.3 Construct Payload matching Python keys
                     const botPayload = {
                         order_key: window.shop.state.currentOrderId,
-                        items: formattedItems,
+                        items: clean(formattedItems),
                         total: window.shop.state.currentTotal + ' ₽',
                         client: {
-                            name: window.shop.state.deliveryInfo.name,
-                            phone: window.shop.state.deliveryInfo.phone,
-                            username_or_contact: window.shop.state.deliveryInfo.contact, 
-                            place: window.shop.state.deliveryInfo.place,
-                            time: window.shop.state.deliveryInfo.time
+                            name: clean(window.shop.state.deliveryInfo.name),
+                            phone: clean(window.shop.state.deliveryInfo.phone),
+                            username_or_contact: clean(window.shop.state.deliveryInfo.contact), 
+                            place: clean(window.shop.state.deliveryInfo.place),
+                            time: clean(window.shop.state.deliveryInfo.time)
                         },
                         timestamp: formattedDate
                     };
 
+                    console.log("Sending Payload to Bot:", botPayload);
+
                     // 4. Send to Telegram
                     if (window.Telegram.WebApp.initData === "") {
                         window.shop.showToast("Открыто не в Telegram! Данные не отправлены.", "Ошибка среды");
-                        // For debugging in browser, you can uncomment below:
-                        // alert("PAYLOAD: " + JSON.stringify(botPayload));
+                        console.warn("WebApp initData is empty. sendData will not work.");
                         return;
                     }
 
