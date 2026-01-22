@@ -18,20 +18,18 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Инициализация конфигурации
+        // Глобальные переменные окружения
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Глобальный объект для доступа
         window.VapeCloud = { 
             db, auth, appId, 
             methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
         };
 
-        // RULE 3: Auth Before Queries
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -39,22 +37,124 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-                console.log("Cloud Authorized");
-                window.dispatchEvent(new Event('vape-cloud-ready'));
+                window.isCloudAuth = true;
+                window.dispatchEvent(new Event('vape-auth-ready'));
+                console.log("Cloud Ready");
             } catch (e) {
                 console.error("Auth failed:", e);
+                // В случае ошибки все равно даем приложению работать локально
+                window.dispatchEvent(new Event('vape-auth-ready'));
             }
         };
         initAuth();
     </script>
     <style>
-        /* Ваши стили остаются без изменений */
+        :root {
+            --brand-color: #00ff88;
+            --brand-glow: rgba(0, 255, 136, 0.4);
+            --bg-dark: #050505;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --error: #ff4444;
+            --success: #00c853;
+        }
+
+        .theme-ice { --brand-color: #00d1ff; --brand-glow: rgba(0, 209, 255, 0.4); }
+        .theme-magma { --brand-color: #ff6b00; --brand-glow: rgba(255, 107, 0, 0.4); }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100vw; min-height: 100vh; }
+
+        .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: #000; }
+        .orb { position: absolute; width: 350px; height: 350px; border-radius: 50%; filter: blur(80px); opacity: 0.15; pointer-events: none; }
+        .orb-1 { background: var(--brand-color); top: -80px; right: -80px; }
+        .orb-2 { background: #4a00ff; bottom: -80px; left: -80px; }
+
+        header {
+            padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px);
+            background: rgba(5, 5, 5, 0.6); border-bottom: 1px solid var(--glass-border);
+        }
+        .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .header-btns { display: flex; gap: 8px; }
+        .icon-btn {
+            background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
+            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; transition: 0.3s;
+        }
+        #adminBtn { display: none; } 
+        .icon-btn.active { background: var(--brand-color); color: #000; border-color: var(--brand-color); }
+        #addBtn { display: none; background: var(--brand-color); color: #000; border: none; }
+
+        .categories-container { padding: 12px 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+        .categories-inner { display: inline-flex; gap: 10px; padding: 10px 20px 25px 20px; }
+        .category-btn {
+            background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-muted); padding: 10px 18px;
+            border-radius: 20px; font-size: 14px; font-weight: 600; outline: none; transition: 0.3s;
+        }
+        .category-btn.active { color: var(--text-main); background: rgba(255, 255, 255, 0.1); border-color: var(--brand-color); }
+
+        .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 120px 16px; width: 100%; }
+        .product-card {
+            background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
+            border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative;
+        }
+        .delete-card-btn {
+            position: absolute; top: 10px; right: 10px; background: var(--error);
+            color: white; border: none; width: 30px; height: 30px; border-radius: 8px;
+            display: none; align-items: center; justify-content: center; z-index: 10; cursor: pointer;
+        }
+        .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.02); object-fit: cover; }
+        .product-info { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+        .product-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .product-price { font-size: 15px; font-weight: 800; color: var(--brand-color); }
+        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 700; font-size: 12px; width: 100%; cursor: pointer; }
+
+        .cart-fab {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(120px);
+            width: calc(100% - 32px); max-width: 450px; background: var(--brand-color);
+            color: var(--bg-dark); height: 64px; border-radius: 22px; display: flex;
+            align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 800;
+            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: 0.5s;
+        }
+        .cart-fab.visible { transform: translateX(-50%) translateY(0); }
+        
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 300; opacity: 0; visibility: hidden; transition: 0.3s; }
+        .overlay.active { opacity: 1; visibility: visible; }
+        
+        .bottom-sheet {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: #0a0a0a;
+            border-top: 1px solid var(--glass-border); border-radius: 28px 28px 0 0;
+            z-index: 301; transform: translateY(100%); transition: 0.4s;
+            max-height: 85vh; padding: 20px; display: flex; flex-direction: column;
+        }
+        .bottom-sheet.active { transform: translateY(0); }
+        
+        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 800; cursor: pointer; }
+
+        .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
+        .price-tag { font-size: 28px; font-weight: 900; color: var(--brand-color); margin: 10px 0; }
+        .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; border: 1px solid var(--glass-border); }
+        .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+
+        .cart-item { display: flex; align-items: center; gap: 12px; background: var(--glass); padding: 10px; border-radius: 18px; margin-bottom: 8px; }
+        .cart-item img { width: 45px; height: 45px; border-radius: 10px; object-fit: cover; }
+        .cart-qty { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 12px; }
+
+        body.admin-mode .delete-card-btn { display: flex !important; }
+        body.admin-mode .cart-fab { display: none !important; }
+        
+        #boot-loader { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; transition: 0.5s; }
+        #boot-loader.hidden { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body class="theme-toxic">
 
-    <div id="loading-overlay">
-        <div style="color: var(--brand-color); font-weight: 700; letter-spacing: 2px;">VAPE CLOUD</div>
+    <div id="boot-loader">
+        <div style="color: var(--brand-color); font-weight: 800; letter-spacing: 2px;">VAPE CLOUD</div>
     </div>
 
     <div class="background-container">
@@ -88,10 +188,10 @@
             <i data-lucide="x" onclick="closeAllSheets()" style="cursor:pointer"></i>
         </div>
         <div id="cartList" style="overflow-y:auto; flex-grow:1; margin-bottom:20px;"></div>
-        <button class="checkout-btn" onclick="openSheet('orderSheet')">Перейти к оформлению</button>
+        <button class="checkout-btn" onclick="openSheet('orderSheet')">К оформлению</button>
     </div>
 
-    <!-- Форма данных -->
+    <!-- Заказ -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2>Данные заказа</h2>
@@ -118,15 +218,15 @@
         </div>
         <div class="payment-info">
             <div class="price-tag" id="finalPrice">0 ₽</div>
-            <div style="font-weight: 700; margin-bottom: 12px; color: var(--brand-color)">Ozon Банк</div>
+            <div style="font-weight: 800; margin-bottom: 12px; color: var(--brand-color)">Ozon Банк</div>
             <div class="copy-info-row">
                 <span style="font-family: monospace;">2204 3209 2444 1944</span>
-                <span class="copy-btn" onclick="copyText('2204320924441944')">КОПИРОВАТЬ</span>
+                <span class="copy-btn" onclick="copyText('2204320924441944')">Копировать</span>
             </div>
             <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ:</div>
             <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
-                <span id="payment_key" class="payment-key">---</span>
-                <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">КОПИРОВАТЬ</span>
+                <span id="payment_key" style="font-weight: 800;">---</span>
+                <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">Копировать</span>
             </div>
             <div style="font-size: 12px; margin-top: 15px;">Получатель: <b>Иван Владимирович Р.</b></div>
         </div>
@@ -141,87 +241,211 @@
         <select id="p_cat" class="form-input">
             <option value="Одноразки">Одноразки</option>
             <option value="Жидкости">Жидкости</option>
-            <option value="Аксессуары">Аксессуары</option>
+            <option value="Pod-системы">Pod-системы</option>
+            <option value="Расходники">Расходники</option>
         </select>
-        <input type="url" id="p_url" class="form-input" placeholder="Фото URL">
-        <button class="checkout-btn" id="addProductBtn" onclick="addProduct()">Добавить товар</button>
+        <div style="margin-bottom: 20px;">
+            <input type="file" id="p_file" accept="image/*" onchange="previewImage(event)">
+            <img id="img_preview" style="width: 60px; height: 60px; border-radius: 10px; margin-top: 10px; display: none; object-fit: cover; border: 1px solid var(--brand-color);">
+        </div>
+        <button class="checkout-btn" id="saveProductBtn" onclick="saveNewProduct()">Добавить карточку</button>
     </div>
 
     <script>
-        let isAdmin = false;
-        let cart = [];
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
 
-        // Инициализация режима администратора
-        const toggleAdminMode = () => {
-            isAdmin = !isAdmin;
-            document.getElementById("adminBtn").style.background = isAdmin ? "var(--brand-color)" : "";
-            document.getElementById("adminSheet").style.display = isAdmin ? "block" : "none";
-        };
+        const MY_ADMIN_ID = 1262669099;
+        let products = [];
+        let cart = {};
+        let activeCategory = 'Все';
+        let isAdminMode = false;
+        let selectedBase64 = '';
+        let currentKey = '';
 
-        // Добавление товара
-        const addProduct = async () => {
-            const name = document.getElementById('p_name').value;
-            const price = parseFloat(document.getElementById('p_price').value);
-            const category = document.getElementById('p_cat').value;
-            const imageUrl = document.getElementById('p_url').value;
+        // Стартовый ассортимент
+        const initialSeed = [
+            { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
+        ];
 
-            if (name && price && category && imageUrl) {
+        function checkAdmin() {
+            let uId = tg.initDataUnsafe?.user?.id;
+            if(!uId) {
                 try {
-                    await addDoc(collection(db, "vape_items"), {
-                        name,
-                        price,
-                        category,
-                        imageUrl
-                    });
-                    alert("Товар успешно добавлен!");
-                    document.getElementById('p_name').value = '';
-                    document.getElementById('p_price').value = '';
-                    document.getElementById('p_url').value = '';
-                    loadProducts();
-                } catch (e) {
-                    console.error("Ошибка при добавлении товара: ", e);
+                    const h = new URLSearchParams(window.location.hash.substring(1));
+                    const d = Object.fromEntries(new URLSearchParams(h.get('tgWebAppData')));
+                    uId = JSON.parse(d.user).id;
+                } catch(e){}
+            }
+            if(uId && String(uId) === String(MY_ADMIN_ID)) {
+                document.getElementById('adminBtn').style.display = 'flex';
+                return true;
+            }
+            return false;
+        }
+
+        // ПЕРВИЧНЫЙ РЕНДЕР (не ждем базу)
+        products = [...initialSeed];
+        function startApp() {
+            renderAll();
+            checkAdmin();
+            setTimeout(() => document.getElementById('boot-loader').classList.add('hidden'), 800);
+        }
+        startApp();
+
+        // СИНХРОНИЗАЦИЯ С ОБЛАКОМ
+        window.addEventListener('vape-auth-ready', () => {
+            const { db, appId, methods } = window.VapeCloud;
+            const isAdmin = checkAdmin();
+
+            const coll = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            methods.onSnapshot(methods.query(coll), async (snapshot) => {
+                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                
+                // Авто-наполнение если база пуста (только админом)
+                if (dbItems.length === 0 && isAdmin) {
+                    console.log("Empty Cloud. Auto-seeding...");
+                    for(let item of initialSeed) {
+                        await methods.addDoc(coll, { ...item, createdAt: Date.now() });
+                    }
+                    return;
                 }
-            } else {
-                alert("Пожалуйста, заполните все поля.");
-            }
-        };
 
-        // Загрузка товаров
-        const loadProducts = async () => {
-            const querySnapshot = await getDocs(collection(db, "vape_items"));
-            const productsContainer = document.getElementById("products");
-            productsContainer.innerHTML = "";
-
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const productElement = document.createElement("div");
-                productElement.className = "product-card";
-                productElement.innerHTML = `
-                    <img src="${data.imageUrl}" alt="${data.name}" class="product-image">
-                    <div class="product-info">
-                        <h3 class="product-title">${data.name}</h3>
-                        <p class="product-category">${data.category}</p>
-                        <p class="product-price">${data.price} ₽</p>
-                        ${isAdmin ? `<button class="remove-product-btn" onclick="removeProduct('${doc.id}')">Удалить</button>` : ""}
-                    </div>
-                `;
-                productsContainer.appendChild(productElement);
+                if (dbItems.length > 0) {
+                    products = dbItems;
+                    renderAll();
+                }
             });
+        });
+
+        function renderAll() {
+            const categories = ['Все', ...new Set(products.map(p => p.category))];
+            if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
+            document.getElementById('categories').innerHTML = categories.map(c => `<button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+
+            const grid = document.getElementById('products');
+            const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
+            grid.innerHTML = filtered.map(p => `
+                <div class="product-card">
+                    <button class="delete-card-btn" onclick="deleteItem('${p.docId || ''}')"><i data-lucide="trash-2" size="14"></i></button>
+                    <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
+                    <div class="product-info">
+                        <span class="product-name">${p.name}</span>
+                        <span class="product-price">${p.price} ₽</span>
+                    </div>
+                    <button class="add-btn" onclick="addToCart('${p.docId || p.name}')">В корзину</button>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+
+        window.setCat = (c) => { activeCategory = c; renderAll(); };
+        window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
+        window.openSheet = (id) => { closeAllSheets(); document.getElementById(id).classList.add('active'); document.getElementById('overlay').classList.add('active'); };
+        window.closeAllSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminSheet'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById('overlay').classList.remove('active'); };
+
+        window.previewImage = (e) => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (ev) => { selectedBase64 = ev.target.result; document.getElementById('img_preview').src = selectedBase64; document.getElementById('img_preview').style.display = 'block'; };
+            reader.readAsDataURL(file);
         };
 
-        // Удаление товара
-        const removeProduct = async (productId) => {
+        window.saveNewProduct = async () => {
+            const name = document.getElementById('p_name').value;
+            const price = Number(document.getElementById('p_price').value);
+            const category = document.getElementById('p_cat').value;
+            if(!name || !price || !window.VapeCloud) return;
+
+            const btn = document.getElementById('saveProductBtn');
+            btn.disabled = true; btn.innerText = "Сохранение...";
+            const { db, appId, methods } = window.VapeCloud;
+            
             try {
-                await deleteDoc(doc(db, "vape_items", productId));
-                alert("Товар успешно удален!");
-                loadProducts();
-            } catch (e) {
-                console.error("Ошибка при удалении товара: ", e);
-            }
+                await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
+                    name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
+                    createdAt: Date.now()
+                });
+                closeAllSheets();
+                document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; document.getElementById('img_preview').style.display = 'none';
+                selectedBase64 = '';
+            } catch(e) { console.error(e); } finally { btn.disabled = false; btn.innerText = "Добавить карточку"; }
         };
 
-        // Инициализация товаров
-        loadProducts();
+        window.deleteItem = async (docId) => {
+            if(!docId) { alert("Товары из кода нельзя удалить. Сначала добавьте их в облако."); return; }
+            if(!confirm("Удалить навсегда?")) return;
+            const { db, appId, methods } = window.VapeCloud;
+            await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+            tg.HapticFeedback.impactOccurred('medium');
+        };
+
+        // КОРЗИНА
+        window.addToCart = (id) => {
+            const p = products.find(x => (x.docId || x.name) === id);
+            if(!p) return;
+            if(cart[id]) cart[id].qty++; else cart[id] = {...p, qty: 1};
+            updateCartUI();
+            tg.HapticFeedback.notificationOccurred('success');
+        };
+
+        function updateCartUI() {
+            const items = Object.values(cart);
+            const count = items.reduce((a, b) => a + b.qty, 0);
+            const total = items.reduce((a, b) => a + (b.price * b.qty), 0);
+            document.getElementById('cartFab').classList.toggle('visible', count > 0 && !isAdminMode);
+            document.getElementById('cartCount').innerText = `${count} ТОВАРОВ`;
+            document.getElementById('cartTotal').innerText = `${total} ₽`;
+            document.getElementById('cartList').innerHTML = items.map(i => `
+                <div class="cart-item">
+                    <img src="${i.img}">
+                    <div style="flex-grow:1;">
+                        <div class="product-name">${i.name}</div>
+                        <div style="color:var(--brand-color); font-weight:800;">${i.price * i.qty} ₽</div>
+                    </div>
+                    <div class="cart-qty">
+                        <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.name}', -1)"><i data-lucide="minus" size="14"></i></button>
+                        <span>${i.qty}</span>
+                        <button style="background:none; border:none; color:#fff;" onclick="changeQty('${i.docId || i.name}', 1)"><i data-lucide="plus" size="14"></i></button>
+                    </div>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+
+        window.changeQty = (id, delta) => {
+            if(cart[id]) { cart[id].qty += delta; if(cart[id].qty <= 0) delete cart[id]; updateCartUI(); }
+        };
+
+        window.goToPayment = () => {
+            if(!document.getElementById('order_name').value || !document.getElementById('order_phone').value) return;
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            document.getElementById('finalPrice').innerText = `${total} ₽`;
+            currentKey = 'VX-' + Math.floor(100 + Math.random() * 900);
+            document.getElementById('payment_key').innerText = currentKey;
+            openSheet('paymentSheet');
+        };
+
+        window.copyText = (text) => {
+            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el);
+            el.select(); document.execCommand('copy'); document.body.removeChild(el);
+            tg.HapticFeedback.impactOccurred('medium');
+        };
+
+        window.finishOrder = () => {
+            const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
+            const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
+            tg.sendData(JSON.stringify({
+                order_key: currentKey, items: itemsText, total: total + " ₽",
+                client: { name: document.getElementById('order_name').value, phone: document.getElementById('order_phone').value, username_or_contact: document.getElementById('order_contact').value, place: document.getElementById('order_location').value, time: document.getElementById('order_time').value }
+            }));
+            tg.close();
+        };
+
+        window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
     </script>
 </body>
 </html>
