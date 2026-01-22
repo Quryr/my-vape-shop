@@ -1139,73 +1139,90 @@
             },
 
             completeOrder: async () => {
-                // --- 1. Подготовка данных ---
-                const cartIds = Object.keys(window.shop.state.cart);
-                const cartItemsList = [];
-                cartIds.forEach(id => {
-                     const product = window.shop.state.products.find(p => p.id === id);
-                     const qty = window.shop.state.cart[id];
-                     if (product) cartItemsList.push(`${product.name} (x${qty})`);
-                });
-                const itemsString = cartItemsList.join(', ');
-                const now = new Date();
-                const dateStr = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
-
-                const telegramPayload = {
-                    order_key: window.shop.state.currentOrderId,
-                    items: itemsString,
-                    total: window.shop.state.currentTotal + " ₽",
-                    client: {
-                        name: window.shop.state.deliveryInfo.name,
-                        phone: window.shop.state.deliveryInfo.phone,
-                        username_or_contact: window.shop.state.deliveryInfo.contact,
-                        place: window.shop.state.deliveryInfo.place,
-                        time: window.shop.state.deliveryInfo.time
-                    },
-                    timestamp: dateStr
-                };
-
-                // --- 2. Сохранение в Firebase ---
-                const dbOrder = {
-                    id: window.shop.state.currentOrderId,
-                    total: window.shop.state.currentTotal,
-                    items: window.shop.state.cart,
-                    date: new Date().toISOString(),
-                    user: window.shop.state.user,
-                    delivery: window.shop.state.deliveryInfo
-                };
-
                 try {
-                    const uid = auth.currentUser.uid;
-                     if (window.shop.state.user.id !== 999999 && uid) {
-                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(dbOrder);
-                     }
-                } catch(e) {}
+                    // --- 0. Проверка наличия данных доставки ---
+                    if (!window.shop.state.deliveryInfo) {
+                        alert("Ошибка: нет данных доставки. Пожалуйста, заполните форму заново.");
+                        document.getElementById('checkout-modal').classList.add('hidden');
+                        return;
+                    }
 
-                // --- 3. Попытка отправки через sendData (для Клавиатурной кнопки) ---
-                window.shop.showToast("Отправка заказа...", "Процесс");
-                window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
-                
-                // --- 4. FALLBACK: Если через 1 сек приложение не закрылось (значит мы в Меню) ---
-                // Генерируем текст для ручной отправки
-                const manualText = `🚀 ЗАКАЗ VX-${window.shop.state.currentOrderId}\n` +
-                                   `📦 ${itemsString}\n` +
-                                   `💰 ${window.shop.state.currentTotal} ₽\n` +
-                                   `👤 ${window.shop.state.deliveryInfo.name}, ${window.shop.state.deliveryInfo.phone}\n` +
-                                   `📍 ${window.shop.state.deliveryInfo.place} (${window.shop.state.deliveryInfo.time})`;
+                    // --- 1. Подготовка данных ---
+                    const cartIds = Object.keys(window.shop.state.cart);
+                    const cartItemsList = [];
+                    cartIds.forEach(id => {
+                         const product = window.shop.state.products.find(p => p.id === id);
+                         const qty = window.shop.state.cart[id];
+                         if (product) cartItemsList.push(`${product.name} (x${qty})`);
+                    });
+                    const itemsString = cartItemsList.join(', ');
+                    const now = new Date();
+                    const dateStr = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
 
-                setTimeout(() => {
-                    // Показываем модальное окно с инструкцией
-                    const modal = document.getElementById('manual-order-modal');
-                    const textEl = document.getElementById('manual-order-text');
-                    textEl.innerText = manualText;
-                    modal.classList.remove('hidden');
-                    document.getElementById('checkout-modal').classList.add('hidden');
-                }, 1000);
+                    const telegramPayload = {
+                        order_key: window.shop.state.currentOrderId,
+                        items: itemsString,
+                        total: window.shop.state.currentTotal + " ₽",
+                        client: {
+                            name: window.shop.state.deliveryInfo.name,
+                            phone: window.shop.state.deliveryInfo.phone,
+                            username_or_contact: window.shop.state.deliveryInfo.contact,
+                            place: window.shop.state.deliveryInfo.place,
+                            time: window.shop.state.deliveryInfo.time
+                        },
+                        timestamp: dateStr
+                    };
 
-                // Очистка корзины (визуально, чтобы не дублировать)
-                window.shop.state.cart = {};
-                window.shop.updateCartBadge();
+                    // --- 2. Сохранение в Firebase ---
+                    const dbOrder = {
+                        id: window.shop.state.currentOrderId,
+                        total: window.shop.state.currentTotal,
+                        items: window.shop.state.cart,
+                        date: new Date().toISOString(),
+                        user: window.shop.state.user,
+                        delivery: window.shop.state.deliveryInfo
+                    };
+
+                    try {
+                        const uid = auth.currentUser?.uid;
+                         if (window.shop.state.user.id !== 999999 && uid) {
+                            await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(dbOrder);
+                         }
+                    } catch(e) { console.error("Firebase save error", e); }
+
+                    // --- 3. UI Feedback ---
+                    window.shop.showToast("Обработка...", "Заказ");
+
+                    // --- 4. FALLBACK TIMER (Запускаем ДО отправки) ---
+                    // Если Telegram не закроет приложение за 1.5 сек, показываем ручной режим
+                    const fallbackTimer = setTimeout(() => {
+                        const manualText = `🚀 ЗАКАЗ ${window.shop.state.currentOrderId}\n` +
+                                           `📦 ${itemsString}\n` +
+                                           `💰 ${window.shop.state.currentTotal} ₽\n` +
+                                           `👤 ${window.shop.state.deliveryInfo.name}, ${window.shop.state.deliveryInfo.phone}\n` +
+                                           `📍 ${window.shop.state.deliveryInfo.place} (${window.shop.state.deliveryInfo.time})`;
+                        
+                        document.getElementById('manual-order-text').innerText = manualText;
+                        document.getElementById('manual-order-modal').classList.remove('hidden');
+                        document.getElementById('checkout-modal').classList.add('hidden');
+                    }, 1000);
+
+                    // --- 5. Попытка отправки ---
+                    try {
+                        window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
+                    } catch (e) {
+                        console.warn("Send data failed immediately", e);
+                        // Timer will handle the UI
+                    }
+                    
+                    // Очистка (визуальная)
+                    window.shop.state.cart = {};
+                    window.shop.updateCartBadge();
+                    window.shop.switchView('store');
+
+                } catch (error) {
+                    alert("Ошибка оформления: " + error.message);
+                }
             },
 
             showToast: (msg, title = "Уведомление") => {
