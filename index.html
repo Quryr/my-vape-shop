@@ -3,548 +3,756 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VΛPOR CLOUD | Cyber Store</title>
+    <title>VΛPOR CLOUD PREMIUM</title>
     
-    <!-- Scripts -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-        window.fb = { initializeApp, getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        cyber: {
+                            black: '#050505',
+                            dark: '#0a0a0a',
+                            panel: '#111111',
+                            green: '#22c55e',
+                            blue: '#0ea5e9',
+                            orange: '#f97316'
+                        }
+                    },
+                    animation: {
+                        'vapor-float': 'float 8s ease-in-out infinite',
+                        'vapor-pulse': 'pulse-glow 4s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0) scale(1)' },
+                            '50%': { transform: 'translateY(-20px) scale(1.05)' },
+                        },
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: '0.4' },
+                            '50%': { opacity: '0.7' },
+                        }
+                    }
+                }
+            }
+        }
     </script>
 
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-
-        :root {
-            --accent: #22c55e;
-            --bg: #050505;
-            --surface: rgba(20, 20, 20, 0.8);
-            --border: rgba(255, 255, 255, 0.08);
-        }
-
+        /* Base Styles & Vapor Effect */
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
+            background-color: #050505;
             color: #ffffff;
+            font-family: 'Inter', sans-serif;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Анимированный фон */
-        .cyber-grid {
-            position: fixed;
-            inset: 0;
-            background-image: 
-                linear-gradient(to right, rgba(34, 197, 94, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(34, 197, 94, 0.05) 1px, transparent 1px);
-            background-size: 40px 40px;
-            mask-image: radial-gradient(circle at 50% 50%, black, transparent 80%);
-            z-index: -1;
-        }
+        /* Hide Scrollbar */
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .glow-sphere {
+        /* Vapor Background Elements */
+        .vapor-bg {
             position: fixed;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-            filter: blur(120px);
-            opacity: 0.1;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 120%, rgba(34, 197, 94, 0.15), transparent 70%);
             pointer-events: none;
-            z-index: -1;
-            animation: pulse 10s infinite alternate;
         }
-
-        @keyframes pulse {
-            from { transform: translate(-10%, -10%) scale(1); }
-            to { transform: translate(10%, 10%) scale(1.2); }
+        
+        .vapor-cloud {
+            position: absolute;
+            background: radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
+            filter: blur(80px);
+            border-radius: 50%;
+            animation: float 10s infinite ease-in-out;
         }
 
         /* Glassmorphism */
-        .glass {
-            background: var(--surface);
-            backdrop-filter: blur(20px) saturate(160%);
-            border: 1px solid var(--border);
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.75);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
         }
 
-        .glass-premium {
-            background: linear-gradient(145deg, rgba(30, 30, 30, 0.9), rgba(10, 10, 10, 0.9));
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        .glass-nav {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(30px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Категории */
-        .cat-scroll {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .cat-scroll::-webkit-scrollbar { display: none; }
+        /* Neon Glows */
+        .neon-text-green { text-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
+        .neon-border-green { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
 
-        /* Кнопки */
-        .neo-button {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-        }
-        .neo-button:active { transform: scale(0.96); }
-        .neo-button::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-            transform: translateX(-100%);
-            transition: 0.5s;
-        }
-        .neo-button:hover::after { transform: translateX(100%); }
-
-        .btn-glow {
-            box-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
-        }
-
-        /* Спец-стили для лоадера */
+        /* Loader */
         #loader {
-            transition: opacity 0.4s ease, visibility 0.4s;
+            position: fixed; inset: 0; z-index: 9999;
+            background: #050505;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
         }
 
-        /* Сетка товаров */
-        .product-card {
-            display: grid;
-            grid-template-rows: auto 1fr auto;
+        /* Button Press Effect */
+        .btn-press:active { transform: scale(0.96); }
+
+        /* Clipping Fix for Category Scroll */
+        .category-scroll {
+            padding-top: 1rem; padding-bottom: 1rem;
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
         }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased min-h-screen relative pb-24">
 
-    <div class="cyber-grid"></div>
-    <div class="glow-sphere"></div>
-
-    <!-- Загрузочный экран -->
-    <div id="loader" class="fixed inset-0 z-[100] bg-[#050505] flex flex-col items-center justify-center">
-        <div class="relative">
-            <div class="w-20 h-20 border-2 border-green-500/20 rounded-full"></div>
-            <div class="absolute inset-0 w-20 h-20 border-t-2 border-green-500 rounded-full animate-spin"></div>
-            <i data-lucide="zap" class="absolute inset-0 m-auto w-8 h-8 text-green-500 animate-pulse"></i>
-        </div>
-        <h2 class="mt-6 font-black italic text-2xl tracking-[0.2em] text-white">VΛPOR <span class="text-green-500">CLOUD</span></h2>
-        <p class="text-[10px] text-white/30 tracking-[0.4em] uppercase mt-2">Initializing System...</p>
+    <!-- Vapor Background -->
+    <div class="vapor-bg">
+        <div class="vapor-cloud w-96 h-96 top-0 left-[-100px] opacity-20"></div>
+        <div class="vapor-cloud w-80 h-80 bottom-20 right-[-50px] bg-blue-500/10 opacity-20" style="animation-delay: 2s;"></div>
     </div>
 
-    <div id="app" class="hidden min-h-screen">
+    <!-- Safety Loader -->
+    <div id="loader">
+        <div class="relative w-20 h-20">
+            <div class="absolute inset-0 border-t-2 border-green-500 rounded-full animate-spin"></div>
+            <div class="absolute inset-2 border-t-2 border-green-500/50 rounded-full animate-spin" style="animation-direction: reverse;"></div>
+        </div>
+        <div class="mt-4 text-green-500 font-bold tracking-[0.2em] animate-pulse">LOADING SYSTEM</div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 glass-panel px-6 py-3 rounded-full flex items-center gap-3 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none">
+        <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+        <span id="toast-msg" class="text-sm font-medium">Notification</span>
+    </div>
+
+    <!-- App Container -->
+    <div id="app" class="px-4 pt-4 opacity-0 transition-opacity duration-700">
+        
         <!-- Header -->
-        <header class="sticky top-0 z-50 px-6 py-5 glass border-b border-white/5 rounded-b-[2rem]">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h1 class="font-black italic text-xl tracking-tighter">VΛPOR <span class="text-green-500">CLOUD</span></h1>
-                    <div id="user-status" class="flex items-center gap-2 mt-1">
-                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping"></div>
-                        <p id="user-display-name" class="text-[10px] text-white/50 uppercase tracking-widest font-bold">Подключение...</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button id="admin-add-btn" class="hidden w-10 h-10 glass rounded-xl flex items-center justify-center text-green-500 shadow-lg border-green-500/20" onclick="window.ui.toggleModal('add-product-modal')">
-                        <i data-lucide="plus" class="w-5 h-5"></i>
-                    </button>
-                    <button onclick="window.ui.toggleCart(true)" class="relative w-10 h-10 glass rounded-xl flex items-center justify-center">
-                        <i data-lucide="shopping-bag" class="w-5 h-5"></i>
-                        <span id="cart-count" class="absolute -top-1 -right-1 bg-green-500 text-black text-[10px] font-black w-4 h-4 flex items-center justify-center rounded-full hidden">0</span>
-                    </button>
+        <header class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-black italic tracking-tighter text-white">VΛPOR <span class="text-green-500 neon-text-green">CLOUD</span></h1>
+                <p class="text-xs text-gray-500 tracking-widest uppercase">Premium Store</p>
+            </div>
+            <div class="flex gap-3">
+                <!-- Admin Add Button (Hidden by default) -->
+                <button id="admin-add-btn" onclick="window.shop.toggleAddModal()" class="hidden w-10 h-10 rounded-full glass-panel flex items-center justify-center text-green-400 hover:text-white transition-colors">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+                <div class="w-10 h-10 rounded-full glass-panel flex items-center justify-center">
+                    <img id="user-avatar" src="" onerror="this.src='https://ui-avatars.com/api/?name=User&background=111&color=fff'" class="w-8 h-8 rounded-full opacity-80" alt="Profile">
                 </div>
             </div>
         </header>
 
-        <!-- Main Store View -->
-        <main id="view-store" class="p-4 pb-32">
-            <!-- Категории -->
-            <div class="flex overflow-x-auto cat-scroll gap-2 py-4 mb-2">
-                <button onclick="window.ui.setCategory('all')" class="cat-chip px-5 py-2.5 rounded-full glass text-xs font-bold whitespace-nowrap border-green-500/50 text-green-500">Все</button>
-                <button onclick="window.ui.setCategory('devices')" class="cat-chip px-5 py-2.5 rounded-full glass text-xs font-bold whitespace-nowrap opacity-40">Устройства</button>
-                <button onclick="window.ui.setCategory('disposables')" class="cat-chip px-5 py-2.5 rounded-full glass text-xs font-bold whitespace-nowrap opacity-40">Одноразки</button>
-                <button onclick="window.ui.setCategory('liquids')" class="cat-chip px-5 py-2.5 rounded-full glass text-xs font-bold whitespace-nowrap opacity-40">Жидкости</button>
-            </div>
-
-            <!-- Сетка товаров -->
-            <div id="product-grid" class="grid grid-cols-2 gap-4">
-                <!-- Карточки загружаются здесь -->
-            </div>
-            
-            <!-- Пустое состояние -->
-            <div id="empty-state" class="hidden py-20 text-center space-y-4">
-                <i data-lucide="package-search" class="w-16 h-16 mx-auto text-white/10"></i>
-                <p class="text-white/30 font-medium">Товары не найдены...</p>
-            </div>
+        <!-- Dynamic Content Views -->
+        <main id="main-content">
+            <!-- Rendered by JS -->
         </main>
 
-        <!-- Profile View -->
-        <main id="view-profile" class="hidden p-6 pb-32 space-y-6">
-            <div class="glass-premium rounded-[2.5rem] p-8 text-center relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-6 opacity-10">
-                    <i data-lucide="shield-check" class="w-20 h-20"></i>
-                </div>
-                <div id="profile-avatar-box" class="w-24 h-24 rounded-full glass mx-auto mb-4 flex items-center justify-center border-2 border-green-500/30">
-                    <i data-lucide="user" class="w-12 h-12 text-green-500"></i>
-                </div>
-                <h2 id="p-full-name" class="text-2xl font-black tracking-tight">VΛPER</h2>
-                <p id="p-username" class="text-white/40 text-sm">@username</p>
-                <div id="p-rank" class="mt-4 inline-block px-4 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-500 text-[10px] font-black uppercase tracking-widest">Standard Client</div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="glass rounded-3xl p-5 border-l-2 border-l-green-500">
-                    <p class="text-[10px] text-white/30 uppercase font-bold mb-1">Заказы</p>
-                    <p class="text-xl font-black">0</p>
-                </div>
-                <div class="glass rounded-3xl p-5 border-l-2 border-l-blue-500">
-                    <p class="text-[10px] text-white/30 uppercase font-bold mb-1">Скидка</p>
-                    <p class="text-xl font-black">5%</p>
-                </div>
-            </div>
-
-            <button onclick="window.Telegram.WebApp.close()" class="w-full glass p-5 rounded-3xl flex items-center justify-between group active:bg-red-500/10">
-                <span class="font-bold">Закрыть приложение</span>
-                <i data-lucide="log-out" class="w-5 h-5 text-red-500 group-active:translate-x-1 transition-transform"></i>
-            </button>
-        </main>
-
-        <!-- Bottom Nav -->
-        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass rounded-[2rem] p-2 flex items-center justify-between shadow-2xl border-white/10">
-            <button onclick="window.ui.switchView('store')" id="nav-store" class="flex-1 flex flex-col items-center py-2 gap-1 text-green-500">
-                <i data-lucide="layout-grid" class="w-5 h-5"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Магазин</span>
-            </button>
-            <div class="w-px h-8 bg-white/5"></div>
-            <button onclick="window.ui.switchView('profile')" id="nav-profile" class="flex-1 flex flex-col items-center py-2 gap-1 text-white/40">
-                <i data-lucide="user-circle" class="w-5 h-5"></i>
-                <span class="text-[9px] font-black uppercase tracking-tighter">Профиль</span>
-            </button>
-        </div>
     </div>
 
-    <!-- Cart Sidebar -->
-    <div id="cart-sheet" class="fixed inset-0 z-[60] hidden">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="window.ui.toggleCart(false)"></div>
-        <div id="cart-content" class="absolute bottom-0 left-0 right-0 glass-premium rounded-t-[3rem] p-8 translate-y-full transition-transform duration-500 flex flex-col max-h-[90vh]">
-            <div class="w-12 h-1.5 bg-white/10 rounded-full mx-auto mb-8"></div>
-            <div class="flex justify-between items-end mb-8">
-                <h2 class="text-3xl font-black italic tracking-tighter">МОЯ <span class="text-green-500">КОРЗИНА</span></h2>
-                <button onclick="window.ui.toggleCart(false)" class="w-10 h-10 glass rounded-full flex items-center justify-center">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <div id="cart-items" class="flex-grow overflow-y-auto space-y-4 pr-2">
-                <!-- Items -->
-            </div>
-
-            <div class="mt-8 pt-8 border-t border-white/5 space-y-6">
-                <div class="flex justify-between items-center">
-                    <span class="text-white/40 font-bold uppercase text-xs">Итого к оплате</span>
-                    <span id="cart-total" class="text-2xl font-black text-green-500">0 ₽</span>
-                </div>
-                <button onclick="window.ui.openCheckout()" class="w-full py-5 bg-green-500 text-black font-black uppercase tracking-[0.2em] rounded-2xl btn-glow neo-button">Оформить заказ</button>
-            </div>
-        </div>
-    </div>
+    <!-- Bottom Navigation (Floating Island) -->
+    <nav class="fixed bottom-6 left-4 right-4 h-16 glass-nav rounded-2xl flex items-center justify-around z-40 shadow-2xl shadow-black/50 border border-white/5">
+        <button onclick="window.shop.switchView('store')" class="nav-btn flex flex-col items-center gap-1 text-green-400 btn-press transition-colors" data-view="store">
+            <i data-lucide="store" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">Shop</span>
+        </button>
+        <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1 text-gray-500 btn-press transition-colors relative" data-view="cart">
+            <div id="cart-badge" class="absolute -top-1 right-2 w-4 h-4 bg-green-500 text-black text-[9px] font-bold rounded-full flex items-center justify-center opacity-0 transition-opacity">0</div>
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">Cart</span>
+        </button>
+        <button onclick="window.shop.switchView('profile')" class="nav-btn flex flex-col items-center gap-1 text-gray-500 btn-press transition-colors" data-view="profile">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">Profile</span>
+        </button>
+    </nav>
 
     <!-- Modals -->
-    <div id="checkout-modal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/90 backdrop-blur-xl"></div>
-        <div class="glass-premium relative w-full max-w-sm rounded-[3rem] p-8 text-center">
-            <div class="w-20 h-20 bg-green-500/10 rounded-full mx-auto flex items-center justify-center border-2 border-green-500/20 mb-6">
-                <i data-lucide="credit-card" class="w-10 h-10 text-green-500"></i>
+    
+    <!-- Add Product Modal (Admin) -->
+    <div id="add-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-6 relative">
+            <button onclick="window.shop.toggleAddModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h2 class="text-xl font-bold mb-4">Add Product</h2>
+            <div class="space-y-3">
+                <input type="text" id="new-name" placeholder="Product Name" class="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:border-green-500 outline-none transition-colors">
+                <input type="number" id="new-price" placeholder="Price (RUB)" class="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:border-green-500 outline-none transition-colors">
+                <select id="new-cat" class="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:border-green-500 outline-none text-gray-300">
+                    <option value="Devices">Devices</option>
+                    <option value="Disposables">Disposables</option>
+                    <option value="Liquids">Liquids</option>
+                </select>
+                <button onclick="window.shop.addProduct()" class="w-full bg-green-600 hover:bg-green-500 text-black font-bold py-3 rounded-lg mt-2 transition-colors">
+                    ADD ITEM
+                </button>
             </div>
-            <h3 class="text-2xl font-black mb-2 uppercase">Оплата</h3>
-            <p class="text-sm text-white/50 mb-6">Переведите сумму на Ozon Bank:</p>
-            
-            <div class="bg-black/40 rounded-3xl p-6 text-left space-y-4 border border-white/5 mb-8">
-                <div>
-                    <p class="text-[9px] uppercase text-white/30 font-bold">Номер карты</p>
-                    <p class="font-mono text-lg tracking-wider text-green-500">2204 3209 2444 1944</p>
-                </div>
-                <div>
-                    <p class="text-[9px] uppercase text-white/30 font-bold">Код заказа (В комментарий)</p>
-                    <p id="order-code" class="text-xl font-black tracking-widest text-white"></p>
-                </div>
-            </div>
-
-            <button onclick="window.ui.finishOrder()" class="w-full py-4 bg-white text-black font-black uppercase rounded-2xl neo-button">Я оплатил</button>
         </div>
     </div>
 
-    <div id="add-product-modal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/95" onclick="window.ui.toggleModal('add-product-modal')"></div>
-        <div class="glass-premium relative w-full max-w-sm rounded-[3rem] p-8 space-y-4">
-            <h3 class="text-xl font-black uppercase">Новый товар</h3>
-            <input id="adm-name" type="text" placeholder="Название" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-green-500 outline-none text-sm">
-            <input id="adm-price" type="number" placeholder="Цена (₽)" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl focus:border-green-500 outline-none text-sm">
-            <select id="adm-cat" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none text-sm text-white/50">
-                <option value="devices">Устройства</option>
-                <option value="disposables">Одноразки</option>
-                <option value="liquids">Жидкости</option>
-            </select>
-            <input id="adm-emoji" type="text" placeholder="Эмодзи" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none text-sm">
-            <button onclick="window.ui.saveProduct()" class="w-full py-4 bg-green-500 text-black font-black uppercase rounded-2xl shadow-xl">Создать</button>
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
+        <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 border-t border-green-500/30 animate-float-up">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-3 border border-green-500/20">
+                    <i data-lucide="credit-card" class="w-8 h-8 text-green-500"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white">Payment</h2>
+                <p id="order-id-display" class="text-sm text-gray-400 font-mono mt-1">ID: VX-Loading...</p>
+            </div>
+
+            <div class="bg-black/40 rounded-xl p-4 border border-white/5 mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-400 text-sm">Amount:</span>
+                    <span id="checkout-total" class="text-xl font-bold text-white">0 ₽</span>
+                </div>
+                <div class="h-px bg-white/10 my-3"></div>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded bg-blue-600 flex items-center justify-center text-xs font-bold">OZON</div>
+                    <div>
+                        <p class="text-sm text-white font-mono tracking-wider">2204 3209 2444 1944</p>
+                        <p class="text-xs text-gray-500">Ivan V. R.</p>
+                    </div>
+                    <button onclick="window.shop.copyBank()" class="ml-auto text-gray-400 hover:text-white">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-bold py-4 rounded-xl shadow-lg shadow-green-900/20 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                <span>CONFIRM & SEND</span>
+                <i data-lucide="send" class="w-4 h-4"></i>
+            </button>
+            <button onclick="document.getElementById('checkout-modal').classList.add('hidden')" class="w-full py-3 text-sm text-gray-500 mt-2">Cancel</button>
         </div>
     </div>
 
     <script type="module">
-        const { initializeApp, getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = window.fb;
+        // ---------------------------------------------------------
+        // 1. GLOBAL CONFIGURATION & SAFETY
+        // ---------------------------------------------------------
+        
+        // Safety Loader Timeout (Executes immediately)
+        setTimeout(() => {
+            const loader = document.getElementById('loader');
+            if (loader && loader.style.display !== 'none') {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+                document.getElementById('app').classList.remove('opacity-0');
+            }
+        }, 3000);
 
-        // Configuration
+        // Icon Persistence (MutationObserver)
+        const observer = new MutationObserver(() => {
+            if (window.lucide) window.lucide.createIcons();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // ---------------------------------------------------------
+        // 2. FIREBASE & APP ID SETUP
+        // ---------------------------------------------------------
+        
+        // Use Global Environment Variables or Fallbacks
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
+        const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // Fallback config (will fail if not provided by environment, which is expected)
+            apiKey: "AIzaSy...", projectId: "demo-project"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(FIREBASE_CONFIG);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Admin Config
         const ADMIN_ID = 1262669099;
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'vape-premium-cyber';
-        const firebaseConfig = JSON.parse(__firebase_config);
+        const ADMIN_USERNAME = "Tru5tNoBody";
+        
+        // ---------------------------------------------------------
+        // 3. CORE APPLICATION LOGIC
+        // ---------------------------------------------------------
 
-        // State
-        let db, auth, user = null;
-        let products = [];
-        let cart = [];
-        let category = 'all';
+        window.shop = {
+            state: {
+                user: null,
+                products: [],
+                cart: {}, // { productId: quantity }
+                currentCategory: 'All',
+                isAdmin: false
+            },
 
-        window.ui = {
-            switchView: (v) => {
-                document.querySelectorAll('main').forEach(m => m.classList.add('hidden'));
-                document.getElementById(`view-${v}`).classList.remove('hidden');
+            // --- Initialization ---
+            init: async () => {
+                // Telegram User Sync
+                const tg = window.Telegram.WebApp;
+                tg.expand();
+                tg.setHeaderColor('#050505');
+                tg.setBackgroundColor('#050505');
+
+                // User Triple-Check
+                let tgUser = tg.initDataUnsafe?.user;
+                if (!tgUser) {
+                    try {
+                        const params = new URLSearchParams(window.location.hash.slice(1));
+                        const userData = params.get('tgWebAppData');
+                        if (userData) {
+                             // Simplified parsing logic for demo
+                        }
+                    } catch(e) {}
+                }
                 
-                document.querySelectorAll('nav button, [id^="nav-"]').forEach(b => {
-                    b.classList.remove('text-green-500');
-                    b.classList.add('text-white/40');
-                });
-                const activeBtn = document.getElementById(`nav-${v}`);
-                activeBtn.classList.remove('text-white/40');
-                activeBtn.classList.add('text-green-500');
+                // Fallback for development/browser testing
+                if (!tgUser) {
+                    tgUser = { id: 0, first_name: "Guest", username: "guest", photo_url: "" };
+                    // Uncomment line below to test Admin mode in browser
+                    // tgUser = { id: 1262669099, first_name: "Admin", username: "Tru5tNoBody" };
+                }
+
+                window.shop.state.user = tgUser;
+                window.shop.state.isAdmin = (tgUser.id === ADMIN_ID);
+
+                // UI Setup based on user
+                document.getElementById('user-avatar').src = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000`;
+                
+                if (window.shop.state.isAdmin) {
+                    document.getElementById('admin-add-btn').classList.remove('hidden');
+                    window.shop.checkAdminRecursively(); // Double check logic
+                }
+
+                // Auth & Data Fetch
+                await window.shop.authenticate();
+                
+                // Remove Loader
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+                document.getElementById('app').classList.remove('opacity-0');
+
+                // Initial Render
+                window.shop.switchView('store');
             },
 
-            setCategory: (c) => {
-                category = c;
-                document.querySelectorAll('.cat-chip').forEach(btn => {
-                    btn.classList.add('opacity-40');
-                    btn.classList.remove('border-green-500/50', 'text-green-500');
-                });
-                event.target.classList.remove('opacity-40');
-                event.target.classList.add('border-green-500/50', 'text-green-500');
-                window.ui.renderProducts();
-            },
-
-            toggleCart: (show) => {
-                const sheet = document.getElementById('cart-sheet');
-                const content = document.getElementById('cart-content');
-                if(show) {
-                    sheet.classList.remove('hidden');
-                    setTimeout(() => content.classList.remove('translate-y-full'), 10);
-                    window.ui.renderCart();
+            authenticate: async () => {
+                // Determine Auth Method
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await auth.signInWithCustomToken(__initial_auth_token);
                 } else {
-                    content.classList.add('translate-y-full');
-                    setTimeout(() => sheet.classList.add('hidden'), 500);
+                    await auth.signInAnonymously();
+                }
+
+                // Fetch Products
+                await window.shop.fetchProducts();
+            },
+
+            checkAdminRecursively: (count = 0) => {
+                if (count > 5) return;
+                const tg = window.Telegram.WebApp;
+                if (tg.initDataUnsafe?.user?.id === ADMIN_ID) {
+                    window.shop.state.isAdmin = true;
+                    document.getElementById('admin-add-btn').classList.remove('hidden');
+                }
+                setTimeout(() => window.shop.checkAdminRecursively(count + 1), 1000);
+            },
+
+            // --- Data Operations ---
+            fetchProducts: async () => {
+                try {
+                    const snapshot = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').get();
+                    
+                    if (snapshot.empty && window.shop.state.isAdmin) {
+                        await window.shop.seedDatabase(); // Auto-seed if empty and admin
+                        return;
+                    }
+
+                    window.shop.state.products = [];
+                    snapshot.forEach(doc => {
+                        window.shop.state.products.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    if (document.getElementById('store-view')) {
+                        window.shop.renderStore();
+                    }
+                } catch (e) {
+                    console.error("Fetch Error:", e);
+                    window.shop.showToast("Connection Error", true);
                 }
             },
 
-            addToCart: (id) => {
-                const p = products.find(x => x.id === id);
-                const exist = cart.find(x => x.id === id);
-                if(exist) exist.qty++; else cart.push({...p, qty: 1});
-                window.ui.updateCartUI();
-                if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            seedDatabase: async () => {
+                const starters = [
+                    { name: "Neon Pod X", price: 2500, category: "Devices", image: "zap" },
+                    { name: "Cyber Bar 9000", price: 1200, category: "Disposables", image: "battery-charging" },
+                    { name: "Toxic Sludge 30ml", price: 600, category: "Liquids", image: "droplet" },
+                    { name: "Mech Mod Pro", price: 5000, category: "Devices", image: "cpu" },
+                    { name: "Frost Berry Ice", price: 1300, category: "Disposables", image: "snowflake" },
+                    { name: "Magma Core Coil", price: 300, category: "Devices", image: "circle-dot" },
+                    { name: "Blue Raz 50mg", price: 650, category: "Liquids", image: "droplet" },
+                    { name: "Vapor Storm Kit", price: 3200, category: "Devices", image: "wind" },
+                    { name: "Mango Bomb", price: 1250, category: "Disposables", image: "bomb" },
+                    { name: "Cotton Wick Premium", price: 150, category: "Devices", image: "scroll" },
+                ];
+
+                const batch = db.batch();
+                const colRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products');
+                
+                starters.forEach(item => {
+                    const docRef = colRef.doc();
+                    batch.set(docRef, item);
+                });
+
+                await batch.commit();
+                await window.shop.fetchProducts();
             },
 
-            updateQty: (id, delta) => {
-                const idx = cart.findIndex(x => x.id === id);
-                if(idx === -1) return;
-                cart[idx].qty += delta;
-                if(cart[idx].qty <= 0) cart.splice(idx, 1);
-                window.ui.updateCartUI();
-                window.ui.renderCart();
+            // --- UI Rendering ---
+            switchView: (viewName) => {
+                // Update Nav State
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    if (btn.dataset.view === viewName) {
+                        btn.classList.add('text-green-400');
+                        btn.classList.remove('text-gray-500');
+                    } else {
+                        btn.classList.remove('text-green-400');
+                        btn.classList.add('text-gray-500');
+                    }
+                });
+
+                const main = document.getElementById('main-content');
+                main.innerHTML = ''; // Clear current
+
+                if (viewName === 'store') window.shop.renderStore(main);
+                else if (viewName === 'cart') window.shop.renderCart(main);
+                else if (viewName === 'profile') window.shop.renderProfile(main);
+
+                if(window.lucide) window.lucide.createIcons();
             },
 
-            updateCartUI: () => {
-                const count = cart.reduce((a, b) => a + b.qty, 0);
-                const badge = document.getElementById('cart-count');
-                badge.innerText = count;
-                count > 0 ? badge.classList.remove('hidden') : badge.classList.add('hidden');
-            },
+            renderStore: (container = document.getElementById('main-content')) => {
+                if (!container) return;
+                
+                // Categories
+                const categories = ['All', 'Devices', 'Disposables', 'Liquids'];
+                let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-4 pb-4">`;
+                categories.forEach(cat => {
+                    const isActive = window.shop.state.currentCategory === cat;
+                    const activeClass = isActive 
+                        ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+                        : 'bg-white/5 text-gray-400 border border-white/10';
+                    catHTML += `
+                        <button onclick="window.shop.filterCategory('${cat}')" 
+                                class="whitespace-nowrap px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 ${activeClass}">
+                            ${cat}
+                        </button>`;
+                });
+                catHTML += `</div>`;
 
-            renderCart: () => {
-                const container = document.getElementById('cart-items');
-                if(cart.length === 0) {
-                    container.innerHTML = `<div class="py-20 text-center opacity-20"><p class="text-sm font-bold uppercase tracking-widest">Пусто</p></div>`;
-                } else {
-                    container.innerHTML = cart.map(i => `
-                        <div class="glass rounded-3xl p-4 flex items-center justify-between border-white/5">
-                            <div class="flex items-center gap-4">
-                                <div class="w-14 h-14 glass rounded-2xl flex items-center justify-center text-2xl">${i.emoji || '💨'}</div>
-                                <div>
-                                    <p class="font-bold text-sm mb-1">${i.name}</p>
-                                    <p class="text-green-500 font-black text-xs">${i.price} ₽</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/5">
-                                <button onclick="window.ui.updateQty('${i.id}', -1)" class="w-8 h-8 flex items-center justify-center text-white/20">-</button>
-                                <span class="text-xs font-black w-4 text-center">${i.qty}</span>
-                                <button onclick="window.ui.updateQty('${i.id}', 1)" class="w-8 h-8 flex items-center justify-center text-green-500">+</button>
-                            </div>
+                // Product Grid
+                let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-4 pb-20">`;
+                
+                const filtered = window.shop.state.products.filter(p => 
+                    window.shop.state.currentCategory === 'All' || p.category === window.shop.state.currentCategory
+                );
+
+                filtered.forEach(p => {
+                    // Lucide icon mapping
+                    gridHTML += `
+                    <div class="glass-panel rounded-2xl p-3 flex flex-col relative group overflow-hidden">
+                        ${window.shop.state.isAdmin ? `<button onclick="window.shop.deleteProduct('${p.id}')" class="absolute top-2 right-2 z-10 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                        
+                        <div class="h-24 bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden">
+                             <div class="absolute inset-0 bg-gradient-to-tr from-green-500/10 to-transparent opacity-50"></div>
+                             <i data-lucide="${p.image || 'box'}" class="w-10 h-10 text-gray-400 group-hover:text-green-400 transition-colors duration-300"></i>
                         </div>
-                    `).join('');
-                }
-                const total = cart.reduce((a, b) => a + (b.price * b.qty), 0);
-                document.getElementById('cart-total').innerText = `${total} ₽`;
-            },
-
-            renderProducts: () => {
-                const grid = document.getElementById('product-grid');
-                const empty = document.getElementById('empty-state');
-                const filtered = category === 'all' ? products : products.filter(p => p.category === category);
-                
-                if(filtered.length === 0) {
-                    grid.classList.add('hidden');
-                    empty.classList.remove('hidden');
-                } else {
-                    grid.classList.remove('hidden');
-                    empty.classList.add('hidden');
-                    grid.innerHTML = filtered.map(p => `
-                        <div class="product-card glass rounded-[2.2rem] p-4 relative group animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            ${(user?.id === ADMIN_ID) ? `
-                                <button onclick="window.ui.deleteProduct('${p.id}')" class="absolute top-3 right-3 w-8 h-8 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center z-10">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                </button>
-                            ` : ''}
-                            <div class="aspect-square glass rounded-[1.5rem] mb-4 flex items-center justify-center text-5xl shadow-inner border-white/5 bg-gradient-to-br from-white/5 to-transparent">
-                                ${p.emoji || '💨'}
-                            </div>
-                            <div class="px-1 mb-4">
-                                <h3 class="font-bold text-[13px] leading-tight text-white/90 line-clamp-2 min-h-[2rem]">${p.name}</h3>
-                                <p class="text-green-500 font-black text-lg mt-1">${p.price} ₽</p>
-                            </div>
-                            <button onclick="window.ui.addToCart('${p.id}')" class="w-full py-3.5 glass rounded-2xl text-[10px] font-black uppercase tracking-widest text-white border-green-500/20 active:bg-green-500 active:text-black transition-all flex items-center justify-center gap-2">
-                                <i data-lucide="shopping-cart" class="w-3 h-3"></i> Купить
+                        
+                        <div class="flex-grow">
+                            <h3 class="text-sm font-bold text-gray-200 leading-tight mb-1 line-clamp-2">${p.name}</h3>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">${p.category}</p>
+                        </div>
+                        
+                        <div class="flex items-center justify-between mt-2">
+                            <span class="text-green-400 font-bold text-sm">${p.price} ₽</span>
+                            <button onclick="window.shop.addToCart('${p.id}')" class="w-8 h-8 rounded-full bg-white/10 hover:bg-green-500 hover:text-black flex items-center justify-center transition-all btn-press">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
                             </button>
                         </div>
-                    `).join('');
-                }
-                lucide.createIcons();
+                    </div>`;
+                });
+                gridHTML += `</div>`;
+
+                container.innerHTML = catHTML + gridHTML;
             },
 
-            toggleModal: (id) => document.getElementById(id).classList.toggle('hidden'),
+            renderCart: (container) => {
+                const cartIds = Object.keys(window.shop.state.cart);
+                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                let total = 0;
 
-            saveProduct: async () => {
-                const name = document.getElementById('adm-name').value;
-                const price = Number(document.getElementById('adm-price').value);
-                const cat = document.getElementById('adm-cat').value;
-                const emoji = document.getElementById('adm-emoji').value;
-                if(!name || !price) return;
-                await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'), { name, price, category: cat, emoji, ts: Date.now() });
-                window.ui.toggleModal('add-product-modal');
-                document.getElementById('adm-name').value = '';
-                document.getElementById('adm-price').value = '';
+                if (products.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
+                            <div class="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                                <i data-lucide="shopping-cart" class="w-8 h-8 opacity-50"></i>
+                            </div>
+                            <p>Cart is Empty</p>
+                            <button onclick="window.shop.switchView('store')" class="mt-4 text-green-400 text-sm hover:underline">Go to Store</button>
+                        </div>`;
+                    return;
+                }
+
+                let html = `<div class="space-y-3 pb-32">`;
+                
+                products.forEach(p => {
+                    const qty = window.shop.state.cart[p.id];
+                    total += p.price * qty;
+                    html += `
+                        <div class="glass-panel rounded-xl p-3 flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center">
+                                <i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <h3 class="text-sm font-bold">${p.name}</h3>
+                                <p class="text-xs text-green-400">${p.price * qty} ₽</p>
+                            </div>
+                            <div class="flex items-center gap-3 bg-black/40 rounded-lg px-2 py-1 border border-white/5">
+                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="text-gray-400 hover:text-white px-1">-</button>
+                                <span class="text-sm font-mono w-4 text-center">${qty}</span>
+                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="text-gray-400 hover:text-white px-1">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+                
+                // Sticky Footer for Cart
+                html += `
+                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-4 rounded-2xl flex items-center justify-between border-t border-green-500/20 shadow-[0_0_30px_rgba(0,0,0,0.8)] z-30">
+                        <div>
+                            <p class="text-xs text-gray-400">Total</p>
+                            <p class="text-xl font-bold text-white">${total} ₽</p>
+                        </div>
+                        <button onclick="window.shop.initCheckout(${total})" class="bg-green-500 text-black px-6 py-3 rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(34,197,94,0.4)] active:scale-95 transition-transform">
+                            CHECKOUT
+                        </button>
+                    </div>
+                `;
+
+                container.innerHTML = html;
+            },
+
+            renderProfile: (container) => {
+                const u = window.shop.state.user;
+                const roleColor = window.shop.state.isAdmin ? 'text-red-500' : 'text-green-500';
+                const roleName = window.shop.state.isAdmin ? 'ADMINISTRATOR' : 'CUSTOMER';
+
+                container.innerHTML = `
+                    <div class="glass-panel rounded-2xl p-6 mb-6 flex flex-col items-center text-center relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent"></div>
+                        
+                        <div class="w-24 h-24 rounded-full p-1 border-2 border-white/10 mb-4 relative z-10">
+                            <img src="${document.getElementById('user-avatar').src}" class="w-full h-full rounded-full object-cover">
+                        </div>
+                        
+                        <h2 class="text-xl font-bold text-white relative z-10">${u.first_name} ${u.last_name || ''}</h2>
+                        <p class="text-sm text-gray-500 mb-4 relative z-10">@${u.username || 'unknown'}</p>
+                        
+                        <div class="flex items-center gap-2 bg-black/60 px-4 py-1.5 rounded-full border border-white/10 relative z-10">
+                            <div class="w-2 h-2 rounded-full ${window.shop.state.isAdmin ? 'bg-red-500 animate-pulse' : 'bg-green-500'}"></div>
+                            <span class="text-[10px] font-bold tracking-widest ${roleColor}">${roleName}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel rounded-2xl p-4 space-y-4">
+                        <div class="flex justify-between items-center py-2 border-b border-white/5">
+                            <span class="text-gray-400 text-sm">User ID</span>
+                            <span class="font-mono text-sm">${u.id}</span>
+                        </div>
+                         <div class="flex justify-between items-center py-2 border-b border-white/5">
+                            <span class="text-gray-400 text-sm">Status</span>
+                            <span class="text-green-400 text-sm">Active</span>
+                        </div>
+                        <div class="pt-2">
+                             <button class="w-full py-3 bg-white/5 rounded-xl text-sm hover:bg-white/10 transition-colors text-gray-300">Contact Support</button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            // --- Actions ---
+            filterCategory: (cat) => {
+                window.shop.state.currentCategory = cat;
+                window.shop.renderStore();
+            },
+
+            addToCart: (productId) => {
+                if (!window.shop.state.cart[productId]) {
+                    window.shop.state.cart[productId] = 0;
+                }
+                window.shop.state.cart[productId]++;
+                window.shop.updateCartBadge();
+                window.shop.showToast("Added to Cart");
+                
+                // Haptic
+                if(window.Telegram.WebApp.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                }
+            },
+
+            updateQty: (productId, change) => {
+                if (!window.shop.state.cart[productId]) return;
+                
+                window.shop.state.cart[productId] += change;
+                if (window.shop.state.cart[productId] <= 0) {
+                    delete window.shop.state.cart[productId];
+                }
+                
+                window.shop.updateCartBadge();
+                window.shop.renderCart(document.getElementById('main-content')); // Re-render cart
+            },
+
+            updateCartBadge: () => {
+                const count = Object.values(window.shop.state.cart).reduce((a, b) => a + b, 0);
+                const badge = document.getElementById('cart-badge');
+                badge.innerText = count;
+                badge.style.opacity = count > 0 ? '1' : '0';
+            },
+
+            toggleAddModal: () => {
+                const modal = document.getElementById('add-modal');
+                modal.classList.toggle('hidden');
+            },
+
+            addProduct: async () => {
+                const name = document.getElementById('new-name').value;
+                const price = Number(document.getElementById('new-price').value);
+                const cat = document.getElementById('new-cat').value;
+
+                if (!name || !price) return window.shop.showToast("Invalid Input", true);
+
+                try {
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add({
+                        name,
+                        price,
+                        category: cat,
+                        image: 'box', // Default icon
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    document.getElementById('new-name').value = '';
+                    document.getElementById('new-price').value = '';
+                    window.shop.toggleAddModal();
+                    window.shop.showToast("Product Added");
+                    window.shop.fetchProducts(); // Refresh
+                } catch (e) {
+                    window.shop.showToast("Error Adding", true);
+                }
             },
 
             deleteProduct: async (id) => {
-                if(confirm("Удалить?")) await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id));
+                if (!confirm("Delete this item?")) return;
+                try {
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
+                    window.shop.showToast("Item Deleted");
+                    window.shop.fetchProducts();
+                } catch (e) {
+                    window.shop.showToast("Error Deleting", true);
+                }
             },
 
-            openCheckout: () => {
-                if(cart.length === 0) return;
-                document.getElementById('order-code').innerText = "VX-" + Math.floor(1000 + Math.random() * 9000);
-                window.ui.toggleCart(false);
-                window.ui.toggleModal('checkout-modal');
+            initCheckout: (total) => {
+                document.getElementById('checkout-total').innerText = total + " ₽";
+                const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
+                document.getElementById('order-id-display').innerText = "ID: " + orderId;
+                window.shop.state.currentOrderId = orderId;
+                window.shop.state.currentTotal = total;
+                document.getElementById('checkout-modal').classList.remove('hidden');
             },
 
-            finishOrder: () => {
-                const code = document.getElementById('order-code').innerText;
-                window.Telegram.WebApp.sendData(JSON.stringify({ code, cart }));
-                window.Telegram.WebApp.close();
+            copyBank: () => {
+                const bankInfo = "2204 3209 2444 1944";
+                navigator.clipboard.writeText(bankInfo).then(() => {
+                    window.shop.showToast("Card Number Copied");
+                });
+            },
+
+            completeOrder: async () => {
+                const order = {
+                    id: window.shop.state.currentOrderId,
+                    total: window.shop.state.currentTotal,
+                    items: window.shop.state.cart,
+                    date: new Date().toISOString(),
+                    user: window.shop.state.user
+                };
+
+                // Save to user history (Private)
+                if (window.shop.state.user && window.shop.state.user.id) {
+                    try {
+                         await db.collection('artifacts').doc(APP_ID).collection('users').doc(window.shop.state.user.id.toString()).collection('orders').add(order);
+                    } catch(e) { console.log("History save failed (expected if unauth)", e)}
+                }
+
+                // Send data to Bot
+                window.Telegram.WebApp.sendData(JSON.stringify(order));
+                
+                // Close Modal & Reset
+                document.getElementById('checkout-modal').classList.add('hidden');
+                window.shop.state.cart = {};
+                window.shop.updateCartBadge();
+                window.shop.switchView('store');
+            },
+
+            showToast: (msg, isError = false) => {
+                const toast = document.getElementById('toast');
+                document.getElementById('toast-msg').innerText = msg;
+                const icon = toast.querySelector('i');
+                
+                if (isError) {
+                    icon.setAttribute('data-lucide', 'alert-circle');
+                    icon.classList.remove('text-green-400');
+                    icon.classList.add('text-red-400');
+                } else {
+                    icon.setAttribute('data-lucide', 'check-circle');
+                    icon.classList.remove('text-red-400');
+                    icon.classList.add('text-green-400');
+                }
+                
+                if (window.lucide) window.lucide.createIcons();
+
+                toast.classList.remove('opacity-0', 'translate-y-[-20px]');
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-[-20px]');
+                }, 2000);
             }
         };
 
-        // Mutation Observer for icons
-        const obs = new MutationObserver(() => lucide.createIcons());
-        obs.observe(document.body, { childList: true, subtree: true });
+        // Initialize App
+        window.addEventListener('load', window.shop.init);
 
-        // App Initialization
-        async function init() {
-            // Hard hide loader after 4s no matter what
-            setTimeout(() => {
-                document.getElementById('loader').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('loader').classList.add('hidden');
-                    document.getElementById('app').classList.remove('hidden');
-                }, 500);
-            }, 4000);
-
-            const fbApp = initializeApp(firebaseConfig);
-            db = getFirestore(fbApp);
-            auth = getAuth(fbApp);
-
-            const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
-
-            // Robust User Detection
-            let tgUser = tg.initDataUnsafe?.user;
-            if(!tgUser) {
-                try {
-                    const hash = new URLSearchParams(window.location.hash.slice(1));
-                    tgUser = JSON.parse(hash.get('user'));
-                } catch(e) {}
-            }
-
-            user = tgUser || { id: 0, first_name: "Guest", username: "vaper_guest" };
-
-            // Auth
-            if(typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-
-            onAuthStateChanged(auth, (fbU) => {
-                if(!fbU) return;
-
-                // Sync UI
-                document.getElementById('user-display-name').innerText = user.first_name || "Vaper";
-                document.getElementById('p-full-name').innerText = (user.first_name + ' ' + (user.last_name || '')).trim();
-                document.getElementById('p-username').innerText = user.username ? `@${user.username}` : `ID: ${user.id}`;
-                
-                if(user.id === ADMIN_ID) {
-                    document.getElementById('admin-add-btn').classList.remove('hidden');
-                    document.getElementById('p-rank').innerText = "Administrator";
-                    document.getElementById('p-rank').classList.replace('text-green-500', 'text-yellow-500');
-                }
-
-                // Data Listeners
-                onSnapshot(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'), (snap) => {
-                    products = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                    if(products.length === 0) seed();
-                    window.ui.renderProducts();
-                    
-                    // Hide Loader
-                    document.getElementById('loader').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('loader').classList.add('hidden');
-                        document.getElementById('app').classList.remove('hidden');
-                    }, 500);
-                });
-            });
-        }
-
-        async function seed() {
-            const items = [
-                {name: "XROS 3 Nano", price: 3490, category: "devices", emoji: "🔋"},
-                {name: "Lost Mary 5000", price: 1150, category: "disposables", emoji: "🍓"},
-                {name: "Angry Vape - Shark", price: 650, category: "liquids", emoji: "🦈"},
-                {name: "Smoant Knight 80", price: 4200, category: "devices", emoji: "⚔️"},
-                {name: "Elf Bar 10000", price: 1800, category: "disposables", emoji: "💨"},
-                {name: "Maxwell's Shoria", price: 890, category: "liquids", emoji: "❄️"}
-            ];
-            const col = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-            for(const i of items) await addDoc(col, {...i, ts: Date.now()});
-        }
-
-        window.onload = init;
     </script>
 </body>
 </html>
