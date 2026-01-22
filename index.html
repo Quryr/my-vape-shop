@@ -188,6 +188,35 @@
             color: #22c55e;
             box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
         }
+        
+        /* Checkbox Custom Style */
+        .admin-checkbox {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #333;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            cursor: pointer;
+            display: grid;
+            place-content: center;
+        }
+        .admin-checkbox::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em #22c55e;
+            transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .admin-checkbox:checked::before {
+            transform: scale(1);
+        }
+        .admin-checkbox:checked {
+            border-color: #22c55e;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -493,7 +522,9 @@
                 listenerUnsubscribe: null,
                 deliveryTime: null, // New state for time selection
                 ordersListenerUnsubscribe: null, // For admin orders
-                myOrdersListenerUnsubscribe: null // For user orders
+                myOrdersListenerUnsubscribe: null, // For user orders
+                adminSelectionMode: false,
+                selectedAdminOrders: new Set()
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -1006,7 +1037,7 @@
             },
 
             // --- USER: RENDER MY ORDERS ---
-            renderMyOrders: async (container) => {
+            renderMyOrders: (container) => {
                 container.innerHTML = `
                     <div class="flex items-center gap-3 mb-6">
                         <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
@@ -1021,13 +1052,8 @@
                     window.shop.state.myOrdersListenerUnsubscribe();
                 }
 
-                try {
-                    const uid = auth.currentUser?.uid;
-                    if (!uid) {
-                        document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Попробуйте обновить страницу.</div>`;
-                        return;
-                    }
-
+                // Function to set up listener
+                const setupListener = (uid) => {
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
                             const list = document.getElementById('my-orders-list');
@@ -1063,7 +1089,6 @@
                                     statusText = 'ОТМЕНЕН';
                                 }
 
-                                // Items summary
                                 const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
 
                                 html += `
@@ -1090,23 +1115,51 @@
                             const list = document.getElementById('my-orders-list');
                             if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
                         });
-                } catch (e) {
-                    console.error(e);
-                    document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500 py-10">Сбой системы</div>`;
+                };
+
+                // Auth Logic
+                if (auth.currentUser) {
+                    setupListener(auth.currentUser.uid);
+                } else {
+                    const unsub = auth.onAuthStateChanged(user => {
+                        unsub(); // One time listener
+                        if (user) {
+                            setupListener(user.uid);
+                        } else {
+                            const list = document.getElementById('my-orders-list');
+                            if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Попробуйте обновить страницу.</div>`;
+                        }
+                    });
                 }
             },
 
             // --- ADMIN: RENDER ORDERS ---
             renderAdminOrders: async (container) => {
+                const isSelectMode = window.shop.state.adminSelectionMode;
+                const selectedCount = window.shop.state.selectedAdminOrders.size;
+
                 // Header
                 container.innerHTML = `
-                    <div class="flex items-center gap-3 mb-6">
-                        <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                        <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                            <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
+                        </div>
+                        <button onclick="window.shop.toggleAdminSelectionMode()" class="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${isSelectMode ? 'bg-white text-black' : 'bg-white/10 text-gray-400 hover:text-white'}">
+                            ${isSelectMode ? 'ОТМЕНА' : 'ВЫБРАТЬ'}
+                        </button>
                     </div>
-                    <div id="admin-orders-list" class="space-y-3 pb-24">
+                    <div id="admin-orders-list" class="space-y-3 pb-32">
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
                     </div>
+                    
+                    ${isSelectMode ? `
+                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
+                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            УДАЛИТЬ (${selectedCount})
+                        </button>
+                    </div>` : ''}
                 `;
                 
                 // Clear old listener
@@ -1126,15 +1179,14 @@
                         }
 
                         let docs = [];
-                        // Save Firestore ID separately from Order Content ID
                         snapshot.forEach(doc => docs.push({ firestoreId: doc.id, ...doc.data() }));
                         
-                        // Sort Client Side
                         docs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                         let html = '';
                         docs.forEach(data => {
                             const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+                            const isSelected = window.shop.state.selectedAdminOrders.has(data.firestoreId);
                             
                             let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
                             let statusText = 'ОЖИДАЕТ';
@@ -1147,27 +1199,86 @@
                                 statusText = 'ОТКЛОНЕН';
                             }
 
-                            // Use firestoreId for clicking
+                            // Selection Mode Logic
+                            const clickAction = isSelectMode 
+                                ? `window.shop.toggleOrderSelection('${data.firestoreId}')`
+                                : `window.shop.openOrderDetails('${data.firestoreId}')`;
+
+                            const checkboxHtml = isSelectMode 
+                                ? `<div class="mr-3 pt-1">
+                                     <input type="checkbox" class="admin-checkbox" ${isSelected ? 'checked' : ''} readonly>
+                                   </div>` 
+                                : '';
+
                             html += `
-                                <div onclick="window.shop.openOrderDetails('${data.firestoreId}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <div class="flex flex-col">
-                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
-                                            <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
+                                <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')} flex">
+                                    ${checkboxHtml}
+                                    <div class="flex-grow">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex flex-col">
+                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
+                                                <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
+                                            </div>
+                                            <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
+                                                ${statusText}
+                                            </div>
                                         </div>
-                                        <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
-                                            ${statusText}
+                                        <div class="flex justify-between items-end">
+                                            <div class="text-xs text-gray-500">${date}</div>
+                                            <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
                                         </div>
-                                    </div>
-                                    <div class="flex justify-between items-end">
-                                        <div class="text-xs text-gray-500">${date}</div>
-                                        <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
                                     </div>
                                 </div>
                             `;
                         });
                         list.innerHTML = html;
                     });
+            },
+
+            // --- ADMIN SELECTION LOGIC ---
+            toggleAdminSelectionMode: () => {
+                window.shop.state.adminSelectionMode = !window.shop.state.adminSelectionMode;
+                if (!window.shop.state.adminSelectionMode) {
+                    window.shop.state.selectedAdminOrders.clear();
+                }
+                const main = document.getElementById('main-content');
+                window.shop.renderAdminOrders(main);
+            },
+
+            toggleOrderSelection: (docId) => {
+                const set = window.shop.state.selectedAdminOrders;
+                if (set.has(docId)) {
+                    set.delete(docId);
+                } else {
+                    set.add(docId);
+                }
+                // Re-render only to update UI state, optimization possible but keeping it simple
+                const main = document.getElementById('main-content');
+                window.shop.renderAdminOrders(main);
+            },
+
+            deleteSelectedOrders: async () => {
+                const count = window.shop.state.selectedAdminOrders.size;
+                if (count === 0) return;
+                
+                if (!confirm(`Удалить выбранные заказы (${count})? Это действие нельзя отменить.`)) return;
+
+                const ids = Array.from(window.shop.state.selectedAdminOrders);
+                window.shop.showToast(`Удаление ${count} заказов...`, "Обработка");
+                
+                // Batch delete not supported for arbitrary docs in client SDK easily without iteration
+                // We just iterate
+                try {
+                    const promises = ids.map(id => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(id).delete());
+                    await Promise.all(promises);
+                    
+                    window.shop.state.selectedAdminOrders.clear();
+                    window.shop.toggleAdminSelectionMode(); // Exit mode
+                    window.shop.showToast("Заказы удалены", "Успешно");
+                } catch (e) {
+                    console.error(e);
+                    window.shop.showToast("Ошибка удаления", "Сбой");
+                }
             },
 
             openOrderDetails: async (docId) => {
