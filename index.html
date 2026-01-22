@@ -15,33 +15,29 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Инициализация Firebase из глобальных настроек окружения
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        window.VapeDB = { 
-            db, auth, appId, 
-            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs, signInAnonymously, signInWithCustomToken, onAuthStateChanged } 
-        };
+        // Глобальный объект для доступа из обычного скрипта
+        window.VapeCloud = { db, auth, appId, fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query } };
 
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                window.dispatchEvent(new Event('vape-auth-ready'));
-            } catch (e) {
-                console.error("Auth failed:", e);
+        // RULE 3: Auth before everything
+        const startAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
             }
+            window.dispatchEvent(new Event('cloud-ready'));
         };
-        initAuth();
+        startAuth();
     </script>
     <style>
         :root {
@@ -63,6 +59,7 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100vw; min-height: 100vh; }
 
+        /* Silk Motion Background */
         .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; background: radial-gradient(circle at center, #111 0%, #000 100%); }
         .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.3; transition: background var(--transition); }
         .orb-1 { background: var(--brand-color); top: -50px; right: -50px; animation: float 20s infinite alternate; }
@@ -74,7 +71,7 @@
             position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px);
             background: rgba(5, 5, 5, 0.6); border-bottom: 1px solid var(--glass-border);
         }
-        .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
@@ -148,8 +145,8 @@
         .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
-        /* Admin Setup Banner */
-        .admin-setup-btn { background: var(--brand-color); color: #000; padding: 12px; border-radius: 12px; font-weight: 700; margin: 10px 16px; display: none; text-align: center; cursor: pointer; }
+        /* Sync Button */
+        #syncBanner { background: var(--brand-color); color: #000; padding: 12px; border-radius: 12px; font-weight: 800; margin: 10px 16px; text-align: center; cursor: pointer; display: none; }
 
         body.admin-mode .delete-card-btn { display: flex !important; }
         body:not(.admin-mode) .delete-card-btn { display: none !important; }
@@ -183,7 +180,8 @@
         </div>
     </header>
 
-    <div id="adminSetup" class="admin-setup-btn" onclick="seedDatabase()">🚀 Загрузить базу товаров (Один раз)</div>
+    <!-- Кнопка миграции данных -->
+    <div id="syncBanner" onclick="seedToCloud()">📦 ЗАГРУЗИТЬ ТОВАРЫ В ОБЛАКО</div>
 
     <div class="categories-container">
         <div class="categories-inner" id="categories"></div>
@@ -299,8 +297,8 @@
         const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
+        let usingCloud = false;
 
-        // ПОЛНЫЙ ВОССТАНОВЛЕННЫЙ СПИСОК (Seed)
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
@@ -315,59 +313,70 @@
             { id: 's11', category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
         ];
 
-        function checkAdminAccess() {
-            let userId = tg.initDataUnsafe?.user?.id;
-            if (!userId) {
+        // ГАРАНТИРОВАННАЯ ПРОВЕРКА АДМИНА
+        function checkAdmin() {
+            let u = tg.initDataUnsafe?.user?.id;
+            if(!u) {
                 try {
-                    const params = new URLSearchParams(window.location.hash.substring(1));
-                    const userStr = params.get('user');
-                    if (userStr) userId = JSON.parse(userStr).id;
-                } catch(e) {}
+                    const h = new URLSearchParams(window.location.hash.substring(1));
+                    const d = Object.fromEntries(new URLSearchParams(h.get('tgWebAppData')));
+                    u = JSON.parse(d.user).id;
+                } catch(e){}
             }
-            if (userId && String(userId) === String(MY_ADMIN_ID)) {
+            if(u && String(u) === String(MY_ADMIN_ID)) {
                 document.getElementById('adminBtn').style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        // ПУСТОЙ СТАРТ - Ждем ответа от облака
-        function renderEmpty() {
-            const container = document.getElementById('products');
-            if(container) container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Загрузка данных...</div>`;
-        }
-        renderEmpty();
+        // ПЕРВИЧНЫЙ РЕНДЕР (ПОКА ЖДЕМ ОБЛАКО)
+        products = [...initialSeed];
+        renderAll();
+        checkAdmin();
 
-        window.addEventListener('vape-auth-ready', () => {
-            const { auth, fs, db, appId } = window.VapeDB;
-            const isAdmin = checkAdminAccess();
+        // СЛУШАЕМ ОБЛАКО
+        window.addEventListener('cloud-ready', () => {
+            const { fs, db, appId } = window.VapeCloud;
+            const isAdm = checkAdmin();
 
             const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
             fs.onSnapshot(q, (snapshot) => {
                 const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // ОБЛАКО - ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ
-                products = dbItems;
-
-                // Если база абсолютно пуста и зашел админ - предлагаем загрузить seed
-                if (products.length === 0 && isAdmin) {
-                    document.getElementById('adminSetup').style.display = 'block';
-                } else {
-                    document.getElementById('adminSetup').style.display = 'none';
+                // ЕСЛИ В БАЗЕ ЕСТЬ ХОТЯ БЫ ОДИН ТОВАР - КОДОВЫЙ СПИСОК БОЛЬШЕ НЕ НУЖЕН
+                if (dbItems.length > 0 || usingCloud) {
+                    usingCloud = true;
+                    products = dbItems;
+                    document.getElementById('syncBanner').style.display = 'none';
+                } else if (isAdm) {
+                    // БАЗА ПУСТАЯ И ТЫ АДМИН - ПРЕДЛАГАЕМ ПЕРЕНЕСТИ ТОВАРЫ
+                    document.getElementById('syncBanner').style.display = 'block';
                 }
-                
                 renderAll();
             });
         });
 
-        [100, 1000, 3000].forEach(ms => setTimeout(checkAdminAccess, ms));
+        // МИГРАЦИЯ ТОВАРОВ В ОБЛАКО
+        window.seedToCloud = async () => {
+            if(!confirm("Перенести стандартные товары в базу?")) return;
+            const { fs, db, appId } = window.VapeCloud;
+            document.getElementById('syncBanner').innerText = "ЗАГРУЗКА...";
+            for(const p of initialSeed) {
+                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
+                    name: p.name, price: p.price, category: p.category, img: p.img, createdAt: Date.now()
+                });
+            }
+            usingCloud = true;
+            document.getElementById('syncBanner').style.display = 'none';
+        };
 
         function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
 
         function renderCategories() {
             let cats = [...new Set(products.map(p => p.category))];
-            if (cats.length === 0) cats = ['Одноразки', 'Жидкости', 'Pod-системы', 'Расходники'];
-            if (!cats.includes('Все')) cats.unshift('Все');
+            if(cats.length === 0) cats = ['Одноразки', 'Жидкости', 'Pod-системы', 'Расходники'];
+            if(!cats.includes('Все')) cats.unshift('Все');
             const container = document.getElementById('categories');
             if(container) container.innerHTML = cats.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
@@ -376,106 +385,66 @@
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
-            
-            if (filtered.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
-                return;
-            }
-
+            if (filtered.length === 0) { container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Пусто</div>`; return; }
             container.innerHTML = filtered.map(p => {
+                const id = p.docId || p.id;
                 return `
                 <div class="product-card">
-                    <button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>
+                    <button class="delete-card-btn" onclick="deleteItem('${id}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${p.docId}')">В корзину</button>
+                    <button class="add-btn" onclick="addToCart('${id}')">В корзину</button>
                 </div>`;
             }).join('');
             lucide.createIcons();
         }
 
         window.setCategory = (cat) => { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); };
-        window.toggleTheme = () => {
-            tg.HapticFeedback.impactOccurred('medium');
-            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-            document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
-        };
-        window.toggleAdminMode = () => {
-            isAdminMode = !isAdminMode;
-            document.body.classList.toggle('admin-mode', isAdminMode);
-            document.getElementById('adminBtn').classList.toggle('active', isAdminMode);
-            document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
-            renderAll();
-        };
-
+        window.toggleTheme = () => { tg.HapticFeedback.impactOccurred('medium'); currentThemeIndex = (currentThemeIndex + 1) % themes.length; document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`; };
+        window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
         window.openAdminForm = () => { document.getElementById('adminForm').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
 
         window.handleImageSelect = (event) => {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (e) => {
-                selectedBase64 = e.target.result;
-                document.getElementById('imagePreview').src = selectedBase64;
-                document.getElementById('imagePreview').style.display = 'block';
-            };
+            reader.onload = (e) => { selectedBase64 = e.target.result; document.getElementById('imagePreview').src = selectedBase64; document.getElementById('imagePreview').style.display = 'block'; };
             reader.readAsDataURL(file);
         };
 
-        window.seedDatabase = async () => {
-            if (!window.VapeDB || !confirm("Загрузить стандартный ассортимент в облако?")) return;
-            const { db, fs, appId } = window.VapeDB;
-            const setupBtn = document.getElementById('adminSetup');
-            setupBtn.innerText = "Загрузка...";
-            try {
-                for (const p of initialSeed) {
-                    await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { 
-                        name: p.name, price: p.price, category: p.category, img: p.img, createdAt: Date.now() 
-                    });
-                }
-                setupBtn.style.display = 'none';
-                tg.HapticFeedback.notificationOccurred('success');
-            } catch(e) { console.error(e); }
-        };
-
         window.adminAddProduct = async () => {
-            if (!window.VapeDB) return;
-            const { db, fs, appId } = window.VapeDB;
+            const { db, fs, appId } = window.VapeCloud;
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
             if (!name || !price) return;
-            try {
-                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
-                resetAdminForm(); closeSheets();
-                tg.HapticFeedback.notificationOccurred('success');
-            } catch (e) { console.error(e); }
+            usingCloud = true;
+            await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
+            resetAdminForm(); closeSheets();
         };
 
-        function resetAdminForm() {
-            document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; 
-            document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = '';
-        }
+        function resetAdminForm() { document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = ''; }
 
-        window.deleteItem = async (docId) => {
-            if (!confirm("Удалить этот товар навсегда?")) return;
-            tg.HapticFeedback.impactOccurred('medium');
-            const { db, fs, appId } = window.VapeDB;
-            try {
-                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
-            } catch (e) { console.error(e); }
+        window.deleteItem = async (id, isFromDB) => {
+            if (!confirm("Удалить этот товар?")) return;
+            if (isFromDB) {
+                const { db, fs, appId } = window.VapeCloud;
+                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+            } else {
+                products = products.filter(p => p.id !== id);
+                renderAll();
+            }
         };
 
         window.addToCart = (id) => {
-            const p = products.find(x => x.docId === id);
+            const p = products.find(x => (x.docId || x.id) === id);
             if (!p) return;
             tg.HapticFeedback.notificationOccurred('success');
-            if (cart[id]) cart[id].qty++;
-            else cart[id] = { ...p, qty: 1 };
+            if (cart[id]) cart[id].qty++; else cart[id] = { ...p, qty: 1 };
             updateCartUI();
         };
 
@@ -489,9 +458,10 @@
             document.getElementById('cartTotal').innerText = `${total} ₽`;
             const list = document.getElementById('cartList');
             if(!list) return;
-            if (items.length === 0) { list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`; }
+            if (items.length === 0) list.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted)">Корзина пуста</div>`;
             else {
                 list.innerHTML = items.map(item => {
+                    const id = item.docId || item.id;
                     return `
                     <div style="display:flex; align-items:center; gap:12px; background:var(--glass); padding:10px; border-radius:18px; margin-bottom:10px;">
                         <img src="${item.img}" style="width:40px; height:40px; border-radius:10px; object-fit:cover;">
@@ -500,9 +470,9 @@
                             <div style="color:var(--brand-color); font-weight:700">${item.price * item.qty} ₽</div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:5px 8px; border-radius:12px;">
-                            <button onclick="changeQty('${item.docId}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
+                            <button onclick="changeQty('${id}', -1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="minus" size="14"></i></button>
                             <span style="font-size:14px; min-width:15px; text-align:center">${item.qty}</span>
-                            <button onclick="changeQty('${item.docId}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
+                            <button onclick="changeQty('${id}', 1)" style="background:none; border:none; color:white; display:flex;"><i data-lucide="plus" size="14"></i></button>
                         </div>
                     </div>`;
                 }).join('');
@@ -510,11 +480,7 @@
             }
         };
 
-        window.changeQty = (id, delta) => {
-            tg.HapticFeedback.impactOccurred('light');
-            if (cart[id]) { cart[id].qty += delta; if (cart[id].qty <= 0) delete cart[id]; updateCartUI(); }
-        };
-
+        window.changeQty = (id, delta) => { if (cart[id]) { cart[id].qty += delta; if (cart[id].qty <= 0) delete cart[id]; updateCartUI(); } };
         window.openOrderForm = () => { closeSheets(); document.getElementById('orderSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
         window.openPaymentSheet = () => {
             const name = document.getElementById('order_name').value;
@@ -526,45 +492,26 @@
             document.getElementById('finalPrice').innerText = `${total} ₽`;
             currentOrderKey = 'VX-' + Math.floor(100 + Math.random() * 900);
             document.getElementById('order_key').innerText = currentOrderKey;
-            closeSheets();
-            document.getElementById('paymentSheet').classList.add('active');
-            document.getElementById('overlay').classList.add('active');
+            closeSheets(); document.getElementById('paymentSheet').classList.add('active'); document.getElementById('overlay').classList.add('active');
         };
 
-        window.copyText = (text) => {
-            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select();
-            document.execCommand('copy'); document.body.removeChild(el); tg.HapticFeedback.notificationOccurred('success');
-        };
+        window.copyText = (text) => { const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); tg.HapticFeedback.notificationOccurred('success'); };
         window.copyGeneratedKey = () => copyText(currentOrderKey);
 
         window.finishOrder = () => {
-            const btn = document.getElementById('finishBtn');
-            btn.disabled = true; btn.innerText = "Отправка...";
+            const btn = document.getElementById('finishBtn'); btn.disabled = true; btn.innerText = "Отправка...";
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
-
             const orderDetails = {
-                action: "NEW_ORDER",
-                order_key: currentOrderKey,
-                items: itemsText,
-                total: total + " ₽",
-                client: {
-                    name: document.getElementById('order_name').value,
-                    phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value,
-                    place: document.getElementById('order_location').value,
-                    time: document.getElementById('order_time').value
-                },
+                action: "NEW_ORDER", order_key: currentOrderKey, items: itemsText, total: total + " ₽",
+                client: { name: document.getElementById('order_name').value, phone: document.getElementById('order_phone').value, username_or_contact: document.getElementById('order_contact').value, place: document.getElementById('order_location').value, time: document.getElementById('order_time').value },
                 timestamp: new Date().toLocaleString()
             };
-            
-            tg.sendData(JSON.stringify(orderDetails)); 
-            setTimeout(() => tg.close(), 500);
+            tg.sendData(JSON.stringify(orderDetails)); setTimeout(() => tg.close(), 500);
         };
 
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
         window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); }); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
-
     </script>
 </body>
 </html>
