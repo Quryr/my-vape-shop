@@ -6,6 +6,8 @@
     <title>Premium Vape Store</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Добавлен Telegram SDK для работы window.Telegram -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800;900&display=swap');
 
@@ -354,7 +356,7 @@
                 tg.ready();
             }
 
-            // ПРОВЕРЕННАЯ ЛОГИКА АДМИНА
+            // ПРОВЕРЕННАЯ ЛОГИКА АДМИНА ИЗ ВАШЕГО ПРИМЕРА
             const checkUser = () => {
                 let uId = tg?.initDataUnsafe?.user?.id || "";
                 let uName = tg?.initDataUnsafe?.user?.username || "";
@@ -369,13 +371,13 @@
                     } catch(e){}
                 }
 
-                // Сверка по ID или Username
-                const idMatch = String(uId) === MY_ID;
+                // Сверка по ID или Username (именно String() для надежности типов)
+                const idMatch = uId && String(uId) === MY_ID;
                 const userMatch = uName && uName.replace('@', '').toLowerCase() === ADMIN_USER.toLowerCase();
 
                 if(idMatch || userMatch) {
                     isAdmin = true;
-                    // Показываем контейнер с кнопками (который в header)
+                    // Показываем контейнер с кнопками управления
                     const controls = document.getElementById('admin-controls');
                     if (controls) controls.classList.remove('hidden');
                     
@@ -385,7 +387,7 @@
                         nameEl.style.color = "var(--primary)";
                         nameEl.classList.add('font-black');
                     }
-                    // Перерисовываем товары, чтобы появились кнопки удаления
+                    // Важно: перерисовываем товары, чтобы кнопки удаления появились
                     renderProducts();
                     return true;
                 } else if (tg?.initDataUnsafe?.user) {
@@ -414,7 +416,7 @@
 
             onAuthStateChanged(auth, (u) => {
                 if (u) {
-                    // Вызываем проверку админа несколько раз с задержкой (как в рабочем коде)
+                    // Вызываем проверку админа несколько раз с задержкой (именно так было в вашем коде)
                     checkUser();
                     setTimeout(checkUser, 500);
                     setTimeout(checkUser, 2000);
@@ -571,8 +573,7 @@
         if (adminBtn) {
             adminBtn.addEventListener('click', () => {
                 if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
-                // Можно добавить переключение режима отображения кнопок удаления
-                document.body.classList.toggle('admin-active');
+                // Можно добавить визуальный эффект при нажатии
             });
         }
 
