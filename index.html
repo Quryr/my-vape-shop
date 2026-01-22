@@ -1094,50 +1094,6 @@
                 }
             },
 
-            // --- CHECKOUT LOGIC ---
-
-            initCheckout: (total) => {
-                window.shop.state.currentTotal = total;
-                // Open Delivery Form First
-                document.getElementById('delivery-modal').classList.remove('hidden');
-            },
-
-            selectTime: (time, btn) => {
-                // Clear active class from all buttons
-                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                // Add to clicked
-                btn.classList.add('active');
-                window.shop.state.deliveryTime = time;
-            },
-
-            proceedToPayment: () => {
-                // Validation
-                const name = document.getElementById('del-name').value;
-                const phone = document.getElementById('del-phone').value;
-                const contact = document.getElementById('del-contact').value;
-                const place = document.getElementById('del-place').value;
-                const time = window.shop.state.deliveryTime;
-
-                if (!name || !phone || !contact || !place || !time) {
-                    window.shop.showToast("Заполните все поля и выберите время", "Ошибка");
-                    return;
-                }
-
-                // Store info temporarily
-                window.shop.state.deliveryInfo = { name, phone, contact, place, time };
-
-                // Switch Modals
-                document.getElementById('delivery-modal').classList.add('hidden');
-                
-                // Update Total and Order ID for Payment Screen
-                document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
-                const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
-                document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
-                window.shop.state.currentOrderId = orderId;
-                
-                document.getElementById('checkout-modal').classList.remove('hidden');
-            },
-
             copyBank: () => {
                 navigator.clipboard.writeText("2204 3209 2444 1944").then(() => {
                     window.shop.showToast("Номер карты скопирован", "Скопировано");
@@ -1189,6 +1145,9 @@
                     delivery: window.shop.state.deliveryInfo
                 };
 
+                // UI Feedback перед отправкой
+                window.shop.showToast("Отправка заказа...", "Процесс");
+
                 try {
                     const uid = auth.currentUser.uid;
                      if (window.shop.state.user.id !== 999999 && uid) {
@@ -1199,12 +1158,18 @@
                 // --- 3. Отправка данных в бота ---
                 window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
                 
-                // --- 4. UI Cleanup ---
+                // --- 4. UI Cleanup & Failsafe Alert ---
+                // Если приложение НЕ закрылось автоматически через 1 секунду после sendData - значит отправка не сработала
+                // Это происходит, когда магазин открыт через "синюю кнопку" (Меню), где sendData не поддерживается Telegram.
+                setTimeout(() => {
+                    alert("⚠️ ВНИМАНИЕ!\n\nЗаказ не отправился.\n\nТелеграм запрещает отправку данных через 'Синюю кнопку' (Меню).\n\nПожалуйста, вернитесь в чат и откройте магазин через кнопку 'Открыть магазин' внизу клавиатуры.");
+                }, 1000);
+
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
-                window.shop.showToast("Заказ отправлен в бот", "Успешно");
+                window.shop.showToast("Попытка отправки...", "Статус");
             },
 
             showToast: (msg, title = "Уведомление") => {
