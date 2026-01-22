@@ -18,34 +18,34 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Инициализация конфигурации
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        try {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Глобальный объект для доступа
-        window.VapeCloud = { 
-            db, auth, appId, 
-            methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
-        };
+            window.VapeCloud = { 
+                db, auth, appId, 
+                methods: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } 
+            };
 
-        // RULE 3: Auth Before Queries
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    window.dispatchEvent(new Event('vape-cloud-ready'));
+                } catch (e) {
+                    console.error("Auth error:", e);
                 }
-                console.log("Cloud Authorized");
-                window.dispatchEvent(new Event('vape-cloud-ready'));
-            } catch (e) {
-                console.error("Auth failed:", e);
-            }
-        };
-        initAuth();
+            };
+            initAuth();
+        } catch (e) {
+            console.error("Config error:", e);
+        }
     </script>
     <style>
         :root {
@@ -67,12 +67,10 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100vw; min-height: 100vh; }
 
-        /* Silk Background */
-        .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; background: radial-gradient(circle at center, #111 0%, #000 100%); }
-        .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.3; }
-        .orb-1 { background: var(--brand-color); top: -50px; right: -50px; animation: float 20s infinite alternate; }
-        .orb-2 { background: #4a00ff; bottom: -50px; left: -50px; animation: float 25s infinite alternate-reverse; }
-        @keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(30px, 50px); } }
+        .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: #000; }
+        .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.2; }
+        .orb-1 { background: var(--brand-color); top: -50px; right: -50px; }
+        .orb-2 { background: #4a00ff; bottom: -50px; left: -50px; }
 
         header {
             padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;
@@ -83,7 +81,7 @@
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
-            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; transition: var(--transition);
+            padding: 8px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px;
         }
         #adminBtn { display: none; } 
         .icon-btn.active { background: var(--brand-color); color: #000; }
@@ -93,73 +91,62 @@
         .categories-inner { display: inline-flex; gap: 10px; padding: 10px 20px 25px 20px; align-items: center; }
         .category-btn {
             background: var(--glass); border: none; color: var(--text-muted); padding: 10px 18px;
-            border-radius: 20px; font-size: 14px; font-weight: 500; position: relative; transition: var(--transition); outline: none;
+            border-radius: 20px; font-size: 14px; font-weight: 500; outline: none;
         }
         .category-btn.active { color: var(--text-main); background: rgba(255, 255, 255, 0.08); }
-        .category-btn.active::after { content: ''; position: absolute; inset: 0; border-radius: 20px; background: var(--brand-color); filter: blur(15px); opacity: 0.5; z-index: -1; }
 
         .products-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 0 16px 120px 16px; width: 100%; }
         .product-card {
             background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(10px);
             border-radius: 22px; padding: 10px; display: flex; flex-direction: column; gap: 8px; position: relative;
-            animation: fadeIn 0.4s ease forwards;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
         .delete-card-btn {
             position: absolute; top: 10px; right: 10px; background: var(--error);
             color: white; border: none; width: 28px; height: 28px; border-radius: 8px;
-            display: none; align-items: center; justify-content: center; z-index: 10; cursor: pointer;
+            display: none; align-items: center; justify-content: center; z-index: 10;
         }
         .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.03); object-fit: cover; }
         .product-info { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
         .product-name { font-size: 13px; font-weight: 500; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .product-price { font-size: 15px; font-weight: 700; color: var(--brand-color); }
-        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 600; font-size: 12px; width: 100%; cursor: pointer; transition: var(--transition); }
+        .add-btn { background: var(--text-main); color: var(--bg-dark); border: none; padding: 12px; border-radius: 14px; font-weight: 600; font-size: 12px; width: 100%; cursor: pointer; }
 
         .cart-fab {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(120px);
             width: calc(100% - 32px); max-width: 450px; background: var(--brand-color);
             color: var(--bg-dark); height: 64px; border-radius: 22px; display: flex;
             align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 700;
-            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: transform 0.5s;
+            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: 0.4s;
         }
         .cart-fab.visible { transform: translateX(-50%) translateY(0); }
-        
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 300; opacity: 0; visibility: hidden; transition: 0.3s; }
         .overlay.active { opacity: 1; visibility: visible; }
-        
         .bottom-sheet {
             position: fixed; bottom: 0; left: 0; width: 100%; background: #0d0d0d;
             border-top: 1px solid var(--glass-border); border-radius: 28px 28px 0 0;
-            z-index: 301; transform: translateY(100%); transition: transform 0.4s;
+            z-index: 301; transform: translateY(100%); transition: 0.4s;
             max-height: 85vh; padding: 20px; display: flex; flex-direction: column;
         }
         .bottom-sheet.active { transform: translateY(0); }
-        
-        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; font-size: 15px; }
-        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.3s; }
-        .checkout-btn:active { transform: scale(0.98); }
+        .form-input { width: 100%; background: var(--glass); border: 1px solid var(--glass-border); color: white; padding: 14px; border-radius: 14px; margin-bottom: 12px; outline: none; }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; cursor: pointer; }
 
         .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
         .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
-        .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px 15px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; border: 1px solid var(--glass-border); }
+        .copy-info-row { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 14px; border: 1px solid var(--glass-border); }
         .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
-        .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
         body.admin-mode .delete-card-btn { display: flex !important; }
         body.admin-mode .cart-fab { display: none !important; }
         
         #loading-overlay { position: fixed; inset: 0; background: var(--bg-dark); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: 0.5s; }
         #loading-overlay.hidden { opacity: 0; pointer-events: none; }
-
-        @media (max-width: 360px) { .product-name { font-size: 12px; } .products-grid { gap: 8px; padding: 0 12px 100px 12px; } }
     </style>
 </head>
 <body class="theme-toxic">
 
     <div id="loading-overlay">
-        <div style="color: var(--brand-color); font-weight: 700; letter-spacing: 2px;">VAPE CLOUD</div>
+        <div style="color: var(--brand-color); font-weight: 700; letter-spacing: 2px;">ЗАГРУЗКА...</div>
     </div>
 
     <div class="background-container">
@@ -196,7 +183,7 @@
         <button class="checkout-btn" onclick="openSheet('orderSheet')">Перейти к оформлению</button>
     </div>
 
-    <!-- Форма данных -->
+    <!-- Заказ -->
     <div class="bottom-sheet" id="orderSheet">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2>Данные заказа</h2>
@@ -228,12 +215,11 @@
                 <span style="font-family: monospace;">2204 3209 2444 1944</span>
                 <span class="copy-btn" onclick="copyText('2204320924441944')">КОПИРОВАТЬ</span>
             </div>
-            <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ К ПЛАТЕЖУ:</div>
+            <div style="font-size: 12px; margin: 15px 0 5px 0; color: var(--text-muted);">КОММЕНТАРИЙ:</div>
             <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
-                <span id="payment_key" class="payment-key">---</span>
+                <span id="payment_key" style="font-weight: 800;">---</span>
                 <span class="copy-btn" onclick="copyText(document.getElementById('payment_key').innerText)">КОПИРОВАТЬ</span>
             </div>
-            <div style="font-size: 12px; margin-top: 15px;">Получатель: <b>Иван Владимирович Р.</b></div>
         </div>
         <button class="checkout-btn" id="finishBtn" style="background: var(--success); color: #fff;" onclick="finishOrder()">Я оплатил(а)</button>
     </div>
@@ -253,7 +239,7 @@
             <input type="file" id="p_file" accept="image/*" onchange="previewImage(event)">
             <img id="img_preview" style="width: 60px; height: 60px; border-radius: 10px; margin-top: 10px; display: none; object-fit: cover;">
         </div>
-        <button class="checkout-btn" id="saveProductBtn" onclick="addProductToCloud()">Сохранить в облако</button>
+        <button class="checkout-btn" id="saveProductBtn" onclick="addProductToCloud()">Добавить</button>
     </div>
 
     <script>
@@ -269,19 +255,12 @@
         let selectedBase64 = '';
         let generatedOrderKey = '';
 
-        // Резервный ассортимент (только для авто-наполнения пустой базы)
         const initialSeed = [
-            { category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
-            { category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
-            { category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
-            { category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' },
-            { category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
-            { category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
+            { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 's3', category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 's4', category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 's5', category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' }
         ];
 
         function checkAdmin() {
@@ -300,79 +279,58 @@
             return false;
         }
 
-        // Синхронизация данных с облаком
+        // ПЕРВИЧНАЯ ОТРИСОВКА (не ждем базу)
+        products = [...initialSeed];
+        function startApp() {
+            renderAll();
+            checkAdmin();
+            setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 1000);
+        }
+
         window.addEventListener('vape-cloud-ready', () => {
+            if (!window.VapeCloud) return;
             const { db, appId, methods } = window.VapeCloud;
-            const isAdmin = checkAdmin();
-
-            const collectionRef = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-            const q = methods.query(collectionRef);
-
-            methods.onSnapshot(q, async (snapshot) => {
-                let dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-
-                // ЕСЛИ БАЗА ПУСТАЯ И ЗАШЕЛ АДМИН - АВТОМАТИЧЕСКИ НАПОЛНЯЕМ
-                if (dbItems.length === 0 && isAdmin) {
-                    console.log("Seeding database...");
-                    for(const p of initialSeed) {
-                        await methods.addDoc(collectionRef, { ...p, createdAt: Date.now() });
-                    }
-                    return; // onSnapshot сработает еще раз после добавления
+            const collectionPath = methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+            
+            methods.onSnapshot(methods.query(collectionPath), (snapshot) => {
+                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
+                // Если база не пуста, переключаемся на неё полностью
+                if (dbItems.length > 0) {
+                    products = dbItems;
+                    renderAll();
                 }
-
-                products = dbItems;
-                renderAll();
-                document.getElementById('loading-overlay').classList.add('hidden');
             });
         });
-
-        // Повторная проверка админа для страховки
-        [100, 500, 2000].forEach(ms => setTimeout(checkAdmin, ms));
 
         function renderAll() {
             const categories = ['Все', ...new Set(products.map(p => p.category))];
             if(categories.length === 1) categories.push('Одноразки', 'Жидкости', 'Pod-системы', 'Расходники');
-            
-            const catCont = document.getElementById('categories');
-            catCont.innerHTML = categories.map(c => `<button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+            document.getElementById('categories').innerHTML = categories.map(c => `<button class="category-btn ${c===activeCategory?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
 
             const grid = document.getElementById('products');
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
-            
-            if(filtered.length === 0) {
-                grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
-            } else {
-                grid.innerHTML = filtered.map(p => `
+            grid.innerHTML = filtered.map(p => `
                 <div class="product-card">
-                    <button class="delete-card-btn" onclick="deleteFromCloud('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>
+                    <button class="delete-card-btn" onclick="deleteItem('${p.docId || p.id}', ${!!p.docId})"><i data-lucide="trash-2" size="14"></i></button>
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${p.docId}')">В корзину</button>
+                    <button class="add-btn" onclick="addToCart('${p.docId || p.id}')">В корзину</button>
                 </div>`).join('');
-            }
             lucide.createIcons();
         }
 
         window.setCat = (c) => { activeCategory = c; renderAll(); };
-        
-        window.toggleAdminMode = () => {
-            isAdminMode = !isAdminMode;
-            document.body.classList.toggle('admin-mode', isAdminMode);
-            document.getElementById('adminBtn').classList.toggle('active', isAdminMode);
-            document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none';
-        };
+        window.toggleAdminMode = () => { isAdminMode = !isAdminMode; document.body.classList.toggle('admin-mode', isAdminMode); document.getElementById('adminBtn').classList.toggle('active', isAdminMode); document.getElementById('addBtn').style.display = isAdminMode ? 'flex' : 'none'; renderAll(); };
+        window.openSheet = (id) => { closeAllSheets(); document.getElementById(id).classList.add('active'); document.getElementById('overlay').classList.add('active'); };
+        window.closeAllSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminSheet'].forEach(id => document.getElementById(id).classList.remove('active')); document.getElementById('overlay').classList.remove('active'); };
 
         window.previewImage = (e) => {
             const file = e.target.files[0];
             const reader = new FileReader();
-            reader.onload = (ev) => {
-                selectedBase64 = ev.target.result;
-                const img = document.getElementById('img_preview');
-                img.src = selectedBase64; img.style.display = 'block';
-            };
+            reader.onload = (ev) => { selectedBase64 = ev.target.result; document.getElementById('img_preview').src = selectedBase64; document.getElementById('img_preview').style.display = 'block'; };
             reader.readAsDataURL(file);
         };
 
@@ -380,36 +338,25 @@
             const name = document.getElementById('p_name').value;
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
-            if(!name || !price) return;
-
-            const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = "Сохранение...";
-
+            if(!name || !price || !window.VapeCloud) return;
             const { db, appId, methods } = window.VapeCloud;
-            try {
-                await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), {
-                    name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200',
-                    createdAt: Date.now()
-                });
-                closeAllSheets();
-                document.getElementById('p_name').value = '';
-                document.getElementById('p_price').value = '';
-                document.getElementById('img_preview').style.display = 'none';
-                selectedBase64 = '';
-            } catch(e) { console.error(e); } finally { btn.disabled = false; btn.innerText = "Сохранить в облако"; }
+            await methods.addDoc(methods.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img: selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200', createdAt: Date.now() });
+            closeAllSheets();
         };
 
-        window.deleteFromCloud = async (docId) => {
-            if(!confirm("Удалить этот товар навсегда?")) return;
-            const { db, appId, methods } = window.VapeCloud;
-            try {
-                await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
-                tg.HapticFeedback.impactOccurred('medium');
-            } catch(e) { console.error(e); }
+        window.deleteItem = async (id, isCloud) => {
+            if(!confirm("Удалить?")) return;
+            if(isCloud && window.VapeCloud) {
+                const { db, appId, methods } = window.VapeCloud;
+                await methods.deleteDoc(methods.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+            } else {
+                products = products.filter(p => p.id !== id);
+                renderAll();
+            }
         };
 
         window.addToCart = (id) => {
-            const p = products.find(x => x.docId === id);
+            const p = products.find(x => (x.docId || x.id) === id);
             if(!p) return;
             if(cart[id]) cart[id].qty++; else cart[id] = {...p, qty: 1};
             updateCartUI();
@@ -423,49 +370,18 @@
             document.getElementById('cartFab').classList.toggle('visible', count > 0 && !isAdminMode);
             document.getElementById('cartCount').innerText = `${count} ТОВАРОВ`;
             document.getElementById('cartTotal').innerText = `${total} ₽`;
-            
-            const list = document.getElementById('cartList');
-            list.innerHTML = items.map(i => `
+            document.getElementById('cartList').innerHTML = items.map(i => `
                 <div style="display:flex; align-items:center; gap:10px; background:var(--glass); padding:10px; border-radius:15px; margin-bottom:8px;">
-                    <img src="${i.img}" style="width:40px; height:40px; border-radius:8px; object-fit:cover;">
-                    <div style="flex-grow:1; min-width:0">
-                        <div style="font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${i.name}</div>
+                    <img src="${i.img}" style="width:40px; height:40px; border-radius:8px;">
+                    <div style="flex-grow:1;">
+                        <div style="font-size:14px;">${i.name}</div>
                         <div style="color:var(--brand-color); font-weight:700;">${i.price * i.qty} ₽</div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <button onclick="changeQty('${i.docId}', -1)" style="background:none; border:none; color:#fff;"><i data-lucide="minus-circle" size="18"></i></button>
-                        <span style="font-size:14px;">${i.qty}</span>
-                        <button onclick="changeQty('${i.docId}', 1)" style="background:none; border:none; color:#fff;"><i data-lucide="plus-circle" size="18"></i></button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
+                </div>`).join('');
         }
 
-        window.changeQty = (id, delta) => {
-            if(cart[id]) {
-                cart[id].qty += delta;
-                if(cart[id].qty <= 0) delete cart[id];
-                updateCartUI();
-            }
-        };
-
-        window.openSheet = (id) => {
-            closeAllSheets();
-            document.getElementById(id).classList.add('active');
-            document.getElementById('overlay').classList.add('active');
-        };
-
-        window.closeAllSheets = () => {
-            ['cartSheet', 'orderSheet', 'paymentSheet', 'adminSheet'].forEach(id => document.getElementById(id).classList.remove('active'));
-            document.getElementById('overlay').classList.remove('active');
-        };
-
         window.goToPayment = () => {
-            if(!document.getElementById('order_name').value || !document.getElementById('order_phone').value) {
-                tg.HapticFeedback.notificationOccurred('error');
-                return;
-            }
+            if(!document.getElementById('order_name').value || !document.getElementById('order_phone').value) return;
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             document.getElementById('finalPrice').innerText = `${total} ₽`;
             generatedOrderKey = 'VX-' + Math.floor(100 + Math.random() * 900);
@@ -480,36 +396,18 @@
         };
 
         window.finishOrder = () => {
-            const btn = document.getElementById('finishBtn');
-            btn.disabled = true; btn.innerText = "Отправка...";
-            
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
-            const details = {
-                order_key: generatedOrderKey,
-                items: itemsText,
-                total: total + " ₽",
-                client: {
-                    name: document.getElementById('order_name').value,
-                    phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value, // Синхронизировано с бэкендом
-                    place: document.getElementById('order_location').value,
-                    time: document.getElementById('order_time').value
-                }
-            };
-            tg.sendData(JSON.stringify(details));
-            setTimeout(() => tg.close(), 500);
+            tg.sendData(JSON.stringify({
+                order_key: generatedOrderKey, items: itemsText, total: total + " ₽",
+                client: { name: document.getElementById('order_name').value, phone: document.getElementById('order_phone').value, username_or_contact: document.getElementById('order_contact').value, place: document.getElementById('order_location').value, time: document.getElementById('order_time').value }
+            }));
+            tg.close();
         };
 
-        window.toggleTheme = () => {
-            const b = document.body;
-            if(b.className.includes('toxic')) b.className = 'theme-ice';
-            else if(b.className.includes('ice')) b.className = 'theme-magma';
-            else b.className = 'theme-toxic';
-        };
+        window.toggleTheme = () => { document.body.className = document.body.className.includes('toxic') ? 'theme-ice' : document.body.className.includes('ice') ? 'theme-magma' : 'theme-toxic'; };
 
-        // Если облако не ответило за 5 сек, скрываем загрузку (аварийный режим)
-        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 5000);
+        startApp();
     </script>
 </body>
 </html>
