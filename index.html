@@ -492,7 +492,8 @@
                 pendingImage: null,
                 listenerUnsubscribe: null,
                 deliveryTime: null, // New state for time selection
-                ordersListenerUnsubscribe: null // For admin orders
+                ordersListenerUnsubscribe: null, // For admin orders
+                myOrdersListenerUnsubscribe: null // For user orders
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -779,6 +780,7 @@
                     else if (viewName === 'cart') window.shop.renderCart(main);
                     else if (viewName === 'profile') window.shop.renderProfile(main);
                     else if (viewName === 'admin-orders') window.shop.renderAdminOrders(main);
+                    else if (viewName === 'my-orders') window.shop.renderMyOrders(main);
                     
                     main.style.opacity = '1';
                     if(window.lucide) window.lucide.createIcons();
@@ -972,7 +974,7 @@
                     ` : ''}
                     
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
-                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.showToast('История заказов пуста', 'Инфо')">
+                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.switchView('my-orders')">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="package" class="w-5 h-5"></i></div>
                             <div class="flex-grow">
                                 <h4 class="text-sm font-bold text-white">Мои Заказы</h4>
@@ -1003,6 +1005,92 @@
                 `;
             },
 
+            // --- USER: RENDER MY ORDERS ---
+            renderMyOrders: async (container) => {
+                container.innerHTML = `
+                    <div class="flex items-center gap-3 mb-6">
+                        <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                        <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
+                    </div>
+                    <div id="my-orders-list" class="space-y-3 pb-24">
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
+                    </div>
+                `;
+
+                if (window.shop.state.myOrdersListenerUnsubscribe) {
+                    window.shop.state.myOrdersListenerUnsubscribe();
+                }
+
+                try {
+                    const uid = auth.currentUser.uid;
+                    if (!uid) {
+                        document.getElementById('my-orders-list').innerHTML = `<div class="text-center text-red-500">Ошибка авторизации</div>`;
+                        return;
+                    }
+
+                    window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
+                        .onSnapshot((snapshot) => {
+                            const list = document.getElementById('my-orders-list');
+                            if (!list) return;
+
+                            if (snapshot.empty) {
+                                list.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center py-10 text-gray-500">
+                                        <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
+                                        <p>История пуста</p>
+                                    </div>`;
+                                return;
+                            }
+
+                            let docs = [];
+                            snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                            
+                            // Client-side Sort
+                            docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                            let html = '';
+                            docs.forEach(data => {
+                                const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+                                
+                                let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+                                let statusText = 'ОБРАБОТКА';
+                                
+                                if (data.status === 'approved') {
+                                    statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
+                                    statusText = 'ГОТОВ К ВЫДАЧЕ';
+                                } else if (data.status === 'rejected') {
+                                    statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
+                                    statusText = 'ОТМЕНЕН';
+                                }
+
+                                // Items summary
+                                const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
+
+                                html += `
+                                    <div class="glass-panel rounded-xl p-4 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex flex-col">
+                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
+                                                <span class="text-xs text-gray-400">${itemsCount} товаров</span>
+                                            </div>
+                                            <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
+                                                ${statusText}
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-between items-end mt-2">
+                                            <div class="text-xs text-gray-500">${date}</div>
+                                            <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            list.innerHTML = html;
+                        });
+                } catch (e) {
+                    console.error(e);
+                }
+            },
+
             // --- ADMIN: RENDER ORDERS ---
             renderAdminOrders: async (container) => {
                 // Header
@@ -1023,8 +1111,6 @@
 
                 // Listen to Global Orders Collection
                 window.shop.state.ordersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders')
-                    .orderBy('date', 'desc')
-                    .limit(50)
                     .onSnapshot((snapshot) => {
                         const list = document.getElementById('admin-orders-list');
                         if (!list) return; // View changed
@@ -1034,9 +1120,14 @@
                             return;
                         }
 
+                        let docs = [];
+                        snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                        
+                        // Sort Client Side
+                        docs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
                         let html = '';
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
+                        docs.forEach(data => {
                             const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
                             
                             let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
@@ -1051,10 +1142,10 @@
                             }
 
                             html += `
-                                <div onclick="window.shop.openOrderDetails('${doc.id}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
+                                <div onclick="window.shop.openOrderDetails('${data.id}')" class="glass-panel rounded-xl p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                     <div class="flex justify-between items-start mb-2">
                                         <div class="flex flex-col">
-                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.id || 'NO-ID'}</span>
+                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
                                             <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
                                         </div>
                                         <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
@@ -1094,7 +1185,7 @@
 
                     content.innerHTML = `
                         <div class="text-center mb-4">
-                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.id}</h3>
+                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key}</h3>
                             <p class="text-xs text-gray-500">${new Date(data.date).toLocaleString('ru-RU')}</p>
                         </div>
                         
@@ -1136,12 +1227,27 @@
 
             updateOrderStatus: async (docId, status) => {
                 try {
+                    // 1. Update Public Order
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).update({
                         status: status
                     });
+
+                    // 2. Try to update User's Private Order (Sync Status)
+                    // We need to fetch the public doc first to get the linked User Order ID
+                    const docSnap = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        if (data.linkedUserUid && data.linkedUserOrderId) {
+                            await db.collection('artifacts').doc(APP_ID).collection('users').doc(data.linkedUserUid).collection('orders').doc(data.linkedUserOrderId).update({
+                                status: status
+                            });
+                        }
+                    }
+
                     document.getElementById('order-detail-modal').classList.add('hidden');
                     window.shop.showToast(`Статус изменен: ${status}`, 'Успешно');
                 } catch (e) {
+                     console.error(e);
                      window.shop.showToast('Ошибка обновления', 'Сбой');
                 }
             },
@@ -1309,65 +1415,53 @@
             },
 
             completeOrder: async () => {
-                // 1. Prepare items string for Telegram Message
-                const cartItems = [];
-                const stateProducts = window.shop.state.products;
-                const cartState = window.shop.state.cart;
-
-                for (const [pid, qty] of Object.entries(cartState)) {
-                    const product = stateProducts.find(p => p.id === pid);
-                    if (product) {
-                        // Format: Name (Price) (xQty)
-                        cartItems.push(`${product.name} (${product.price} ₽) (x${qty})`);
-                    }
-                }
-                const itemsString = cartItems.join(', ');
-                
-                // 2. Format Date
+                // 1. Prepare Data
                 const now = new Date();
-                const formattedDate = now.toLocaleDateString('ru-RU') + ', ' + now.toLocaleTimeString('ru-RU');
-
-                // 3. Construct Payload exactly for Python bot
-                const telegramPayload = {
-                    order_key: window.shop.state.currentOrderId,
-                    items: itemsString,
-                    total: window.shop.state.currentTotal + " ₽",
-                    client: {
-                        name: window.shop.state.deliveryInfo.name,
-                        phone: window.shop.state.deliveryInfo.phone,
-                        username_or_contact: window.shop.state.deliveryInfo.contact,
-                        place: window.shop.state.deliveryInfo.place,
-                        time: window.shop.state.deliveryInfo.time
-                    },
-                    timestamp: formattedDate
-                };
-
-                // 4. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
-                const dbOrder = {
+                
+                // 2. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
+                // We construct the order object
+                const orderBase = {
+                    order_key: window.shop.state.currentOrderId, // Match with previous naming convention
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
-                    date: new Date().toISOString(),
+                    date: now.toISOString(),
                     user: window.shop.state.user,
                     delivery: window.shop.state.deliveryInfo,
-                    status: 'pending' // New Status Field
+                    status: 'pending' 
                 };
 
                 try {
-                    const uid = auth.currentUser.uid;
-                     if (window.shop.state.user.id !== 999999 && uid) {
-                        // Save to User History
-                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(dbOrder);
-                     }
-                     // Save to PUBLIC ADMIN COLLECTION
-                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(dbOrder);
-                     
-                } catch(e) { console.error("DB Error", e); }
+                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    let userOrderDocId = null;
 
-                // 5. Send Formatted Payload to Telegram Bot
-                window.Telegram.WebApp.sendData(JSON.stringify(telegramPayload));
-                
-                // UI Cleanup
+                    // A. Save to User History (Private) if Authenticated
+                    if (uid) {
+                        try {
+                            const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
+                            userOrderDocId = userOrderRef.id;
+                        } catch(innerE) {
+                            console.warn("Could not save to user history", innerE);
+                        }
+                    }
+
+                    // B. Save to PUBLIC ADMIN COLLECTION (Always)
+                    // We link it to the user doc so Admin can update status later
+                    const publicOrder = {
+                        ...orderBase,
+                        linkedUserUid: uid,
+                        linkedUserOrderId: userOrderDocId
+                    };
+                    
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
+                     
+                } catch(e) { 
+                    console.error("DB Error", e); 
+                    window.shop.showToast("Ошибка соединения с базой", "Внимание");
+                    // Proceed anyway to clear UI
+                }
+
+                // 3. UI Cleanup (No more python payload)
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 window.shop.updateCartBadge();
