@@ -343,23 +343,34 @@
                 tg.setHeaderColor('#050505');
                 tg.setBackgroundColor('#050505');
 
-                // --- AGGRESSIVE USER PARSING ---
+                // --- ROBUST USER PARSING (FIXED) ---
                 let tgUser = tg.initDataUnsafe?.user;
                 
-                // Try parsing from hash if direct init failed
+                // If initDataUnsafe is empty (common in some bot links or forwarded webapps), try parsing URL manually
                 if (!tgUser) {
                     try {
-                        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-                        const tgWebAppData = hashParams.get('tgWebAppData');
-                        if (tgWebAppData) {
-                            const params = new URLSearchParams(tgWebAppData);
-                            const userStr = params.get('user');
-                            if (userStr) tgUser = JSON.parse(userStr);
+                        // Attempt to parse from Hash or Search params where Telegram puts tgWebAppData
+                        const urlParams = new URLSearchParams(window.location.hash.substring(1)); // Remove #
+                        const searchParams = new URLSearchParams(window.location.search);
+                        
+                        // Check Hash first, then Search
+                        let webAppDataStr = urlParams.get('tgWebAppData') || searchParams.get('tgWebAppData');
+                        
+                        if (webAppDataStr) {
+                            // DECODE URI COMPONENT IS CRITICAL HERE
+                            const webAppData = new URLSearchParams(decodeURIComponent(webAppDataStr));
+                            const userJson = webAppData.get('user');
+                            if (userJson) {
+                                tgUser = JSON.parse(decodeURIComponent(userJson));
+                                console.log("User parsed from URL parameters");
+                            }
                         }
-                    } catch(e) { console.log("Hash parse failed"); }
+                    } catch(e) { 
+                        console.error("Manual URL parsing failed", e); 
+                    }
                 }
                 
-                // Fallback for browser testing (Cannot get TG user outside TG)
+                // Fallback for purely browser testing
                 if (!tgUser) {
                     console.log("No TG User found - Browser Mode detected");
                     tgUser = { 
@@ -371,7 +382,9 @@
                 }
 
                 window.shop.state.user = tgUser;
-                window.shop.state.isAdmin = (tgUser.id === ADMIN_ID);
+                
+                // LOOSE COMPARISON (==) is important because IDs can be strings in URL params but numbers in object
+                window.shop.state.isAdmin = (tgUser.id == ADMIN_ID);
 
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
