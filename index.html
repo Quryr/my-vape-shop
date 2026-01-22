@@ -431,7 +431,7 @@
                 </div>
             </div>
 
-            <button id="pay-btn" onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
+            <button onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
                 <span>Я ОПЛАТИЛ</span>
                 <i data-lucide="check-circle" class="w-5 h-5"></i>
             </button>
@@ -524,8 +524,7 @@
                 ordersListenerUnsubscribe: null, // For admin orders
                 myOrdersListenerUnsubscribe: null, // For user orders
                 adminSelectionMode: false,
-                selectedAdminOrders: new Set(),
-                deliveryInfo: {}
+                selectedAdminOrders: new Set()
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -623,9 +622,6 @@
 
                 window.shop.state.user = tgUser;
                 
-                // Load Cart from LocalStorage
-                window.shop.loadCart();
-
                 // STRING COMPARISON for Admin ID to avoid type errors
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
 
@@ -643,6 +639,12 @@
                 // Auth & Data
                 await window.shop.authenticate();
 
+                // Sync Profile
+                if (tgUser) {
+                    await window.shop.saveUserProfile(tgUser);
+                    window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
+                }
+                
                 // Clear Loader
                 const loader = document.getElementById('loader');
                 loader.style.opacity = '0';
@@ -657,17 +659,6 @@
             },
 
             authenticate: async () => {
-                // Setup auth listener first to capture sign-in
-                auth.onAuthStateChanged(async (firebaseUser) => {
-                    if (firebaseUser) {
-                        // Sync profile AFTER we are definitely authenticated
-                        if (window.shop.state.user) {
-                            await window.shop.saveUserProfile(window.shop.state.user);
-                            // console.log(`Вход: ${window.shop.state.user.first_name}`);
-                        }
-                    }
-                });
-
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await auth.signInWithCustomToken(__initial_auth_token);
@@ -987,11 +978,6 @@
                 const roleColor = window.shop.state.isAdmin ? 'text-red-500' : 'text-green-500';
                 const roleBg = window.shop.state.isAdmin ? 'bg-red-500' : 'bg-green-500';
                 const roleName = window.shop.state.isAdmin ? 'АДМИНИСТРАТОР' : 'КЛИЕНТ';
-                
-                // Safe name rendering
-                const firstName = u.first_name || 'Гость';
-                const lastName = u.last_name || '';
-                const displayName = `${firstName} ${lastName}`.trim();
 
                 container.innerHTML = `
                     <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden animate-float-up border border-white/10">
@@ -1002,7 +988,7 @@
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
                         
-                        <h2 class="text-2xl font-black text-white relative z-10 italic mb-1 break-words w-full px-2">${displayName}</h2>
+                        <h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
                         
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
@@ -1046,57 +1032,34 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.0.0 (Admin Panel) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.1.0 (Admin Panel) - Tap 5x for Debug</p>
                 `;
             },
 
-            // --- USER: RENDER MY ORDERS (FIXED) ---
+            // --- USER: RENDER MY ORDERS ---
             renderMyOrders: (container) => {
-                // UI Setup
                 container.innerHTML = `
                     <div class="flex items-center gap-3 mb-6">
                         <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                         <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка данных...</div>
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
                     </div>
                 `;
-                if(window.lucide) window.lucide.createIcons();
 
-                // Clear previous listener
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
                     window.shop.state.myOrdersListenerUnsubscribe = null;
                 }
 
                 const list = document.getElementById('my-orders-list');
-                
-                // Declare loadTimeout variable outside so it can be cleared
-                let loadTimeout;
 
-                // Function to load data
-                const loadOrders = (uid) => {
-                    console.log("Loading orders for:", uid);
-                    
-                    // TIMEOUT SAFETY: If loading takes too long (> 10s), show error/retry
-                    // Start timeout ONLY when we start loading
-                    loadTimeout = setTimeout(() => {
-                        const listEl = document.getElementById('my-orders-list');
-                        if (listEl && listEl.innerText.includes("Загрузка")) {
-                             listEl.innerHTML = `
-                                <div class="text-center py-10 text-gray-500">
-                                    <p class="mb-2">Не удалось загрузить данные</p>
-                                    <button onclick="window.shop.switchView('my-orders')" class="text-green-500 font-bold border border-green-500 rounded-lg px-4 py-2 text-xs">Повторить</button>
-                                </div>`;
-                        }
-                    }, 10000); // Increased timeout
-
+                // Function to set up listener
+                const startOrdersSync = (uid) => {
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
                         .onSnapshot((snapshot) => {
-                            clearTimeout(loadTimeout); // Clear timeout on success
-                            
-                            if (!document.getElementById('my-orders-list')) return;
+                            if (!document.body.contains(list)) return; // Prevents error if user left page
 
                             if (snapshot.empty) {
                                 list.innerHTML = `
@@ -1110,13 +1073,17 @@
 
                             let docs = [];
                             snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                            
+                            // Client-side Sort
                             docs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                             let html = '';
                             docs.forEach(data => {
                                 const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+                                
                                 let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
                                 let statusText = 'ОБРАБОТКА';
+                                
                                 if (data.status === 'approved') {
                                     statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
                                     statusText = 'ГОТОВ К ВЫДАЧЕ';
@@ -1124,13 +1091,14 @@
                                     statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
                                     statusText = 'ОТМЕНЕН';
                                 }
+
                                 const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
 
                                 html += `
                                     <div class="glass-panel rounded-xl p-4 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                         <div class="flex justify-between items-start mb-2">
                                             <div class="flex flex-col">
-                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substr(0,8)}</span>
+                                                <span class="text-[9px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
                                                 <span class="text-xs text-gray-400">${itemsCount} товаров</span>
                                             </div>
                                             <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
@@ -1145,45 +1113,33 @@
                                 `;
                             });
                             list.innerHTML = html;
-                            if(window.lucide) window.lucide.createIcons();
                         }, (error) => {
-                            clearTimeout(loadTimeout);
                             console.error("My Orders Error:", error);
-                            // Only show error if permission denied (real error) or network fails definitively
-                            // Ignore transient errors if retry works
-                            if(error.code === 'permission-denied') {
-                                list.innerHTML = `<div class="text-center text-red-500 py-10">Доступ запрещен.<br>Попробуйте перезагрузить.</div>`;
-                            } else {
-                                list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка загрузки.<br>Проверьте интернет.</div>`;
+                            if(list && document.body.contains(list)) {
+                                list.innerHTML = `<div class="text-center text-red-500 py-10">Не удалось загрузить заказы</div>`;
                             }
                         });
                 };
 
-                // Authentication Flow
+                // Robust Auth Check
                 if (auth.currentUser) {
-                    loadOrders(auth.currentUser.uid);
+                    startOrdersSync(auth.currentUser.uid);
                 } else {
-                    // Try to catch auth state change first
-                    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-                        // DON'T unsubscribe immediately here if user is null
-                        // Wait for a valid user
-                        if (user) {
-                            unsubscribeAuth(); 
-                            loadOrders(user.uid);
-                        } 
-                        // If null, we do nothing and keep waiting for auth state to resolve
-                        // unless timeout happens (optional, but let's keep it simple and robust)
-                    });
-
-                    // Fallback: If auth takes too long (e.g. > 5s) and still no user, we might want to try forcing
-                    // But usually onAuthStateChanged will fire eventually. 
-                    // Let's add a safe timeout to retry anonymous auth if stuck
-                    setTimeout(() => {
-                        if (!auth.currentUser) {
-                             console.log("Auth taking long, forcing retry...");
-                             auth.signInAnonymously().catch(console.error);
-                        }
-                    }, 5000);
+                    // Try to sign in if not signed in (Fixes "Error Auth" loop)
+                    auth.signInAnonymously()
+                        .then(cred => startOrdersSync(cred.user.uid))
+                        .catch(e => {
+                            console.error("Auth failed in My Orders:", e);
+                            if(list && document.body.contains(list)) {
+                                list.innerHTML = `
+                                    <div class="flex flex-col items-center justify-center py-10 text-center">
+                                        <div class="text-red-500 mb-2 font-bold">Ошибка авторизации</div>
+                                        <div class="text-[10px] text-gray-500 mb-4 max-w-[200px]">${e.message || 'Сбой соединения'}</div>
+                                        <button onclick="window.shop.switchView('my-orders')" class="px-4 py-2 bg-white/10 rounded-lg text-xs hover:bg-white/20 text-white transition-colors">Попробовать снова</button>
+                                    </div>
+                                `;
+                            }
+                        });
                 }
             },
 
@@ -1444,7 +1400,6 @@
                 }
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
-                window.shop.saveCart(); // Save to LocalStorage
                 window.shop.showToast("Добавлено в корзину", "Корзина");
                 
                 if(window.Telegram.WebApp.HapticFeedback) {
@@ -1461,27 +1416,8 @@
                 }
                 
                 window.shop.updateCartBadge();
-                window.shop.saveCart(); // Save to LocalStorage
                 window.shop.renderCart(document.getElementById('main-content'));
                 setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
-            },
-
-            // --- NEW: LocalStorage Helpers ---
-            saveCart: () => {
-                localStorage.setItem('vape_cart', JSON.stringify(window.shop.state.cart));
-            },
-
-            loadCart: () => {
-                const stored = localStorage.getItem('vape_cart');
-                if (stored) {
-                    try {
-                        window.shop.state.cart = JSON.parse(stored);
-                        window.shop.updateCartBadge();
-                    } catch(e) {
-                        console.error("Error loading cart", e);
-                        window.shop.state.cart = {};
-                    }
-                }
             },
 
             updateCartBadge: () => {
@@ -1569,18 +1505,6 @@
                 window.shop.state.currentTotal = total;
                 // Open Delivery Form First
                 document.getElementById('delivery-modal').classList.remove('hidden');
-                
-                // Load saved delivery info if any
-                const savedInfo = localStorage.getItem('vape_delivery_info');
-                if (savedInfo) {
-                    try {
-                        const info = JSON.parse(savedInfo);
-                        document.getElementById('del-name').value = info.name || '';
-                        document.getElementById('del-phone').value = info.phone || '';
-                        document.getElementById('del-contact').value = info.contact || '';
-                        document.getElementById('del-place').value = info.place || '';
-                    } catch(e) {}
-                }
             },
 
             selectTime: (time, btn) => {
@@ -1606,9 +1530,6 @@
 
                 // Store info temporarily
                 window.shop.state.deliveryInfo = { name, phone, contact, place, time };
-                
-                // Save info to local storage for convenience
-                localStorage.setItem('vape_delivery_info', JSON.stringify({ name, phone, contact, place }));
 
                 // Switch Modals
                 document.getElementById('delivery-modal').classList.add('hidden');
@@ -1618,14 +1539,6 @@
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
                 window.shop.state.currentOrderId = orderId;
-                
-                // Reset button state
-                const btn = document.getElementById('pay-btn');
-                if(btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
-                    if(window.lucide) window.lucide.createIcons();
-                }
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
             },
@@ -1637,60 +1550,38 @@
             },
 
             completeOrder: async () => {
-                const btn = document.getElementById('pay-btn');
-                if(btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = `<span class="animate-pulse">ОБРАБОТКА...</span>`;
-                }
-
-                // FORCE AUTH CHECK:
-                // Ensure we have a valid UID before saving anything private
-                let uid = auth.currentUser ? auth.currentUser.uid : null;
-                
-                if (!uid) {
-                    try {
-                        const cred = await auth.signInAnonymously();
-                        uid = cred.user.uid;
-                        // Save profile immediately for the new user
-                        await window.shop.saveUserProfile(window.shop.state.user);
-                    } catch (e) {
-                        console.error("Critical Auth Fail in Checkout", e);
-                        window.shop.showToast("Ошибка авторизации. Попробуйте снова.", "Сбой");
-                        if(btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
-                            if(window.lucide) window.lucide.createIcons();
-                        }
-                        return; // Stop here
-                    }
-                }
-
                 // 1. Prepare Data
                 const now = new Date();
                 
+                // 2. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
+                // We construct the order object
                 const orderBase = {
-                    order_key: window.shop.state.currentOrderId, 
+                    order_key: window.shop.state.currentOrderId, // Match with previous naming convention
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: now.toISOString(),
-                    user: window.shop.state.user, // Save TG user info
+                    user: window.shop.state.user,
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending' 
                 };
 
                 try {
+                    const uid = auth.currentUser ? auth.currentUser.uid : null;
                     let userOrderDocId = null;
 
-                    // A. Save to User History (Private) - NOW GUARANTEED
-                    try {
-                        const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
-                        userOrderDocId = userOrderRef.id;
-                    } catch(innerE) {
-                        console.warn("Could not save to user history", innerE);
+                    // A. Save to User History (Private) if Authenticated
+                    if (uid) {
+                        try {
+                            const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
+                            userOrderDocId = userOrderRef.id;
+                        } catch(innerE) {
+                            console.warn("Could not save to user history", innerE);
+                        }
                     }
 
-                    // B. Save to PUBLIC ADMIN COLLECTION
+                    // B. Save to PUBLIC ADMIN COLLECTION (Always)
+                    // We link it to the user doc so Admin can update status later
                     const publicOrder = {
                         ...orderBase,
                         linkedUserUid: uid,
@@ -1698,20 +1589,16 @@
                     };
                     
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
-                    
-                    // C. Force update profile timestamp to ensure user doc exists
-                    await window.shop.saveUserProfile(window.shop.state.user);
                       
                 } catch(e) { 
                     console.error("DB Error", e); 
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
-                    // Continue to clear UI even if error (user experience priority)
+                    // Proceed anyway to clear UI
                 }
 
-                // 3. UI Cleanup
+                // 3. UI Cleanup (No more python payload)
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
-                window.shop.saveCart(); // Clear local storage cart
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
