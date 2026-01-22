@@ -18,7 +18,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -37,7 +36,6 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-                window.isVapeAuthReady = true;
                 window.dispatchEvent(new Event('vape-auth-ready'));
             } catch (e) {
                 console.error("Auth failed:", e);
@@ -65,7 +63,6 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
         body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; width: 100vw; min-height: 100vh; }
 
-        /* Silk Motion Background */
         .background-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; background: radial-gradient(circle at center, #111 0%, #000 100%); }
         .orb { position: absolute; width: 300px; height: 300px; border-radius: 50%; filter: blur(80px); opacity: 0.3; transition: background var(--transition); }
         .orb-1 { background: var(--brand-color); top: -50px; right: -50px; animation: float 20s infinite alternate; }
@@ -77,7 +74,7 @@
             position: sticky; top: 0; z-index: 100; backdrop-filter: blur(15px);
             background: rgba(5, 5, 5, 0.6); border-bottom: 1px solid var(--glass-border);
         }
-        .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .header-btns { display: flex; gap: 8px; }
         .icon-btn {
             background: var(--glass); border: 1px solid var(--glass-border); color: var(--text-main);
@@ -121,7 +118,7 @@
             width: calc(100% - 32px); max-width: 450px; background: var(--brand-color);
             color: var(--bg-dark); height: 64px; border-radius: 22px; display: flex;
             align-items: center; justify-content: space-between; padding: 0 24px; font-weight: 700;
-            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 40px var(--brand-glow); z-index: 200; transition: transform 0.5s;
         }
         .cart-fab.visible { transform: translateX(-50%) translateY(0); }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 300; opacity: 0; visibility: hidden; transition: var(--transition); }
@@ -129,7 +126,7 @@
         .bottom-sheet {
             position: fixed; bottom: 0; left: 0; width: 100%; background: #0d0d0d;
             border-top: 1px solid var(--glass-border); border-radius: 28px 28px 0 0;
-            z-index: 301; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 301; transform: translateY(100%); transition: transform 0.4s;
             max-height: 85vh; display: flex; flex-direction: column; padding: 20px;
         }
         .bottom-sheet.active { transform: translateY(0); }
@@ -140,14 +137,10 @@
             border-radius: 14px; padding: 15px; text-align: center; margin-bottom: 15px;
             cursor: pointer; position: relative;
         }
-        .file-upload-preview {
-            width: 60px; height: 60px; border-radius: 10px; object-fit: cover; margin: 10px auto;
-            display: none; border: 1px solid var(--brand-color);
-        }
+        .file-upload-preview { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; margin: 10px auto; display: none; border: 1px solid var(--brand-color); }
         #p_file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
-        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.3s; }
-        .checkout-btn:active { transform: scale(0.98); }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; }
 
         .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
         .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
@@ -158,10 +151,7 @@
         body.admin-mode .delete-card-btn { display: flex; }
         body.admin-mode .cart-fab { display: none !important; }
 
-        @media (max-width: 360px) {
-            .product-name { font-size: 12px; }
-            .products-grid { gap: 8px; padding: 0 12px 100px 12px; }
-        }
+        @media (max-width: 360px) { .product-name { font-size: 12px; } .products-grid { gap: 8px; padding: 0 12px 100px 12px; } }
     </style>
 </head>
 <body class="theme-toxic">
@@ -284,14 +274,12 @@
             <option value="Pod-системы">Pod-системы</option>
             <option value="Расходники">Расходники</option>
         </select>
-        
         <div class="file-upload-container">
             <i data-lucide="image" size="24" style="color:var(--brand-color)"></i>
             <div style="font-size: 13px; margin-top: 5px; color:var(--text-muted)" id="uploadText">Выбрать фото из галереи</div>
             <img id="imagePreview" class="file-upload-preview">
             <input type="file" id="p_file" accept="image/*" onchange="handleImageSelect(event)">
         </div>
-
         <button class="checkout-btn" id="saveProductBtn" onclick="adminAddProduct()">Добавить карточку</button>
     </div>
 
@@ -310,29 +298,27 @@
         const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
-        let dbLoaded = false;
+        let cloudSynced = false;
 
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { id: 's3', category: 'Жидкости', name: 'Husky Double Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 's4', category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' }
+            { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' }
         ];
 
         function checkAdminAccess() {
             const user = tg.initDataUnsafe?.user;
-            // Проверка на админа через Telegram ID (жесткое сравнение)
-            if (user && (String(user.id) === String(MY_ADMIN_ID))) {
-                const btn = document.getElementById('adminBtn');
-                if(btn) btn.style.display = 'flex';
+            // Более жесткая проверка ID
+            const isAuthorized = user && (String(user.id) === String(MY_ADMIN_ID));
+            if (isAuthorized) {
+                document.getElementById('adminBtn').style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        // Инициализация при старте (сначала показываем seed)
         function startApp() {
-            products = [...initialSeed];
+            // Сначала показываем seed, если нет облака
+            if(!cloudSynced) products = [...initialSeed];
             renderAll();
             checkAdminAccess();
         }
@@ -343,31 +329,21 @@
 
             const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
             fs.onSnapshot(q, (snapshot) => {
-                // Как только облако ответило, мы переключаемся ТОЛЬКО на него
-                const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
-                
-                // Если мы хотя бы раз получили данные (даже пустые), отключаем seed
-                dbLoaded = true;
-                products = dbItems;
+                // Как только облако ответило - это единственный источник правды
+                cloudSynced = true;
+                products = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 renderAll();
             }, (error) => {
-                console.error("Firebase Error:", error);
-                // В случае ошибки прав доступа все равно пытаемся показать хоть что-то
-                if(!dbLoaded) renderAll();
+                console.error("Cloud Error:", error);
+                if(!cloudSynced) startApp();
             });
         });
 
-        // Повторная проверка админа на случай задержки загрузки профиля
-        const retryCheck = setInterval(() => {
-            if(checkAdminAccess()) clearInterval(retryCheck);
-        }, 1000);
-        setTimeout(() => clearInterval(retryCheck), 5000);
+        // Запасная проверка профиля через интервал (для кнопки "Открыть магазин")
+        const adminRetry = setInterval(() => { if(checkAdminAccess()) clearInterval(adminRetry); }, 1000);
+        setTimeout(() => clearInterval(adminRetry), 10000);
 
-        function renderAll() {
-            renderCategories();
-            renderProducts();
-            lucide.createIcons();
-        }
+        function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
 
         function renderCategories() {
             const categories = ['Все', ...new Set(products.map(p => p.category))];
@@ -383,37 +359,33 @@
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
-            
             if (filtered.length === 0) {
                 container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
                 return;
             }
-
             container.innerHTML = filtered.map(p => {
-                const isFromDB = !!p.docId;
-                const itemId = p.docId || p.id;
+                const id = p.docId || p.id;
                 return `
                 <div class="product-card">
-                    ${isAdminMode ? `<button class="delete-card-btn" onclick="deleteItem('${itemId}', ${isFromDB})"><i data-lucide="trash-2" size="14"></i></button>` : ''}
+                    ${isAdminMode && p.docId ? `<button class="delete-card-btn" onclick="deleteItem('${p.docId}')"><i data-lucide="trash-2" size="14"></i></button>` : ''}
+                    ${isAdminMode && !p.docId ? `<button class="delete-card-btn" onclick="alert('Этот товар в коде, его нельзя удалить из облака. Добавьте его через Плюс, чтобы управлять им.')"><i data-lucide="lock" size="14"></i></button>` : ''}
                     <img src="${p.img}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200'">
                     <div class="product-info">
                         <span class="product-name">${p.name}</span>
                         <span class="product-price">${p.price} ₽</span>
                     </div>
-                    <button class="add-btn" onclick="addToCart('${itemId}')">В корзину</button>
+                    <button class="add-btn" onclick="addToCart('${id}')">В корзину</button>
                 </div>`;
             }).join('');
             lucide.createIcons();
         }
 
         window.setCategory = (cat) => { tg.HapticFeedback.selectionChanged(); activeCategory = cat; renderAll(); };
-        
         window.toggleTheme = () => {
             tg.HapticFeedback.impactOccurred('medium');
             currentThemeIndex = (currentThemeIndex + 1) % themes.length;
             document.body.className = `theme-${themes[currentThemeIndex]} ${isAdminMode ? 'admin-mode' : ''}`;
         };
-
         window.toggleAdminMode = () => {
             isAdminMode = !isAdminMode;
             document.body.classList.toggle('admin-mode', isAdminMode);
@@ -422,10 +394,7 @@
             renderAll();
         };
 
-        window.openAdminForm = () => {
-            document.getElementById('adminForm').classList.add('active');
-            document.getElementById('overlay').classList.add('active');
-        };
+        window.openAdminForm = () => { document.getElementById('adminForm').classList.add('active'); document.getElementById('overlay').classList.add('active'); };
 
         window.handleImageSelect = (event) => {
             const file = event.target.files[0];
@@ -447,18 +416,14 @@
             const price = Number(document.getElementById('p_price').value);
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
-            
             if (!name || !price) return;
             const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true; btn.innerText = 'Сохранение...';
-
+            btn.disabled = true;
             try {
-                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { 
-                    name, price, category, img, createdAt: Date.now() 
-                });
+                await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
                 resetAdminForm(); closeSheets();
                 tg.HapticFeedback.notificationOccurred('success');
-            } catch (e) { console.error(e); } finally { btn.disabled = false; btn.innerText = 'Добавить карточку'; }
+            } catch (e) { console.error(e); } finally { btn.disabled = false; }
         };
 
         function resetAdminForm() {
@@ -467,20 +432,13 @@
             document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
-        window.deleteItem = async (id, isFromDB) => {
-            if (!confirm("Удалить товар?")) return;
+        window.deleteItem = async (docId) => {
+            if (!confirm("Удалить этот товар из облака навсегда?")) return;
             tg.HapticFeedback.impactOccurred('medium');
-            
-            if (isFromDB && window.VapeDB) {
-                const { db, fs, appId } = window.VapeDB;
-                try {
-                    await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                } catch (e) { console.error("Delete from DB failed:", e); }
-            } else {
-                // Если это seed-товар, просто убираем его из массива до перезагрузки
-                products = products.filter(p => (p.docId || p.id) !== id);
-                renderAll();
-            }
+            const { db, fs, appId } = window.VapeDB;
+            try {
+                await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', docId));
+            } catch (e) { console.error(e); }
         };
 
         window.addToCart = (id) => {
@@ -556,7 +514,6 @@
             btn.disabled = true; btn.innerText = "Отправка...";
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
-
             const orderDetails = {
                 action: "NEW_ORDER",
                 order_key: currentOrderKey,
@@ -565,27 +522,18 @@
                 client: {
                     name: document.getElementById('order_name').value,
                     phone: document.getElementById('order_phone').value,
-                    username_or_contact: document.getElementById('order_contact').value, // Синхронизировано с бэкендом
+                    username_or_contact: document.getElementById('order_contact').value,
                     place: document.getElementById('order_location').value,
                     time: document.getElementById('order_time').value
                 },
                 timestamp: new Date().toLocaleString()
             };
-            
             tg.sendData(JSON.stringify(orderDetails)); 
             setTimeout(() => tg.close(), 500);
         };
 
         window.toggleCart = (s) => { closeSheets(); if(s) { document.getElementById('cartSheet').classList.add('active'); document.getElementById('overlay').classList.add('active'); document.body.style.overflow = 'hidden'; } };
-        window.closeSheets = () => { 
-            const sheets = ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'];
-            sheets.forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.classList.remove('active');
-            }); 
-            document.getElementById('overlay').classList.remove('active'); 
-            document.body.style.overflow = ''; 
-        };
+        window.closeSheets = () => { ['cartSheet', 'orderSheet', 'paymentSheet', 'adminForm'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('active'); }); document.getElementById('overlay').classList.remove('active'); document.body.style.overflow = ''; };
 
         startApp();
     </script>
