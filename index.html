@@ -16,7 +16,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
@@ -26,7 +26,7 @@
 
         window.VapeDB = { 
             db, auth, appId, 
-            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, signInAnonymously, signInWithCustomToken, onAuthStateChanged } 
+            fs: { collection, doc, onSnapshot, addDoc, deleteDoc, query, getDocs, signInAnonymously, signInWithCustomToken, onAuthStateChanged } 
         };
 
         const initAuth = async () => {
@@ -85,8 +85,7 @@
         .icon-btn.active { background: var(--brand-color); color: var(--bg-dark); }
         #addBtn { display: none; background: var(--brand-color); color: var(--bg-dark); border-color: var(--brand-color); }
 
-        .categories-container { padding: 12px 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-        .categories-container::-webkit-scrollbar { display: none; }
+        .categories-container { padding: 12px 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
         .categories-inner { display: inline-flex; gap: 10px; padding: 10px 20px 25px 20px; align-items: center; }
         .category-btn {
             background: var(--glass); border: none; color: var(--text-muted); padding: 10px 18px;
@@ -104,7 +103,7 @@
         .delete-card-btn {
             position: absolute; top: 10px; right: 10px; background: var(--error);
             color: white; border: none; width: 28px; height: 28px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center; z-index: 10;
+            display: none; align-items: center; justify-content: center; z-index: 10;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .product-img { width: 100%; aspect-ratio: 1/1; border-radius: 16px; background: rgba(255,255,255,0.03); object-fit: cover; padding: 6px; }
@@ -140,7 +139,8 @@
         .file-upload-preview { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; margin: 10px auto; display: none; border: 1px solid var(--brand-color); }
         #p_file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
-        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; }
+        .checkout-btn { background: var(--brand-color); color: var(--bg-dark); border: none; width: 100%; padding: 18px; border-radius: 18px; font-weight: 700; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .checkout-btn:active { transform: scale(0.98); }
 
         .payment-info { background: rgba(255,255,255,0.03); border: 1px dashed var(--brand-color); border-radius: 16px; padding: 20px; text-align: center; margin: 10px 0; }
         .price-tag { font-size: 28px; font-weight: 800; color: var(--brand-color); margin: 10px 0; }
@@ -148,6 +148,10 @@
         .copy-btn { color: var(--brand-color); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; }
         .payment-key { color: var(--brand-color); font-size: 22px; font-weight: 800; letter-spacing: 2px; }
 
+        /* Admin Setup Banner */
+        .admin-setup-btn { background: var(--brand-color); color: #000; padding: 12px; border-radius: 12px; font-weight: 700; margin: 10px 16px; display: none; text-align: center; cursor: pointer; }
+
+        body.admin-mode .delete-card-btn { display: flex !important; }
         body:not(.admin-mode) .delete-card-btn { display: none !important; }
         body.admin-mode .cart-fab { display: none !important; }
 
@@ -178,6 +182,8 @@
             </button>
         </div>
     </header>
+
+    <div id="adminSetup" class="admin-setup-btn" onclick="seedDatabase()">🚀 Загрузить базу товаров (Один раз)</div>
 
     <div class="categories-container">
         <div class="categories-inner" id="categories"></div>
@@ -241,22 +247,17 @@
         <div style="text-align: center; flex-grow:1; overflow-y: auto;">
             <div style="font-size: 13px; color: var(--text-muted)">Переведите на карту Ozon Банка:</div>
             <div class="price-tag" id="finalPrice">0 ₽</div>
-            
             <div class="payment-info">
                 <div style="font-weight: 700; margin-bottom: 12px; font-size: 14px; text-transform: uppercase; color: var(--brand-color)">Ozon Банк</div>
-                
                 <div class="copy-info-row">
                     <span style="font-family: monospace; font-size: 15px; font-weight: 600;">2204 3209 2444 1944</span>
                     <span class="copy-btn" onclick="copyText('2204320924441944')">КОПИРОВАТЬ</span>
                 </div>
-
                 <div style="font-size: 12px; margin: 15px 0 10px 0; color: var(--text-muted);">УКАЖИТЕ В КОММЕНТАРИИ КЛЮЧ:</div>
-                
                 <div class="copy-info-row" style="background: rgba(0,255,136,0.1); border: 1px solid var(--brand-color);">
                     <span class="payment-key" id="order_key">---</span>
                     <span class="copy-btn" onclick="copyGeneratedKey()">КОПИРОВАТЬ</span>
                 </div>
-
                 <div style="font-size: 12px; margin-top: 15px; color: var(--text-main);">Получатель: <b>Иван Владимирович Р.</b></div>
             </div>
         </div>
@@ -298,75 +299,89 @@
         const themes = ['toxic', 'ice', 'magma'];
         let selectedBase64 = '';
         let currentOrderKey = '';
-        let cloudSynced = false;
+        let isUsingCloud = false;
 
         const initialSeed = [
             { id: 's1', category: 'Одноразки', name: 'HQD Cuvie Plus (1200)', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
             { id: 's2', category: 'Одноразки', name: 'Elf Bar BC5000', price: 850, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
-            { id: 's3', category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
-            { id: 's4', category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' }
+            { id: 's3', category: 'Одноразки', name: 'Lost Mary BM5000', price: 790, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 's4', category: 'Одноразки', name: 'Waka SoPro 10000', price: 1350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 's5', category: 'Жидкости', name: 'Husky Ice 30ml', price: 450, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 's6', category: 'Жидкости', name: 'Maxwell\'s Shoria 30ml', price: 650, img: 'https://images.unsplash.com/photo-1621217743588-3351ecf7b46d?w=200' },
+            { id: 's7', category: 'Жидкости', name: 'Boshki Strong 30ml', price: 490, img: 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200' },
+            { id: 's8', category: 'Pod-системы', name: 'Vaporesso XROS 3', price: 2850, img: 'https://images.unsplash.com/photo-1552819056-421622b3818f?w=200' },
+            { id: 's9', category: 'Pod-системы', name: 'Charon Baby Plus', price: 2400, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' },
+            { id: 's10', category: 'Расходники', name: 'Картридж XROS 0.6', price: 350, img: 'https://images.unsplash.com/photo-1542385151-efd9000785a0?w=200' },
+            { id: 's11', category: 'Расходники', name: 'Испаритель PnP-VM1', price: 250, img: 'https://images.unsplash.com/photo-1614264624108-01127027e8ea?w=200' }
         ];
 
         function checkAdminAccess() {
-            const user = tg.initDataUnsafe?.user;
-            if (user && String(user.id) === String(MY_ADMIN_ID)) {
+            // Ищем ID в данных запуска
+            let userId = tg.initDataUnsafe?.user?.id;
+            
+            // Если пусто, пробуем вытащить из параметров URL вручную
+            if (!userId) {
+                try {
+                    const params = new URLSearchParams(window.location.hash.substring(1));
+                    const userStr = params.get('user');
+                    if (userStr) userId = JSON.parse(userStr).id;
+                } catch(e) {}
+            }
+
+            if (userId && String(userId) === String(MY_ADMIN_ID)) {
                 document.getElementById('adminBtn').style.display = 'flex';
                 return true;
             }
             return false;
         }
 
-        // Рендерим сразу из кода
+        // Рендерим сразу
         products = [...initialSeed];
         renderAll();
 
         window.addEventListener('vape-auth-ready', () => {
             const { auth, fs, db, appId } = window.VapeDB;
-            checkAdminAccess();
+            const isAdmin = checkAdminAccess();
 
             const q = fs.query(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'));
             fs.onSnapshot(q, (snapshot) => {
                 const dbItems = snapshot.docs.map(doc => ({ docId: doc.id, ...doc.data() }));
                 
-                // Если в облаке пусто - оставляем seed. 
-                // Если в облаке есть ХОТЯ БЫ ОДИН товар - переключаемся на облако.
-                if (dbItems.length > 0) {
-                    cloudSynced = true;
+                // Если облако отдало ХОТЯ БЫ ОДИН результат — мы полностью в облаке.
+                // Если результат пустой, но мы ПЕРЕШЛИ в облако (уже удалили последний товар) — мы в облаке.
+                if (dbItems.length > 0 || isUsingCloud) {
+                    isUsingCloud = true;
                     products = dbItems;
-                } else if (cloudSynced) {
-                    // Если мы уже были в режиме облака и оно стало пустым (удалили последний товар)
-                    products = [];
+                    document.getElementById('adminSetup').style.display = 'none';
+                } else {
+                    // База ПУСТА и мы еще не начали работать с облаком.
+                    products = [...initialSeed];
+                    if(isAdmin) document.getElementById('adminSetup').style.display = 'block';
                 }
                 renderAll();
-            }, (error) => { console.error("Cloud Error:", error); });
+            });
         });
 
-        // Жесткая проверка админа (повторы на случай задержки SDK)
         [100, 1000, 3000].forEach(ms => setTimeout(checkAdminAccess, ms));
 
         function renderAll() { renderCategories(); renderProducts(); lucide.createIcons(); }
 
         function renderCategories() {
-            // Берем категории из текущего списка товаров ИЛИ дефолтный набор, если товаров 0
             let cats = [...new Set(products.map(p => p.category))];
             if (cats.length === 0) cats = ['Одноразки', 'Жидкости', 'Pod-системы', 'Расходники'];
             if (!cats.includes('Все')) cats.unshift('Все');
-
             const container = document.getElementById('categories');
-            if(!container) return;
-            container.innerHTML = cats.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
+            if(container) container.innerHTML = cats.map(cat => `<button class="category-btn ${cat === activeCategory ? 'active' : ''}" onclick="setCategory('${cat}')">${cat}</button>`).join('');
         }
 
         function renderProducts() {
             const filtered = activeCategory === 'Все' ? products : products.filter(p => p.category === activeCategory);
             const container = document.getElementById('products');
             if(!container) return;
-            
             if (filtered.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">В этой категории пусто</div>`;
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted)">Товаров пока нет</div>`;
                 return;
             }
-
             container.innerHTML = filtered.map(p => {
                 const id = p.docId || p.id;
                 return `
@@ -407,9 +422,26 @@
                 selectedBase64 = e.target.result;
                 document.getElementById('imagePreview').src = selectedBase64;
                 document.getElementById('imagePreview').style.display = 'block';
-                document.getElementById('uploadText').innerText = 'Готово';
             };
             reader.readAsDataURL(file);
+        };
+
+        // ПЕРЕНОС СТАРТОВОГО СПИСКА В ОБЛАКО
+        window.seedDatabase = async () => {
+            if (!window.VapeDB || !confirm("Загрузить стандартный ассортимент в облако?")) return;
+            const { db, fs, appId } = window.VapeDB;
+            const setupBtn = document.getElementById('adminSetup');
+            setupBtn.innerText = "Загрузка...";
+            try {
+                for (const p of initialSeed) {
+                    await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { 
+                        name: p.name, price: p.price, category: p.category, img: p.img, createdAt: Date.now() 
+                    });
+                }
+                isUsingCloud = true;
+                setupBtn.style.display = 'none';
+                tg.HapticFeedback.notificationOccurred('success');
+            } catch(e) { console.error(e); }
         };
 
         window.adminAddProduct = async () => {
@@ -420,19 +452,18 @@
             const category = document.getElementById('p_cat').value;
             const img = selectedBase64 || 'https://images.unsplash.com/photo-1574521409219-948cca49f565?w=200';
             if (!name || !price) return;
-            const btn = document.getElementById('saveProductBtn');
-            btn.disabled = true;
+            
+            isUsingCloud = true; // Переключаемся на облако при первом добавлении
             try {
                 await fs.addDoc(fs.collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), { name, price, category, img, createdAt: Date.now() });
                 resetAdminForm(); closeSheets();
                 tg.HapticFeedback.notificationOccurred('success');
-            } catch (e) { console.error(e); } finally { btn.disabled = false; }
+            } catch (e) { console.error(e); }
         };
 
         function resetAdminForm() {
             document.getElementById('p_name').value = ''; document.getElementById('p_price').value = ''; 
             document.getElementById('imagePreview').style.display = 'none'; selectedBase64 = '';
-            document.getElementById('uploadText').innerText = 'Выбрать фото из галереи';
         }
 
         window.deleteItem = async (id, isFromDB) => {
@@ -443,9 +474,9 @@
                 const { db, fs, appId } = window.VapeDB;
                 try {
                     await fs.deleteDoc(fs.doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-                } catch (e) { console.error("Cloud delete failed:", e); }
+                } catch (e) { console.error(e); }
             } else {
-                // Если товар только в коде - убираем его из списка до перезагрузки
+                // Временное удаление из сессии для seed-товаров
                 products = products.filter(p => p.id !== id);
                 renderAll();
             }
@@ -524,6 +555,7 @@
             btn.disabled = true; btn.innerText = "Отправка...";
             const total = Object.values(cart).reduce((a, b) => a + (b.price * b.qty), 0);
             const itemsText = Object.values(cart).map(i => `${i.name} (x${i.qty})`).join(', ');
+
             const orderDetails = {
                 action: "NEW_ORDER",
                 order_key: currentOrderKey,
@@ -538,6 +570,7 @@
                 },
                 timestamp: new Date().toLocaleString()
             };
+            
             tg.sendData(JSON.stringify(orderDetails)); 
             setTimeout(() => tg.close(), 500);
         };
