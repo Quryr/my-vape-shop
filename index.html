@@ -150,14 +150,16 @@
                     <p id="user-name" class="text-[10px] text-white/40 font-semibold uppercase tracking-widest">Authorized</p>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <!-- Кнопки админа теперь слева от кнопки темы -->
-                <button id="admin-btn" class="hidden w-10 h-10 rounded-xl glass flex items-center justify-center text-[var(--primary)] border-[var(--primary)]/20 shadow-[0_0_15px_rgba(204,255,0,0.1)] transition-all">
-                    <i data-lucide="shield" class="w-5 h-5"></i>
-                </button>
-                <button id="add-product-btn" class="hidden w-10 h-10 rounded-xl glass flex items-center justify-center border-white/10 transition-all">
-                    <i data-lucide="plus" class="w-5 h-5"></i>
-                </button>
+            <div class="flex gap-2 items-center">
+                <!-- Кнопки админа СЛЕВА от кнопки темы -->
+                <div id="admin-controls" class="hidden flex gap-2">
+                    <button id="admin-btn" class="w-10 h-10 rounded-xl glass flex items-center justify-center text-[var(--primary)] border-[var(--primary)]/20 shadow-[0_0_15px_rgba(204,255,0,0.1)] transition-all">
+                        <i data-lucide="shield" class="w-5 h-5"></i>
+                    </button>
+                    <button id="add-product-btn" class="w-10 h-10 rounded-xl glass flex items-center justify-center border-white/10 transition-all">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
                 <button id="theme-toggle" class="w-10 h-10 rounded-xl glass flex items-center justify-center transition-all active:scale-90">
                     <i data-lucide="zap" class="w-5 h-5 text-[var(--primary)]"></i>
                 </button>
@@ -282,7 +284,7 @@
         let cart = [];
         let isAdmin = false;
         let currentCategory = 'Все';
-        const ADMIN_ID = 1262669099;
+        const ADMIN_ID = "1262669099";
         const ADMIN_USER = "Tru5tNoBody";
 
         // 1. ПРИНУДИТЕЛЬНОЕ СКРЫТИЕ ЛОАДЕРА
@@ -290,7 +292,9 @@
             const loader = document.getElementById('loader');
             if (loader) {
                 loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 600);
+                setTimeout(() => {
+                    if (loader) loader.style.display = 'none';
+                }, 600);
             }
         };
         const loaderSafety = setTimeout(hideLoader, 3500);
@@ -350,34 +354,51 @@
                 tg.ready();
             }
 
-            // Ультра-агрессивная проверка прав администратора
+            // Абсолютно надежная проверка прав администратора
             const checkAdmin = () => {
-                let id = null;
-                let username = null;
+                let currentId = null;
+                let currentUsername = null;
                 
+                // Проверяем все возможные поля Telegram WebApp
                 if (tg?.initDataUnsafe?.user) {
-                    id = tg.initDataUnsafe.user.id;
-                    username = tg.initDataUnsafe.user.username;
-                } 
-                
-                // Проверка по ID или Username
-                const isIdMatch = id && String(id) === String(ADMIN_ID);
-                const isUserMatch = username && (username.toLowerCase() === ADMIN_USER.toLowerCase());
+                    currentId = String(tg.initDataUnsafe.user.id);
+                    currentUsername = tg.initDataUnsafe.user.username;
+                }
 
-                if (isIdMatch || isUserMatch) {
+                // Дополнительный парсинг хеша на случай задержек SDK
+                if (!currentId || !currentUsername) {
+                    const params = new URLSearchParams(window.location.hash.slice(1));
+                    const userRaw = params.get('user') || params.get('tgWebAppData');
+                    if (userRaw) {
+                        try {
+                            const decoded = JSON.parse(decodeURIComponent(userRaw));
+                            if (decoded.id) currentId = String(decoded.id);
+                            if (decoded.username) currentUsername = decoded.username;
+                        } catch(e) {}
+                    }
+                }
+
+                // Логика сравнения (ID или Username)
+                const idMatch = currentId && currentId === ADMIN_ID;
+                const userMatch = currentUsername && currentUsername.replace('@', '').toLowerCase() === ADMIN_USER.toLowerCase();
+
+                if (idMatch || userMatch) {
                     isAdmin = true;
-                    document.getElementById('admin-btn')?.classList.remove('hidden');
-                    document.getElementById('add-product-btn')?.classList.remove('hidden');
+                    // Показываем контейнер с кнопками
+                    const adminContainer = document.getElementById('admin-controls');
+                    if (adminContainer) adminContainer.classList.remove('hidden');
+                    
                     const nameEl = document.getElementById('user-name');
                     if (nameEl) {
                         nameEl.innerText = "ADMIN MODE ACTIVE";
                         nameEl.style.color = "var(--primary)";
                         nameEl.classList.add('font-black');
                     }
-                    // Перерисовываем товары, чтобы появились кнопки удаления
+                    // Перерисовываем товары для появления кнопок корзины/удаления
                     renderProducts();
                 } else if (tg?.initDataUnsafe?.user) {
-                    document.getElementById('user-name').innerText = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name;
+                    const nameEl = document.getElementById('user-name');
+                    if (nameEl) nameEl.innerText = tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name;
                 }
             };
 
@@ -400,9 +421,11 @@
 
             onAuthStateChanged(auth, (u) => {
                 if (u) {
+                    // Многократная проверка с интервалами
                     checkAdmin();
-                    // Повторная проверка через полсекунды для надежности SDK
-                    setTimeout(checkAdmin, 500);
+                    setTimeout(checkAdmin, 100);
+                    setTimeout(checkAdmin, 1000);
+                    
                     setupListeners(db, appId);
                     hideLoader();
                     clearTimeout(loaderSafety);
@@ -550,7 +573,16 @@
             document.getElementById('payment-screen').classList.remove('hidden');
         };
 
-        document.getElementById('add-product-btn').onclick = () => document.getElementById('admin-modal').classList.remove('hidden');
+        // События кнопок админа через прямые слушатели
+        document.getElementById('admin-btn').addEventListener('click', () => {
+            // Можно добавить функционал статистики или логов
+            if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+        });
+
+        document.getElementById('add-product-btn').addEventListener('click', () => {
+            document.getElementById('admin-modal').classList.remove('hidden');
+        });
+
         document.getElementById('close-admin-btn').onclick = () => document.getElementById('admin-modal').classList.add('hidden');
         
         document.getElementById('save-product-btn').onclick = async () => {
