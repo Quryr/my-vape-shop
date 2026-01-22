@@ -2,71 +2,48 @@
 <html lang="ru" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VΛPOR CLOUD Premium</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VΛPOR CLOUD PREMIUM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --primary: #22c55e; /* Toxic Green */
-            --bg-dark: #050505;
-            --accent-glow: rgba(34, 197, 94, 0.4);
+            --primary: #22c55e;
+            --primary-glow: rgba(34, 197, 94, 0.4);
+            --bg: #050505;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
+            background-color: var(--bg);
             color: white;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Динамический Vapor-Background */
-        .vapor-bg {
+        /* Динамический фон в стиле Metal-Vapor */
+        .app-bg {
             position: fixed;
             inset: 0;
             z-index: -1;
             background: 
-                radial-gradient(circle at 50% 110%, var(--accent-glow), transparent 60%),
-                radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.1), transparent 30%);
+                radial-gradient(circle at 50% 120%, var(--primary-glow), transparent 70%),
+                radial-gradient(circle at -10% -10%, rgba(255,255,255,0.03) 0%, transparent 40%);
         }
 
-        .smoke-overlay {
+        .smoke-texture {
             position: fixed;
             inset: 0;
             z-index: -1;
-            background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
-            opacity: 0.1;
+            background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
+            opacity: 0.15;
             pointer-events: none;
         }
 
-        .vapor-cloud {
-            position: fixed;
-            width: 600px;
-            height: 600px;
-            background: var(--primary);
-            filter: blur(180px);
-            opacity: 0.05;
-            border-radius: 50%;
-            animation: moveCloud 20s infinite alternate ease-in-out;
-            z-index: -1;
-        }
-
-        @keyframes moveCloud {
-            0% { transform: translate(-20%, -20%) scale(1); }
-            100% { transform: translate(30%, 30%) scale(1.3); }
-        }
-
-        .glass {
-            backdrop-filter: blur(40px) saturate(180%);
-            background: rgba(15, 15, 15, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        /* Логотип */
-        .logo-container {
+        /* Объемный логотип */
+        .vapor-logo {
             font-weight: 900;
             text-transform: uppercase;
             font-size: 1.6rem;
@@ -74,239 +51,237 @@
             background: linear-gradient(135deg, #ffffff 40%, var(--primary) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.3));
+            filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.4));
         }
 
-        /* Категории - Исправлен контейнер для неона */
-        .category-scroll {
+        /* Исправленный неон категорий */
+        .cat-scroll-box {
             display: flex;
             gap: 12px;
             overflow-x: auto;
-            padding: 15px 5px; /* Даем место для тени */
-            margin: 0 -5px;
+            padding: 15px 10px;
+            margin: -5px -10px;
+        }
+
+        .category-btn {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            white-space: nowrap;
+        }
+        .category-btn.active {
+            background: var(--primary);
+            color: black;
+            border-color: var(--primary);
+            transform: translateY(-3px) scale(1.05);
+            filter: drop-shadow(0 8px 15px var(--primary-glow));
+        }
+
+        /* Объемная нижняя панель (Float Navigation) */
+        .nav-island {
+            background: rgba(12, 12, 12, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 
+                0 -20px 40px rgba(0, 0, 0, 0.9),
+                inset 0 1px 1px rgba(255, 255, 255, 0.15),
+                inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(25px);
+            border-radius: 35px;
+        }
+
+        .nav-btn {
+            transition: all 0.3s ease;
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .nav-btn.active {
+            color: var(--primary);
+            filter: drop-shadow(0 0 10px var(--primary));
+            transform: translateY(-2px);
+        }
+
+        /* Карточка товара с идеальным выравниванием */
+        .device-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .device-card:active { transform: scale(0.97); }
+
+        .loader-screen {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s ease;
+        }
+
+        .bottom-sheet {
+            transform: translateY(100%);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .bottom-sheet.active {
+            transform: translateY(0);
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .category-pill {
-            transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            white-space: nowrap;
-        }
-        .category-pill.active {
-            background: var(--primary);
-            color: black;
-            border-color: var(--primary);
-            transform: translateY(-2px);
-            filter: drop-shadow(0 0 12px var(--primary));
-        }
-
-        /* Объемная нижняя навигация */
-        .nav-floating {
-            background: rgba(10, 10, 10, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 
-                0 -20px 40px rgba(0, 0, 0, 0.9), 
-                inset 0 1px 1px rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-        }
-
-        .nav-item {
-            transition: all 0.3s ease;
-            color: rgba(255, 255, 255, 0.4);
-        }
-        .nav-item.active {
-            color: var(--primary);
-            filter: drop-shadow(0 0 8px var(--primary));
-            transform: translateY(-2px);
-        }
-
-        .loader-overlay {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 0.6s ease;
-        }
-
-        .bottom-sheet {
-            transform: translateY(100%);
-            transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-        .bottom-sheet.active {
-            transform: translateY(0);
-        }
-        
-        .product-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            transition: all 0.3s ease;
-        }
-        .product-card:active { transform: scale(0.97); }
+        .theme-toxic { --primary: #22c55e; --primary-glow: rgba(34, 197, 94, 0.4); }
+        .theme-ice { --primary: #0ea5e9; --primary-glow: rgba(14, 165, 233, 0.4); }
+        .theme-magma { --primary: #f97316; --primary-glow: rgba(249, 115, 22, 0.4); }
     </style>
-
-    <script>
-        // Предохранитель лоадера
-        window.hideLoader = function() {
-            const loader = document.getElementById('loader');
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 600);
-            }
-        };
-        setTimeout(window.hideLoader, 3000);
-    </script>
 </head>
 <body class="theme-toxic">
-    <!-- Loader -->
-    <div id="loader" class="loader-overlay">
+    <!-- Loader (Safety Guaranteed) -->
+    <div id="loader" class="loader-screen">
         <div class="flex flex-col items-center">
-            <div class="relative w-16 h-16">
+            <div class="relative w-20 h-20">
                 <div class="absolute inset-0 border-[3px] border-white/5 border-t-primary rounded-full animate-spin"></div>
-                <div class="absolute inset-2 border-[2px] border-white/10 border-b-primary rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 1.2s;"></div>
+                <div class="absolute inset-4 border-[2px] border-white/5 border-b-primary rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
             </div>
-            <p class="mt-6 text-[10px] font-black tracking-[0.5em] uppercase text-primary animate-pulse">Syncing Cloud</p>
+            <p class="mt-8 text-[11px] font-black tracking-[0.6em] uppercase text-primary animate-pulse">Syncing Link</p>
         </div>
     </div>
 
-    <div class="vapor-bg"></div>
-    <div class="smoke-overlay"></div>
-    <div class="vapor-cloud"></div>
+    <div class="app-bg"></div>
+    <div class="smoke-texture"></div>
 
-    <div id="app" class="px-5 pb-40 pt-10 max-w-2xl mx-auto min-h-screen relative z-10">
+    <!-- Main Container -->
+    <div id="app-container" class="px-5 pb-44 pt-10 max-w-2xl mx-auto min-h-screen relative z-10 hidden">
         
-        <!-- Store View -->
-        <div id="view-store">
+        <!-- View: Store -->
+        <div id="view-store" class="view-content">
             <header class="flex items-center justify-between mb-12">
                 <div class="flex items-center gap-4">
-                    <div class="w-11 h-11 glass rounded-xl flex items-center justify-center border-primary/30 shadow-[0_0_15px_rgba(34,197,94,0.15)]">
-                        <i data-lucide="zap" class="text-primary w-5 h-5"></i>
+                    <div class="w-12 h-12 glass rounded-2xl flex items-center justify-center border border-white/10 shadow-[0_0_20px_rgba(34,197,94,0.1)]">
+                        <i data-lucide="zap" class="text-primary w-6 h-6"></i>
                     </div>
                     <div>
-                        <h1 id="admin-status" class="text-[9px] font-black tracking-[0.3em] text-white/20 mb-1 uppercase">VΛPOR.OS // 2.6</h1>
-                        <div class="logo-container italic">VΛPOR CLOUD</div>
+                        <h1 id="admin-status" class="text-[9px] font-black tracking-[0.4em] text-white/20 mb-1 uppercase">Cloud.OS // 2.6.5</h1>
+                        <div class="vapor-logo italic">VΛPOR CLOUD</div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button id="admin-btn" onclick="window.showAddProduct()" class="hidden p-3.5 glass rounded-2xl text-primary border-primary/20 active:scale-90">
-                        <i data-lucide="plus" class="w-6 h-6"></i>
+                    <button id="admin-btn" onclick="window.ui.showAddProduct()" class="hidden p-3.5 glass rounded-2xl text-primary border-primary/30 active:scale-90 shadow-lg">
+                        <i data-lucide="plus-circle" class="w-6 h-6"></i>
                     </button>
-                    <button onclick="window.nextTheme()" class="p-3.5 glass rounded-2xl text-white/70 active:scale-90">
+                    <button onclick="window.ui.nextTheme()" class="p-3.5 glass rounded-2xl text-white/80 active:scale-90 border-white/5">
                         <i data-lucide="palette" class="w-6 h-6"></i>
                     </button>
                 </div>
             </header>
 
             <!-- Search -->
-            <div class="glass rounded-[24px] flex items-center px-6 py-4.5 mb-10 border border-white/5 shadow-inner">
-                <i data-lucide="search" class="w-5 h-5 text-primary opacity-50 mr-4"></i>
-                <input type="text" oninput="window.filterProducts(this.value)" placeholder="Поиск устройства..." class="bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-white/20">
+            <div class="glass rounded-[28px] flex items-center px-6 py-4.5 mb-10 border border-white/5 shadow-inner">
+                <i data-lucide="search" class="w-5 h-5 text-primary opacity-60 mr-4"></i>
+                <input type="text" oninput="window.store.filter(this.value)" placeholder="Поиск девайса..." class="bg-transparent border-none outline-none w-full text-sm font-bold placeholder:text-white/20">
             </div>
 
             <!-- Categories -->
-            <div class="category-scroll no-scrollbar snap-x">
-                <button onclick="window.setCategory('all')" class="category-pill active shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-widest snap-start" data-cat="all">Все</button>
-                <button onclick="window.setCategory('Device')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-widest snap-start" data-cat="Device">Под-системы</button>
-                <button onclick="window.setCategory('Disposable')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-widest snap-start" data-cat="Disposable">Одноразки</button>
-                <button onclick="window.setCategory('Liquid')" class="category-pill shrink-0 px-8 py-3.5 glass rounded-[20px] text-[11px] font-black uppercase tracking-widest snap-start" data-cat="Liquid">Жидкости</button>
+            <div class="cat-scroll-box no-scrollbar snap-x">
+                <button onclick="window.store.setCategory('all')" class="category-btn active shrink-0 px-8 py-3.5 glass rounded-[22px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="all">Все</button>
+                <button onclick="window.store.setCategory('Device')" class="category-btn shrink-0 px-8 py-3.5 glass rounded-[22px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Device">Девайсы</button>
+                <button onclick="window.store.setCategory('Disposable')" class="category-btn shrink-0 px-8 py-3.5 glass rounded-[22px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Disposable">Одноразки</button>
+                <button onclick="window.store.setCategory('Liquid')" class="category-btn shrink-0 px-8 py-3.5 glass rounded-[22px] text-[11px] font-black uppercase tracking-wider snap-start" data-cat="Liquid">Жидкости</button>
             </div>
 
             <div id="products-grid" class="grid grid-cols-2 gap-5 mt-6">
-                <!-- Skeleton Loader -->
-                <div class="glass p-5 rounded-[36px] animate-pulse h-80"></div>
-                <div class="glass p-5 rounded-[36px] animate-pulse h-80"></div>
+                <!-- Skeleton Loading State -->
+                <div class="glass p-5 rounded-[40px] animate-pulse h-80"></div>
+                <div class="glass p-5 rounded-[40px] animate-pulse h-80"></div>
             </div>
         </div>
 
-        <!-- Profile View -->
-        <div id="view-profile" class="hidden animate-in fade-in duration-500">
-            <h2 class="text-5xl font-black uppercase mb-12 italic tracking-tighter leading-none">Access <br/><span class="text-primary">Granted</span></h2>
+        <!-- View: Profile -->
+        <div id="view-profile" class="view-content hidden">
+            <h2 class="text-5xl font-black uppercase mb-12 italic tracking-tighter leading-none">User <br/><span class="text-primary">Terminal</span></h2>
             
-            <div class="glass rounded-[44px] p-10 text-center mb-8 relative overflow-hidden border-white/10">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-30"></div>
+            <div class="glass rounded-[48px] p-10 text-center mb-8 relative overflow-hidden border-white/10">
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-40"></div>
                 <div class="relative inline-block mb-8">
-                    <div class="w-28 h-28 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 shadow-[0_0_40px_rgba(34,197,94,0.1)]">
-                        <i data-lucide="user" class="w-14 h-14 text-primary"></i>
+                    <div class="w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20 shadow-[0_0_50px_rgba(34,197,94,0.15)]">
+                        <i data-lucide="user-check" class="w-16 h-16 text-primary"></i>
                     </div>
                 </div>
-                <h3 id="user-display-name" class="text-2xl font-black mb-1 uppercase tracking-tight">System User</h3>
-                <p id="user-tg-username" class="text-primary/60 font-black text-[10px] uppercase tracking-[0.3em] mb-10">@undefined</p>
+                <h3 id="profile-name" class="text-3xl font-black mb-2 tracking-tight italic uppercase">Anonymous</h3>
+                <p id="profile-tag" class="text-primary/70 font-black text-xs uppercase tracking-[0.2em] mb-10">@connect_tg</p>
                 
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-black/40 p-5 rounded-[28px] border border-white/5 text-left">
-                        <p class="text-[9px] uppercase font-black opacity-30 mb-1 tracking-widest">Global ID</p>
-                        <p id="user-display-id" class="font-mono text-xs font-bold tracking-tighter text-white/80">00000000</p>
+                    <div class="bg-black/50 p-6 rounded-[30px] border border-white/5 text-left">
+                        <p class="text-[10px] uppercase font-black opacity-30 mb-2 tracking-widest">Global ID</p>
+                        <p id="profile-id" class="font-mono text-xs font-black tracking-tighter opacity-80">00000000</p>
                     </div>
-                    <div class="bg-black/40 p-5 rounded-[28px] border border-white/5 text-left">
-                        <p class="text-[9px] uppercase font-black opacity-30 mb-1 tracking-widest">Privilege</p>
-                        <p id="user-display-rank" class="text-[10px] font-black uppercase text-white/80 italic">Standard</p>
+                    <div class="bg-black/50 p-6 rounded-[30px] border border-white/5 text-left">
+                        <p class="text-[10px] uppercase font-black opacity-30 mb-2 tracking-widest">Privilege</p>
+                        <p id="profile-rank" class="text-[10px] font-black uppercase text-white/80 italic">Standard</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Объемная Навигация -->
-    <nav class="fixed bottom-10 left-8 right-8 h-22 nav-floating rounded-[38px] flex items-center justify-around z-50 px-4 max-w-2xl mx-auto">
-        <button onclick="window.switchView('store')" id="nav-store" class="nav-item active flex flex-col items-center gap-2 flex-1">
-            <i data-lucide="layout-grid" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-[0.2em]">Shop</span>
+    <!-- Navigation Island -->
+    <nav class="fixed bottom-8 left-8 right-8 h-22 nav-island flex items-center justify-around z-50 px-6 max-w-2xl mx-auto">
+        <button onclick="window.ui.switchView('store')" id="nav-store" class="nav-btn active flex flex-col items-center gap-1.5 flex-1">
+            <i data-lucide="grid" class="w-6 h-6"></i>
+            <span class="text-[9px] font-black uppercase tracking-widest">Shop</span>
         </button>
-        <button onclick="window.toggleCart()" class="nav-item flex flex-col items-center gap-2 flex-1 relative">
-            <div class="absolute -top-1 right-1/4 bg-primary text-black text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-[#050505] hidden" id="cart-counter">0</div>
+        <button onclick="window.ui.toggleCart()" class="nav-btn flex flex-col items-center gap-1.5 flex-1 relative">
+            <div class="absolute -top-1.5 right-1/4 bg-primary text-black text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-full border-[3px] border-[#0a0a0a] hidden" id="cart-counter">0</div>
             <i data-lucide="shopping-bag" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-[0.2em]">Cart</span>
+            <span class="text-[9px] font-black uppercase tracking-widest">Cart</span>
         </button>
-        <button onclick="window.switchView('profile')" id="nav-profile" class="nav-item flex flex-col items-center gap-2 flex-1">
+        <button onclick="window.ui.switchView('profile')" id="nav-profile" class="nav-btn flex flex-col items-center gap-1.5 flex-1">
             <i data-lucide="fingerprint" class="w-6 h-6"></i>
-            <span class="text-[8px] font-black uppercase tracking-[0.2em]">User</span>
+            <span class="text-[9px] font-black uppercase tracking-widest">User</span>
         </button>
     </nav>
 
-    <!-- Cart Sheet -->
+    <!-- Cart Bottom Sheet -->
     <div id="cart-sheet" class="fixed inset-0 z-[60] pointer-events-none">
-        <div id="cart-overlay" onclick="window.toggleCart()" class="absolute inset-0 bg-black/90 opacity-0 transition-opacity pointer-events-none"></div>
-        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-[#080808] border-t border-white/10 rounded-t-[50px] max-h-[85vh] flex flex-col pointer-events-auto shadow-2xl">
-            <div class="w-16 h-1.5 bg-white/10 rounded-full mx-auto my-6"></div>
-            <div class="px-10 pb-8 flex items-center justify-between">
-                <h3 class="text-3xl font-black italic uppercase italic">Basket<span class="text-primary">.zip</span></h3>
-                <button onclick="window.toggleCart()" class="p-3 glass rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div id="cart-overlay" onclick="window.ui.toggleCart()" class="absolute inset-0 bg-black/95 opacity-0 transition-opacity pointer-events-none"></div>
+        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-[#080808] border-t border-white/10 rounded-t-[56px] max-h-[88vh] flex flex-col pointer-events-auto shadow-2xl">
+            <div class="w-20 h-1.5 bg-white/10 rounded-full mx-auto my-7"></div>
+            <div class="px-12 pb-10 flex items-center justify-between">
+                <h3 class="text-4xl font-black italic uppercase tracking-tighter">Bask<span class="text-primary">et</span></h3>
+                <button onclick="window.ui.toggleCart()" class="p-4 glass rounded-full border-white/10"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            <div id="cart-items-list" class="flex-grow overflow-y-auto px-8 space-y-4 no-scrollbar"></div>
-            <div class="p-10 glass border-t border-white/5 rounded-t-[40px]">
-                <div class="flex justify-between mb-8">
-                    <span class="opacity-40 font-black uppercase text-[10px] tracking-widest">Total Value</span>
-                    <span id="cart-total-price" class="text-3xl font-black tracking-tighter">0 ₽</span>
+            <div id="cart-items-list" class="flex-grow overflow-y-auto px-10 space-y-5 no-scrollbar"></div>
+            <div class="p-12 glass border-t border-white/5 rounded-t-[48px]">
+                <div class="flex justify-between mb-10">
+                    <span class="opacity-40 font-black uppercase text-[11px] tracking-[0.2em]">Total Value</span>
+                    <span id="cart-total-price" class="text-4xl font-black tracking-tighter">0 ₽</span>
                 </div>
-                <button onclick="window.confirmOrder()" class="w-full bg-primary text-black py-6 rounded-2xl flex items-center justify-center gap-4 italic active:scale-95 transition-all font-black uppercase tracking-wider">
-                    Process Transaction
-                    <i data-lucide="arrow-right" class="w-6 h-6"></i>
+                <button onclick="window.store.checkout()" class="w-full bg-primary text-black py-7 rounded-[28px] flex items-center justify-center gap-5 italic active:scale-95 transition-all text-lg font-black uppercase">
+                    Checkout Now
+                    <i data-lucide="arrow-right" class="w-7 h-7"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Admin Add Modal -->
+    <!-- Admin Modal -->
     <div id="modal-add" class="fixed inset-0 z-[100] glass hidden items-center justify-center p-8">
-        <div class="bg-[#080808] border border-white/10 w-full max-w-sm rounded-[40px] p-8 shadow-2xl">
-            <h3 class="text-xl font-black italic uppercase mb-8 text-primary">Add Asset</h3>
-            <div class="space-y-4">
-                <input type="text" id="p-name" placeholder="Device Name" class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl outline-none focus:border-primary font-bold">
-                <input type="number" id="p-price" placeholder="Price RUB" class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl outline-none focus:border-primary font-bold">
-                <input type="text" id="p-icon" placeholder="Emoji Asset" class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl outline-none focus:border-primary font-bold">
-                <select id="p-type" class="w-full bg-white/5 border border-white/10 p-5 rounded-2xl outline-none focus:border-primary font-bold appearance-none">
-                    <option value="Device">Под-система</option>
+        <div class="bg-[#080808] border border-white/10 w-full max-w-sm rounded-[48px] p-10 shadow-2xl">
+            <h3 class="text-2xl font-black italic uppercase mb-10 text-primary">New Asset</h3>
+            <div class="space-y-5">
+                <input type="text" id="p-name" placeholder="Model Name" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
+                <input type="number" id="p-price" placeholder="Price RUB" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
+                <input type="text" id="p-icon" placeholder="Emoji Asset" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold">
+                <select id="p-type" class="w-full bg-white/5 border border-white/10 p-6 rounded-2xl outline-none focus:border-primary font-bold appearance-none">
+                    <option value="Device">Девайс</option>
                     <option value="Disposable">Одноразка</option>
                     <option value="Liquid">Жидкость</option>
                 </select>
                 <div class="flex gap-4 pt-6">
-                    <button onclick="window.closeAddProduct()" class="flex-1 py-4 text-[10px] font-black uppercase opacity-40">Abort</button>
-                    <button onclick="window.saveProduct()" class="flex-1 bg-primary text-black font-black py-4 rounded-xl uppercase italic">Commit</button>
+                    <button onclick="window.ui.closeAddProduct()" class="flex-1 py-4 text-[11px] font-black uppercase opacity-40">Abort</button>
+                    <button onclick="window.store.saveProduct()" class="flex-1 bg-primary text-black font-black py-4 rounded-xl uppercase italic">Commit</button>
                 </div>
             </div>
         </div>
@@ -317,19 +292,19 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // CONFIG & CONSTANTS
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-cloud-ultra-v2';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const tg = window.Telegram?.WebApp;
         const ADMIN_ID = 1262669099;
         const ADMIN_USER = "Tru5tNoBody";
-
-        // Firebase Config
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'vape-tech-pro-v4';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // APP STATE
         window.state = {
             products: [],
             cart: [],
@@ -339,257 +314,240 @@
             theme: 'toxic'
         };
 
-        // --- EXPOSE TO GLOBAL ---
-        window.switchView = (v) => {
-            tg?.HapticFeedback.impactOccurred('light');
-            const store = document.getElementById('view-store');
-            const profile = document.getElementById('view-profile');
-            const nStore = document.getElementById('nav-store');
-            const nProfile = document.getElementById('nav-profile');
-
-            if (v === 'store') {
-                store.classList.remove('hidden');
-                profile.classList.add('hidden');
-                nStore.classList.add('active');
-                nProfile.classList.remove('active');
-            } else {
-                store.classList.add('hidden');
-                profile.classList.remove('hidden');
-                nProfile.classList.add('active');
-                nStore.classList.remove('active');
-                syncUser();
-            }
-            lucide.createIcons();
-        };
-
-        window.toggleCart = () => {
-            const s = document.getElementById('cart-sheet');
-            const o = document.getElementById('cart-overlay');
-            const c = s.querySelector('.bottom-sheet');
-            if (c.classList.contains('active')) {
-                c.classList.remove('active');
-                o.classList.add('opacity-0');
-                setTimeout(() => s.classList.add('pointer-events-none'), 500);
-            } else {
-                s.classList.remove('pointer-events-none');
-                o.classList.remove('opacity-0');
-                c.classList.add('active');
-                tg?.HapticFeedback.impactOccurred('medium');
-            }
-            lucide.createIcons();
-        };
-
-        window.setCategory = (c) => {
-            tg?.HapticFeedback.selectionChanged();
-            window.state.cat = c;
-            document.querySelectorAll('.category-pill').forEach(b => {
-                b.classList.toggle('active', b.dataset.cat === c);
-            });
-            renderProducts();
-        };
-
-        window.filterProducts = (val) => renderProducts(val.toLowerCase());
-
-        window.addToCart = (id) => {
-            const p = window.state.products.find(x => x.id === id);
-            const exist = window.state.cart.find(x => x.id === id);
-            if (exist) exist.qty++;
-            else window.state.cart.push({ ...p, qty: 1 });
-            updateCartUI();
-            tg?.HapticFeedback.notificationOccurred('success');
-        };
-
-        window.changeQty = (id, d) => {
-            const i = window.state.cart.find(x => x.id === id);
-            if (i) {
-                i.qty += d;
-                if (i.qty <= 0) window.state.cart = window.state.cart.filter(x => x.id !== id);
-                updateCartUI();
-                tg?.HapticFeedback.impactOccurred('light');
-            }
-        };
-
-        window.confirmOrder = () => {
-            if (window.state.cart.length === 0) return;
-            const code = `VX-${Math.floor(100 + Math.random() * 899)}`;
-            const order = { code, items: window.state.cart, total: document.getElementById('cart-total-price').innerText, user: window.state.user };
-            tg?.sendData(JSON.stringify(order));
-            tg?.close();
-        };
-
-        window.showAddProduct = () => document.getElementById('modal-add').classList.replace('hidden', 'flex');
-        window.closeAddProduct = () => document.getElementById('modal-add').classList.replace('flex', 'hidden');
-
-        window.saveProduct = async () => {
-            const name = document.getElementById('p-name').value;
-            const price = parseInt(document.getElementById('p-price').value);
-            const icon = document.getElementById('p-icon').value;
-            const tag = document.getElementById('p-type').value;
-            if (name && price && auth.currentUser) {
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-                await addDoc(colRef, { name, price, icon: icon || '💨', tag });
-                window.closeAddProduct();
-            }
-        };
-
-        window.delProduct = async (id) => {
-            if (confirm('Удалить?') && auth.currentUser) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
-            }
-        };
-
-        window.nextTheme = () => {
-            const themes = ['toxic', 'ice', 'magma'];
-            let idx = (themes.indexOf(window.state.theme) + 1) % themes.length;
-            window.state.theme = themes[idx];
-            document.body.className = `theme-${window.state.theme}`;
-            tg?.HapticFeedback.impactOccurred('light');
-        };
-
-        // --- CORE CORE ---
-
-        const syncUser = () => {
-            let user = tg?.initDataUnsafe?.user;
-
-            // Глубокий парсинг если initDataUnsafe пуст
-            if (!user && tg?.initData) {
-                try {
-                    const params = new URLSearchParams(tg.initData);
-                    const raw = params.get('user');
-                    if (raw) user = JSON.parse(raw);
-                } catch(e) {}
-            }
-
-            if (!user && window.location.hash) {
-                try {
-                    const params = new URLSearchParams(window.location.hash.substring(1));
-                    const raw = params.get('user');
-                    if (raw) user = JSON.parse(raw);
-                } catch(e) {}
-            }
-
-            if (user) {
-                window.state.user = user;
-                const nameEl = document.getElementById('user-display-name');
-                const tagEl = document.getElementById('user-tg-username');
-                const idEl = document.getElementById('user-display-id');
-
-                if (nameEl) nameEl.innerText = user.first_name || "User";
-                if (tagEl) tagEl.innerText = `@${user.username || 'id' + user.id}`;
-                if (idEl) idEl.innerText = user.id || "000000";
-
-                if (user.id == ADMIN_ID || user.username === ADMIN_USER) {
-                    window.state.isAdmin = true;
-                    document.getElementById('admin-btn')?.classList.remove('hidden');
-                    const rank = document.getElementById('user-display-rank');
-                    if (rank) { rank.innerText = "ROOT_ADMIN"; rank.classList.add('text-primary'); }
-                    document.getElementById('admin-status')?.classList.add('text-primary/60');
-                    renderProducts();
+        // --- UI ACTIONS (GLOBAL) ---
+        window.ui = {
+            hideLoader: () => {
+                const l = document.getElementById('loader');
+                const a = document.getElementById('app-container');
+                if (l) {
+                    l.style.opacity = '0';
+                    setTimeout(() => { l.style.display = 'none'; a.classList.remove('hidden'); }, 800);
                 }
-            }
+            },
+            switchView: (v) => {
+                tg?.HapticFeedback.impactOccurred('light');
+                document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden'));
+                document.getElementById(`view-${v}`).classList.remove('hidden');
+                document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(`nav-${v}`).classList.add('active');
+                if (v === 'profile') window.sys.syncUser();
+                lucide.createIcons();
+            },
+            toggleCart: () => {
+                const s = document.getElementById('cart-sheet');
+                const o = document.getElementById('cart-overlay');
+                const c = s.querySelector('.bottom-sheet');
+                if (c.classList.contains('active')) {
+                    c.classList.remove('active');
+                    o.classList.add('opacity-0');
+                    setTimeout(() => s.classList.add('pointer-events-none'), 500);
+                } else {
+                    s.classList.remove('pointer-events-none');
+                    o.classList.remove('opacity-0');
+                    c.classList.add('active');
+                    tg?.HapticFeedback.impactOccurred('medium');
+                }
+                lucide.createIcons();
+            },
+            nextTheme: () => {
+                const themes = ['toxic', 'ice', 'magma'];
+                let idx = (themes.indexOf(window.state.theme) + 1) % themes.length;
+                window.state.theme = themes[idx];
+                document.body.className = `theme-${window.state.theme}`;
+                tg?.HapticFeedback.impactOccurred('light');
+            },
+            showAddProduct: () => document.getElementById('modal-add').classList.replace('hidden', 'flex'),
+            closeAddProduct: () => document.getElementById('modal-add').classList.replace('flex', 'hidden')
         };
 
-        const renderProducts = (search = "") => {
-            const grid = document.getElementById('products-grid');
-            if (!grid) return;
-            let items = window.state.products;
-            if (window.state.cat !== 'all') items = items.filter(i => i.tag === window.state.cat);
-            if (search) items = items.filter(i => i.name.toLowerCase().includes(search));
+        // --- STORE LOGIC (GLOBAL) ---
+        window.store = {
+            setCategory: (c) => {
+                tg?.HapticFeedback.selectionChanged();
+                window.state.cat = c;
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === c));
+                window.store.render();
+            },
+            filter: (val) => window.store.render(val.toLowerCase()),
+            addToCart: (id) => {
+                const p = window.state.products.find(x => x.id === id);
+                const exist = window.state.cart.find(x => x.id === id);
+                if (exist) exist.qty++;
+                else window.state.cart.push({ ...p, qty: 1 });
+                window.store.updateCartUI();
+                tg?.HapticFeedback.notificationOccurred('success');
+            },
+            changeQty: (id, d) => {
+                const i = window.state.cart.find(x => x.id === id);
+                if (i) {
+                    i.qty += d;
+                    if (i.qty <= 0) window.state.cart = window.state.cart.filter(x => x.id !== id);
+                    window.store.updateCartUI();
+                    tg?.HapticFeedback.impactOccurred('light');
+                }
+            },
+            render: (search = "") => {
+                const grid = document.getElementById('products-grid');
+                if (!grid) return;
+                let items = window.state.products;
+                if (window.state.cat !== 'all') items = items.filter(i => i.tag === window.state.cat);
+                if (search) items = items.filter(i => i.name.toLowerCase().includes(search));
 
-            if (items.length === 0) {
-                grid.innerHTML = `<div class="col-span-2 py-24 text-center font-black opacity-10 uppercase italic tracking-tighter">System Empty</div>`;
-                return;
-            }
+                if (items.length === 0) {
+                    grid.innerHTML = `<div class="col-span-2 py-32 text-center font-black opacity-10 uppercase italic tracking-widest">Core Empty</div>`;
+                    return;
+                }
 
-            grid.innerHTML = items.map(p => `
-                <div class="product-card glass p-6 rounded-[40px] relative border-white/5 group">
-                    ${window.state.isAdmin ? `
-                        <button onclick="window.delProduct('${p.id}')" class="absolute top-4 right-4 p-2.5 text-red-500 bg-red-500/10 rounded-xl active:scale-90 z-20">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>` : ''}
-                    <div class="flex-grow flex flex-col">
-                        <div class="w-full aspect-square bg-white/[0.03] rounded-3xl flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-105 transition-all duration-500">
-                            ${p.icon || '💨'}
+                grid.innerHTML = items.map(p => `
+                    <div class="device-card p-6 rounded-[44px] relative group overflow-hidden">
+                        ${window.state.isAdmin ? `
+                            <button onclick="window.store.delProduct('${p.id}')" class="absolute top-4 right-4 p-2.5 text-red-500 bg-red-500/10 rounded-2xl active:scale-90 z-20">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>` : ''}
+                        <div class="flex-grow flex flex-col">
+                            <div class="w-full aspect-square bg-white/[0.03] rounded-[32px] flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-105 transition-all duration-700">
+                                ${p.icon || '💨'}
+                            </div>
+                            <p class="text-[9px] font-black text-primary uppercase tracking-[0.3em] mb-2 opacity-60">${p.tag}</p>
+                            <h3 class="font-black text-[16px] leading-tight line-clamp-2 uppercase italic tracking-tight">${p.name}</h3>
                         </div>
-                        <p class="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-2 opacity-60">${p.tag}</p>
-                        <h3 class="font-black text-[15px] leading-tight line-clamp-2 uppercase italic">${p.name}</h3>
-                    </div>
-                    <div class="flex items-center justify-between mt-8">
-                        <span class="font-black text-xl tracking-tighter">${p.price} ₽</span>
-                        <button onclick="window.addToCart('${p.id}')" class="bg-primary text-black p-3.5 rounded-2xl active:scale-90 shadow-xl">
-                            <i data-lucide="plus" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        };
-
-        const updateCartUI = () => {
-            const count = window.state.cart.reduce((a, b) => a + b.qty, 0);
-            const badge = document.getElementById('cart-counter');
-            if (badge) {
-                badge.innerText = count;
-                badge.classList.toggle('hidden', count === 0);
-            }
-
-            const list = document.getElementById('cart-items-list');
-            if (!list) return;
-            if (window.state.cart.length === 0) {
-                list.innerHTML = `<p class="text-center py-20 font-black opacity-10 uppercase italic tracking-widest">Basket Empty</p>`;
-            } else {
-                list.innerHTML = window.state.cart.map(i => `
-                    <div class="flex items-center gap-6 glass p-6 rounded-[32px] border border-white/5">
-                        <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-3xl">${i.icon}</div>
-                        <div class="flex-grow">
-                            <h4 class="text-xs font-black uppercase tracking-tight italic">${i.name}</h4>
-                            <p class="text-primary font-black text-base">${i.price} ₽</p>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <button onclick="window.changeQty('${i.id}', -1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center">-</button>
-                            <span class="font-black text-sm">${i.qty}</span>
-                            <button onclick="window.changeQty('${i.id}', 1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center">+</button>
+                        <div class="flex items-center justify-between mt-8">
+                            <span class="font-black text-xl tracking-tighter">${p.price} ₽</span>
+                            <button onclick="window.store.addToCart('${p.id}')" class="bg-primary text-black p-4 rounded-[20px] active:scale-90 shadow-xl">
+                                <i data-lucide="plus" class="w-6 h-6"></i>
+                            </button>
                         </div>
                     </div>
                 `).join('');
+                lucide.createIcons();
+            },
+            updateCartUI: () => {
+                const count = window.state.cart.reduce((a, b) => a + b.qty, 0);
+                const badge = document.getElementById('cart-counter');
+                if (badge) { badge.innerText = count; badge.classList.toggle('hidden', count === 0); }
+                const list = document.getElementById('cart-items-list');
+                if (window.state.cart.length === 0) {
+                    list.innerHTML = `<p class="text-center py-24 font-black opacity-10 uppercase italic tracking-[0.3em]">System Empty</p>`;
+                } else {
+                    list.innerHTML = window.state.cart.map(i => `
+                        <div class="flex items-center gap-6 glass p-6 rounded-[35px] border border-white/5">
+                            <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-3xl shadow-inner">${i.icon}</div>
+                            <div class="flex-grow">
+                                <h4 class="text-xs font-black uppercase tracking-tight italic">${i.name}</h4>
+                                <p class="text-primary font-black text-base">${i.price} ₽</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <button onclick="window.store.changeQty('${i.id}', -1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">-</button>
+                                <span class="font-black text-sm">${i.qty}</span>
+                                <button onclick="window.store.changeQty('${i.id}', 1)" class="w-10 h-10 glass rounded-xl flex items-center justify-center border-white/10">+</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                const total = window.state.cart.reduce((a, b) => a + (b.price * b.qty), 0);
+                document.getElementById('cart-total-price').innerText = `${total} ₽`;
+                lucide.createIcons();
+            },
+            saveProduct: async () => {
+                const name = document.getElementById('p-name').value;
+                const price = parseInt(document.getElementById('p-price').value);
+                const icon = document.getElementById('p-icon').value;
+                const tag = document.getElementById('p-type').value;
+                if (name && price && auth.currentUser) {
+                    const col = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
+                    await addDoc(col, { name, price, icon: icon || '💨', tag });
+                    window.ui.closeAddProduct();
+                }
+            },
+            delProduct: async (id) => {
+                if (confirm('Delete asset?') && auth.currentUser) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'vape_items', id));
+                }
+            },
+            checkout: () => {
+                if (window.state.cart.length === 0) return;
+                const code = `VX-${Math.floor(100 + Math.random() * 899)}`;
+                const order = { code, items: window.state.cart, total: document.getElementById('cart-total-price').innerText, user: window.state.user };
+                tg?.sendData(JSON.stringify(order));
+                tg?.close();
             }
-            const total = window.state.cart.reduce((a, b) => a + (b.price * b.qty), 0);
-            document.getElementById('cart-total-price').innerText = `${total} ₽`;
-            lucide.createIcons();
         };
 
-        const init = async () => {
-            try {
-                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
-                else await signInAnonymously(auth);
-                
-                onAuthStateChanged(auth, u => {
-                    if (u) {
-                        syncUser();
-                        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'vape_items');
-                        onSnapshot(colRef, snap => {
-                            let items = [];
-                            snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-                            window.state.products = items;
-                            renderProducts();
-                            window.hideLoader();
-                        }, () => window.hideLoader());
+        // --- SYSTEM CORE (SYNC & AUTH) ---
+        window.sys = {
+            syncUser: () => {
+                let u = tg?.initDataUnsafe?.user;
+                if (!u && tg?.initData) {
+                    try {
+                        const p = new URLSearchParams(tg.initData);
+                        const r = p.get('user');
+                        if (r) u = JSON.parse(r);
+                    } catch(e) {}
+                }
+                if (!u && window.location.hash) {
+                    try {
+                        const p = new URLSearchParams(window.location.hash.substring(1));
+                        const r = p.get('user');
+                        if (r) u = JSON.parse(r);
+                    } catch(e) {}
+                }
+
+                if (u) {
+                    window.state.user = u;
+                    const n = document.getElementById('profile-name');
+                    const t = document.getElementById('profile-tag');
+                    const i = document.getElementById('profile-id');
+                    if (n) n.innerText = u.first_name || "User";
+                    if (t) t.innerText = `@${u.username || 'cloud_user'}`;
+                    if (i) i.innerText = u.id || "000000";
+
+                    if (u.id == ADMIN_ID || u.username === ADMIN_USER) {
+                        window.state.isAdmin = true;
+                        document.getElementById('admin-btn')?.classList.remove('hidden');
+                        const r = document.getElementById('profile-rank');
+                        if (r) { r.innerText = "ROOT_ADMIN"; r.classList.add('text-primary'); }
+                        const s = document.getElementById('admin-status');
+                        if (s) { s.innerText = 'AUTHORIZED_ADMIN_ACCESS'; s.classList.add('text-primary/60'); }
+                        window.store.render();
                     }
-                });
-            } catch(e) { window.hideLoader(); }
+                }
+            },
+            init: async () => {
+                try {
+                    if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+                    else await signInAnonymously(auth);
+
+                    onAuthStateChanged(auth, u => {
+                        if (u) {
+                            window.sys.syncUser();
+                            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'vape_items'), snap => {
+                                let items = [];
+                                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                                window.state.products = items;
+                                window.store.render();
+                                window.ui.hideLoader();
+                            }, () => window.ui.hideLoader());
+                        }
+                    });
+                } catch(e) { window.ui.hideLoader(); }
+            }
         };
 
-        // Mutation Observer для иконок
+        // Mutation Observer for icons (Automatic)
         const observer = new MutationObserver(() => lucide.createIcons());
         observer.observe(document.body, { childList: true, subtree: true });
 
+        // Final Boot
         window.onload = () => {
             tg?.ready();
             tg?.expand();
-            init();
-            [500, 1000, 2000, 4000].forEach(ms => setTimeout(syncUser, ms));
+            window.sys.init();
+            [500, 1500, 3000].forEach(ms => setTimeout(window.sys.syncUser, ms));
             lucide.createIcons();
         };
+
+        // Emergency timeout for loader
+        setTimeout(window.ui.hideLoader, 3500);
     </script>
 </body>
 </html>
