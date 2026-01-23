@@ -58,6 +58,11 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
         /* Base Styles */
         body {
@@ -491,12 +496,9 @@
 
     <script type="module">
         // ---------------------------------------------------------
-        // 1. GLOBAL CONFIGURATION & SAFETY (MODULAR SDK UPDATE)
+        // 1. GLOBAL CONFIGURATION & SAFETY
         // ---------------------------------------------------------
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, doc, setDoc, getDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, writeBatch } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
-
+        
         // Russian Data (Used if Firestore fails or is empty)
         const MOCK_PRODUCTS = [
             { name: "Neon Pod X", price: 2500, category: "Pod-устройства", image: "zap", createdAt: 1700000000000 },
@@ -526,21 +528,29 @@
         // 2. FIREBASE & APP ID SETUP
         // ---------------------------------------------------------
         
-        // Environment Config
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // НОВАЯ конфигурация Firebase для проекта qury-60cce
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCJ9Uwi9GHAU7LF6t-Wln0NBsIE4uQ6nVw",
+            authDomain: "qury-60cce.firebaseapp.com",
+            projectId: "qury-60cce",
+            storageBucket: "qury-60cce.firebasestorage.app",
+            messagingSenderId: "637838162144",
+            appId: "1:637838162144:web:478a50cdff764519a6b885",
+            measurementId: "G-2NLYNP5WQZ"
+        };
 
-        let app, db, auth;
+        const APP_ID = 'qury-60cce';
 
         try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+            if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
         } catch (e) { 
             console.error("Firebase Init Error", e);
-            // window.shop.showToast("Ошибка подключения к базе", "Ошибка"); // Moved to after shop init
+            window.shop.showToast("Ошибка подключения к базе", "Ошибка");
         }
         
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
         const ADMIN_ID = "1262669099";
 
         // ---------------------------------------------------------
@@ -621,9 +631,9 @@
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
                     if (!uid) return;
                     
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current'), {
+                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').set({
                         items: window.shop.state.cart,
-                        updatedAt: serverTimestamp()
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                     
                     console.log("Cart saved to Firebase");
@@ -638,9 +648,9 @@
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
                     if (!uid) return;
                     
-                    const cartDoc = await getDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current'));
+                    const cartDoc = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').get();
                     
-                    if (cartDoc.exists()) {
+                    if (cartDoc.exists) {
                         const cartData = cartDoc.data();
                         if (cartData.items) {
                             window.shop.state.cart = cartData.items;
@@ -662,9 +672,9 @@
                 const uid = auth.currentUser ? auth.currentUser.uid : null;
                 if (!uid) return;
                 
-                window.shop.state.cartListenerUnsubscribe = onSnapshot(doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current'), 
-                    (doc) => {
-                        if (doc.exists()) {
+                window.shop.state.cartListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current')
+                    .onSnapshot((doc) => {
+                        if (doc.exists) {
                             const cartData = doc.data();
                             if (cartData.items) {
                                 window.shop.state.cart = cartData.items;
@@ -720,31 +730,18 @@
                 // Auth & Data
                 await window.shop.authenticate();
 
-                // Wait for auth to settle
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                         // Sync Profile
-                        if (tgUser) {
-                            // window.shop.saveUserProfile(tgUser); // Not implemented in provided code
-                            window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
-                        }
-                        
-                        // Load cart from Firebase after auth
-                        await window.shop.loadCartFromFirebase();
-                        
-                        // Setup cart listener for realtime updates
-                        window.shop.setupCartListener();
-
-                         // Start Realtime Listener for products
-                        window.shop.initRealtimeListener();
-
-                        // Start My Orders listener
-                         if (document.getElementById('my-orders-list')) {
-                             window.shop.renderMyOrders(document.getElementById('main-content'));
-                         }
-                    }
-                });
-               
+                // Sync Profile
+                if (tgUser) {
+                    await window.shop.saveUserProfile(tgUser);
+                    window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
+                }
+                
+                // Load cart from Firebase after auth
+                await window.shop.loadCartFromFirebase();
+                
+                // Setup cart listener for realtime updates
+                window.shop.setupCartListener();
+                
                 // Clear Loader
                 const loader = document.getElementById('loader');
                 loader.style.opacity = '0';
@@ -766,14 +763,13 @@
 
             authenticate: async () => {
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    await auth.signInAnonymously();
                 } catch (e) {
                     console.error("Auth Error:", e);
                 }
+                
+                // Start Realtime Listener for products
+                window.shop.initRealtimeListener();
             },
 
             // --- REALTIME SYNC: The Key to Multi-User Updates ---
@@ -783,10 +779,9 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
-                // NOTE: removed orderBy to prevent index errors in demo environment
-                const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'));
-
-                window.shop.state.listenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
+                    .orderBy('createdAt', 'desc') // Добавляем сортировку по дате создания
+                    .onSnapshot(async (snapshot) => {
                         if (snapshot.empty) {
                             console.log("DB Empty.");
                             window.shop.state.products = [];
@@ -802,13 +797,10 @@
                                 ...data,
                                 // Ensure createdAt is a number for sorting
                                 createdAt: data.createdAt ? 
-                                    (data.createdAt.toMillis ? data.createdAt.toMillis() : (data.createdAt.seconds ? data.createdAt.seconds * 1000 : data.createdAt)) : 
+                                    (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
                                     0
                             });
                         });
-
-                        // Sort locally
-                        dbProducts.sort((a, b) => b.createdAt - a.createdAt);
                         
                         console.log("Realtime Update Received:", dbProducts.length);
                         window.shop.state.products = dbProducts;
@@ -829,18 +821,21 @@
                 try {
                     if (!confirm("Это действие восстановит стандартные товары. Продолжить?")) return;
 
-                    const batch = writeBatch(db);
-                    const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                    const batch = db.batch();
+                    const colRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products');
                     
-                    // Note: In modular SDK, we can't delete collection easily without cloud functions. 
-                    // We will just add new ones for safety in this demo environment.
+                    // First, delete all existing products
+                    const snapshot = await colRef.get();
+                    snapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
                     
                     // Then add mock products
                     MOCK_PRODUCTS.forEach(item => {
-                        const docRef = doc(colRef); // Generate ID
+                        const docRef = colRef.doc(); 
                         batch.set(docRef, { 
                             ...item, 
-                            createdAt: serverTimestamp() 
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp() 
                         });
                     });
 
@@ -857,6 +852,7 @@
                 if (window.shop.state.debugClicks >= 5) {
                     const panel = document.getElementById('debug-panel');
                     const content = document.getElementById('debug-content');
+                    const warning = document.getElementById('debug-warning');
                     
                     panel.classList.remove('hidden');
                     
@@ -864,7 +860,7 @@
                         "DETECTED_USER_ID": window.shop.state.user?.id,
                         "EXPECTED_ADMIN_ID": ADMIN_ID,
                         "IS_ADMIN_BOOL": window.shop.state.isAdmin,
-                        "APP_ID": APP_ID,
+                        "PROJECT_ID": FIREBASE_CONFIG.projectId,
                         "SOURCE": window.shop.debugInfo?.parsedSource,
                         "FULL_USER_OBJ": window.shop.state.user,
                         "FIREBASE_AUTH": auth.currentUser ? auth.currentUser.uid : 'Not authenticated',
@@ -1130,11 +1126,6 @@
                         </button>
                     ` : ''}
                     
-                    <button onclick="window.shop.switchView('my-orders')" class="w-full mb-6 bg-white/5 hover:bg-white/10 text-white font-bold py-4 rounded-xl border border-white/10 flex items-center justify-center gap-3 transition-colors">
-                        <i data-lucide="package" class="w-5 h-5 text-gray-400"></i>
-                        МОИ ЗАКАЗЫ
-                    </button>
-
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
                          <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.showToast('Настройки сохранены', 'Инфо')">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="settings" class="w-5 h-5"></i></div>
@@ -1155,7 +1146,7 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 15.0 (Firebase Modular Fix) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.3.0 (qury-60cce) - Tap 5x for Debug</p>
                 `;
                 
                 // Recreate icons
@@ -1182,9 +1173,9 @@
 
                 // Function to set up listener
                 const setupListener = (uid) => {
-                    const q = query(collection(db, 'artifacts', APP_ID, 'users', uid, 'orders'));
-                    
-                    window.shop.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
+                        .orderBy('date', 'desc')
+                        .onSnapshot((snapshot) => {
                             const list = document.getElementById('my-orders-list');
                             if (!list) return;
 
@@ -1200,9 +1191,6 @@
                             let docs = [];
                             snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
                             
-                            // Sort locally
-                            docs.sort((a,b) => new Date(b.date) - new Date(a.date));
-
                             let html = '';
                             docs.forEach(data => {
                                 const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
@@ -1224,7 +1212,7 @@
                                     <div class="glass-panel rounded-xl p-4 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}">
                                         <div class="flex justify-between items-start mb-2">
                                             <div class="flex flex-col">
-                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key}</span>
+                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.id}</span>
                                                 <span class="text-xs text-gray-400">${itemsCount} товаров</span>
                                             </div>
                                             <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
@@ -1246,9 +1234,29 @@
                         });
                 };
 
-                const user = auth.currentUser;
-                if (user) {
-                    setupListener(user.uid);
+                const handleAuth = (user) => {
+                    if (user) {
+                        setupListener(user.uid);
+                    } else {
+                        // Attempt auto-recovery
+                        console.log("Auto-authenticating user...");
+                        auth.signInAnonymously()
+                            .then(cred => setupListener(cred.user.uid))
+                            .catch(e => {
+                                const list = document.getElementById('my-orders-list');
+                                if(list) list.innerHTML = `<div class="text-center text-red-500 py-10">Ошибка авторизации. Обновите страницу.</div>`;
+                            });
+                    }
+                };
+
+                // Auth Logic
+                if (auth.currentUser) {
+                    handleAuth(auth.currentUser);
+                } else {
+                    const unsub = auth.onAuthStateChanged(user => {
+                        unsub();
+                        handleAuth(user);
+                    });
                 }
             },
 
@@ -1287,9 +1295,9 @@
                 }
 
                 // Listen to Global Orders Collection
-                const q = query(collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders'));
-
-                window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                window.shop.state.ordersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders')
+                    .orderBy('date', 'desc')
+                    .onSnapshot((snapshot) => {
                         const list = document.getElementById('admin-orders-list');
                         if (!list) return; // View changed
 
@@ -1301,9 +1309,6 @@
                         let docs = [];
                         snapshot.forEach(doc => docs.push({ firestoreId: doc.id, ...doc.data() }));
                         
-                        // Sort locally
-                        docs.sort((a,b) => new Date(b.date) - new Date(a.date));
-
                         let html = '';
                         docs.forEach(data => {
                             const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
@@ -1395,7 +1400,7 @@
                 window.shop.showToast(`Удаление ${count} заказов...`, "Обработка");
                 
                 try {
-                    const promises = ids.map(id => deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id)));
+                    const promises = ids.map(id => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(id).delete());
                     await Promise.all(promises);
                     
                     window.shop.state.selectedAdminOrders.clear();
@@ -1409,10 +1414,10 @@
 
             openOrderDetails: async (docId) => {
                 try {
-                    const docSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId));
-                    if (!docSnap.exists()) return;
+                    const doc = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).get();
+                    if (!doc.exists) return;
                     
-                    const data = docSnap.data();
+                    const data = doc.data();
                     const modal = document.getElementById('order-detail-modal');
                     const content = document.getElementById('order-detail-content');
                     
@@ -1472,17 +1477,17 @@
             updateOrderStatus: async (docId, status) => {
                 try {
                     // 1. Update Public Order
-                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId), {
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).update({
                         status: status
                     });
 
                     // 2. Try to update User's Private Order (Sync Status)
                     // We need to fetch the public doc first to get the linked User Order ID
-                    const docSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId));
-                    if (docSnap.exists()) {
+                    const docSnap = await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(docId).get();
+                    if (docSnap.exists) {
                         const data = docSnap.data();
                         if (data.linkedUserUid && data.linkedUserOrderId) {
-                            await updateDoc(doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId), {
+                            await db.collection('artifacts').doc(APP_ID).collection('users').doc(data.linkedUserUid).collection('orders').doc(data.linkedUserOrderId).update({
                                 status: status
                             });
                         }
@@ -1652,14 +1657,14 @@
                     price, 
                     category: cat, 
                     image, 
-                    createdAt: serverTimestamp()
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
                 window.shop.toggleAddModal();
                 window.shop.showToast("Сохранение...", "Синхронизация");
 
                 try {
-                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'), newProduct);
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add(newProduct);
                     window.shop.showToast("Товар добавлен", "Успешно");
                 } catch (e) {
                     console.error("Save failed", e);
@@ -1690,7 +1695,7 @@
                 this.showToast("Обновление...", "Синхронизация");
 
                 try {
-                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id), updatedProduct);
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).update(updatedProduct);
                     this.state.pendingEditImage = null;
                     this.showToast("Товар обновлен", "Успешно");
                 } catch (e) {
@@ -1705,7 +1710,7 @@
                 window.shop.showToast("Удаление...", "Синхронизация");
 
                 try {
-                    await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id));
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
                     window.shop.showToast("Товар удален", "Успешно");
                 } catch (e) { 
                     console.error("Delete failed", e); 
@@ -1787,7 +1792,7 @@
                     // A. Save to User History (Private) if Authenticated
                     if (uid) {
                         try {
-                            const userOrderRef = await addDoc(collection(db, 'artifacts', APP_ID, 'users', uid, 'orders'), orderBase);
+                            const userOrderRef = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders').add(orderBase);
                             userOrderDocId = userOrderRef.id;
                         } catch(innerE) {
                             console.warn("Could not save to user history", innerE);
@@ -1802,11 +1807,11 @@
                         linkedUserOrderId: userOrderDocId
                     };
                     
-                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders'), publicOrder);
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
                     
                     // C. Clear cart in Firebase
                     if (uid) {
-                        await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current'));
+                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').delete();
                     }
                       
                 } catch(e) { 
