@@ -352,6 +352,50 @@
         </div>
     </div>
 
+    <!-- Edit Product Modal (Admin) -->
+    <div id="edit-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.1)] max-h-[90vh] overflow-y-auto">
+            <button onclick="window.shop.toggleEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h2 class="text-xl font-black italic mb-6 text-white">РЕДАКТИРОВАНИЕ <span class="text-green-500">ТОВАРА</span></h2>
+            <div class="space-y-4">
+                
+                <!-- Image Upload -->
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Фотография</label>
+                    <div id="edit-img-preview-container" class="image-preview" onclick="document.getElementById('edit-image-input').click()">
+                        <div id="edit-img-placeholder" class="flex flex-col items-center gap-2 text-gray-500">
+                            <i data-lucide="image-plus" class="w-6 h-6"></i>
+                            <span class="text-xs">Нажмите для загрузки</span>
+                        </div>
+                    </div>
+                    <input type="file" id="edit-image-input" accept="image/*" class="hidden" onchange="window.shop.handleEditImageSelect(this)">
+                </div>
+
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Название</label>
+                    <input type="text" id="edit-name" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                <div>
+                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Цена (RUB)</label>
+                    <input type="number" id="edit-price" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Категория</label>
+                    <select id="edit-cat" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none text-gray-300 appearance-none">
+                        <option value="Одноразки">Одноразки</option>
+                        <option value="Pod-устройства">Pod-устройства</option>
+                        <option value="Жидкости">Жидкости</option>
+                        <option value="Комплектующие">Комплектующие</option>
+                        <option value="Электроника">Электроника</option>
+                    </select>
+                </div>
+                <button onclick="window.shop.updateProduct()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-2 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                    СОХРАНИТЬ ИЗМЕНЕНИЯ
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- DELIVERY INFO MODAL (Step 1) -->
     <div id="delivery-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
         <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t border-green-500/30 animate-float-up shadow-[0_-10px_50px_rgba(0,0,0,0.8)] pb-10">
@@ -519,12 +563,14 @@
                 isAdmin: false,
                 debugClicks: 0,
                 pendingImage: null,
+                pendingEditImage: null,
                 listenerUnsubscribe: null,
-                deliveryTime: null, // New state for time selection
-                ordersListenerUnsubscribe: null, // For admin orders
-                myOrdersListenerUnsubscribe: null, // For user orders
+                deliveryTime: null,
+                ordersListenerUnsubscribe: null,
+                myOrdersListenerUnsubscribe: null,
                 adminSelectionMode: false,
-                selectedAdminOrders: new Set()
+                selectedAdminOrders: new Set(),
+                editingProductId: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -893,7 +939,16 @@
 
                         gridHTML += `
                         <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden animate-float-up h-auto" style="animation-delay: ${delay}ms">
-                            ${window.shop.state.isAdmin ? `<button onclick="window.shop.deleteProduct('${p.id}')" class="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                            ${window.shop.state.isAdmin ? `
+                                <div class="absolute top-2 right-2 z-20 flex gap-1">
+                                    <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
+                                        <i data-lucide="edit" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            ` : ''}
                             
                             <!-- Taller aspect ratio for vertical card feel -->
                             <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
@@ -1461,6 +1516,43 @@
                 document.getElementById('img-placeholder').classList.remove('hidden');
             },
 
+            // Редактирование товара
+            editProduct: function(id) {
+                const product = this.state.products.find(p => p.id === id);
+                if (!product) return;
+
+                this.state.editingProductId = id;
+
+                // Заполняем форму
+                document.getElementById('edit-name').value = product.name;
+                document.getElementById('edit-price').value = product.price;
+                document.getElementById('edit-cat').value = product.category;
+
+                // Изображение
+                const preview = document.getElementById('edit-img-preview-container');
+                const placeholder = document.getElementById('edit-img-placeholder');
+                if (product.image && product.image.startsWith('data:image')) {
+                    preview.style.backgroundImage = `url(${product.image})`;
+                    placeholder.classList.add('hidden');
+                } else if (product.image) {
+                    // Если это иконка, показываем placeholder
+                    preview.style.backgroundImage = '';
+                    placeholder.classList.remove('hidden');
+                }
+
+                this.toggleEditModal();
+            },
+
+            toggleEditModal: function() {
+                const modal = document.getElementById('edit-modal');
+                modal.classList.toggle('hidden');
+                // Сброс при закрытии
+                if (modal.classList.contains('hidden')) {
+                    this.state.editingProductId = null;
+                    this.state.pendingEditImage = null;
+                }
+            },
+
             handleImageSelect: (input) => {
                 if (input.files && input.files[0]) {
                     const reader = new FileReader();
@@ -1469,6 +1561,19 @@
                         const preview = document.getElementById('img-preview-container');
                         preview.style.backgroundImage = `url(${e.target.result})`;
                         document.getElementById('img-placeholder').classList.add('hidden');
+                    }
+                    reader.readAsDataURL(input.files[0]);
+                }
+            },
+
+            handleEditImageSelect: function(input) {
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.state.pendingEditImage = e.target.result;
+                        const preview = document.getElementById('edit-img-preview-container');
+                        preview.style.backgroundImage = `url(${e.target.result})`;
+                        document.getElementById('edit-img-placeholder').classList.add('hidden');
                     }
                     reader.readAsDataURL(input.files[0]);
                 }
@@ -1498,6 +1603,38 @@
                 } catch (e) {
                     console.error("Save failed (Using Offline)", e);
                     window.shop.showToast("Ошибка сохранения", "Сбой");
+                }
+            },
+
+            updateProduct: async function() {
+                const id = this.state.editingProductId;
+                if (!id) return;
+
+                const name = document.getElementById('edit-name').value;
+                const price = Number(document.getElementById('edit-price').value);
+                const cat = document.getElementById('edit-cat').value;
+                const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
+
+                if (!name || !price) return this.showToast("Заполните все поля", "Ошибка");
+
+                const updatedProduct = {
+                    name,
+                    price,
+                    category: cat,
+                    image,
+                    // Сохраняем оригинальную дату создания
+                    createdAt: this.state.products.find(p => p.id === id).createdAt
+                };
+
+                this.toggleEditModal();
+                this.showToast("Обновление...", "Синхронизация");
+
+                try {
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).update(updatedProduct);
+                    this.state.pendingEditImage = null;
+                } catch (e) {
+                    console.error("Update failed", e);
+                    this.showToast("Ошибка обновления", "Сбой");
                 }
             },
 
