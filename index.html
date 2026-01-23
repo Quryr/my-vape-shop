@@ -32,6 +32,7 @@
                         'vapor-float': 'float 8s ease-in-out infinite',
                         'vapor-pulse': 'pulse-glow 4s ease-in-out infinite',
                         'float-up': 'slideUp 0.4s ease-out forwards',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
                     },
                     keyframes: {
                         float: {
@@ -45,6 +46,10 @@
                         slideUp: {
                             '0%': { transform: 'translateY(100%)', opacity: '0' },
                             '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
                         }
                     }
                 }
@@ -212,6 +217,25 @@
         .admin-checkbox:checked {
             border-color: #22c55e;
         }
+
+        /* Smooth transitions for cart items */
+        .cart-item {
+            transition: all 0.2s ease-out;
+        }
+
+        .cart-item-enter {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .cart-item-exit {
+            opacity: 0;
+            transform: translateY(-10px);
+            height: 0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -294,7 +318,7 @@
             <span class="text-[10px] font-bold tracking-wide">МАГАЗИН</span>
         </button>
         <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors relative w-1/3" data-view="cart">
-            <div id="cart-badge" class="absolute top-0 right-6 w-4 h-4 bg-green-500 text-black text-[9px] font-bold rounded-full flex items-center justify-center opacity-0 transition-opacity shadow-[0_0_10px_rgba(34,197,94,0.6)]">0</div>
+            <div id="cart-badge" class="absolute top-0 right-6 w-4 h-4 bg-green-500 text-black text-[9px] font-bold rounded-full flex items-center justify-center opacity-0 transition-all shadow-[0_0_10px_rgba(34,197,94,0.6)]">0</div>
             <i data-lucide="shopping-bag" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">КОРЗИНА</span>
         </button>
@@ -589,7 +613,8 @@
                 adminSelectionMode: false,
                 selectedAdminOrders: new Set(),
                 editingProductId: null,
-                cartListenerUnsubscribe: null
+                cartListenerUnsubscribe: null,
+                lastCartRenderTime: 0
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -729,9 +754,13 @@
                             window.shop.state.cart = cartData.items;
                             window.shop.updateCartBadge();
                             
-                            // Если текущий вид - корзина, перерисовываем
+                            // Если текущий вид - корзина, перерисовываем с дебаунсом
                             if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
-                                window.shop.renderCart(document.getElementById('main-content'));
+                                const now = Date.now();
+                                if (now - window.shop.state.lastCartRenderTime > 100) {
+                                    window.shop.renderCart(document.getElementById('main-content'));
+                                    window.shop.state.lastCartRenderTime = now;
+                                }
                             }
                         }
                     }
@@ -858,9 +887,7 @@
                     window.shop.renderStore();
                     
                     // Recreate icons after products are loaded
-                    setTimeout(() => {
-                        if(window.lucide) window.lucide.createIcons();
-                    }, 100);
+                    if(window.lucide) window.lucide.createIcons();
                     
                 }, (error) => {
                     console.error("Realtime listener error:", error);
@@ -957,9 +984,7 @@
                     main.style.opacity = '1';
                     
                     // Recreate icons after rendering
-                    setTimeout(() => {
-                        if(window.lucide) window.lucide.createIcons();
-                    }, 50);
+                    if(window.lucide) window.lucide.createIcons();
                 }, 50);
             },
 
@@ -1019,7 +1044,7 @@
                         }
 
                         gridHTML += `
-                        <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden animate-float-up h-auto" style="animation-delay: ${delay}ms">
+                        <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto">
                             ${window.shop.state.isAdmin ? `
                                 <div class="absolute top-2 right-2 z-20 flex gap-1">
                                     <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
@@ -1063,9 +1088,7 @@
                 window.shop.setupCategoryScroll();
                 
                 // Recreate icons to fix missing icons bug
-                setTimeout(() => {
-                    if(window.lucide) window.lucide.createIcons();
-                }, 100);
+                if(window.lucide) window.lucide.createIcons();
             },
 
             renderCart: (container) => {
@@ -1075,7 +1098,7 @@
 
                 if (products.length === 0) {
                     container.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500 animate-float-up">
+                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
                             <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
                                 <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
                             </div>
@@ -1085,13 +1108,11 @@
                         </div>`;
                         
                     // Recreate icons
-                    setTimeout(() => {
-                        if(window.lucide) window.lucide.createIcons();
-                    }, 100);
+                    if(window.lucide) window.lucide.createIcons();
                     return;
                 }
 
-                let html = `<div class="space-y-3 pb-36 px-1">`;
+                let html = `<div class="space-y-3 pb-36 px-1" id="cart-items-container">`;
                 
                 products.forEach((p, idx) => {
                     const qty = window.shop.state.cart[p.id];
@@ -1107,7 +1128,7 @@
                     }
 
                     html += `
-                        <div class="glass-panel rounded-xl p-3 flex items-center gap-4 animate-float-up" style="animation-delay: ${idx * 50}ms">
+                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4 animate-fade-in" data-product-id="${p.id}">
                             <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
                                 ${imageContent}
                             </div>
@@ -1127,7 +1148,7 @@
                 html += `</div>`;
                 
                 html += `
-                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-5 rounded-3xl flex items-center justify-between border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30 animate-float-up">
+                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-5 rounded-3xl flex items-center justify-between border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         <div>
                             <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Итого</p>
                             <p class="text-2xl font-black text-white neon-text-green">${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
@@ -1141,9 +1162,7 @@
                 container.innerHTML = html;
                 
                 // Recreate icons to fix missing icons bug
-                setTimeout(() => {
-                    if(window.lucide) window.lucide.createIcons();
-                }, 100);
+                if(window.lucide) window.lucide.createIcons();
             },
 
             renderProfile: (container) => {
@@ -1153,7 +1172,7 @@
                 const roleName = window.shop.state.isAdmin ? 'АДМИНИСТРАТОР' : 'КЛИЕНТ';
 
                 container.innerHTML = `
-                    <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden animate-float-up border border-white/10">
+                    <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden border border-white/10">
                         <div class="absolute inset-0 bg-gradient-to-b from-green-500/5 to-transparent"></div>
                         
                         <div class="w-28 h-28 rounded-full p-1 border-2 border-white/10 mb-5 relative z-10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
@@ -1201,9 +1220,7 @@
                 `;
                 
                 // Recreate icons
-                setTimeout(() => {
-                    if(window.lucide) window.lucide.createIcons();
-                }, 100);
+                if(window.lucide) window.lucide.createIcons();
             },
 
             // --- USER: RENDER MY ORDERS ---
@@ -1564,9 +1581,7 @@
             filterCategory: (cat) => {
                 window.shop.state.currentCategory = cat;
                 window.shop.renderStore();
-                setTimeout(() => { 
-                    if(window.lucide) window.lucide.createIcons();
-                }, 50);
+                if(window.lucide) window.lucide.createIcons();
             },
 
             addToCart: async (productId) => {
@@ -1593,8 +1608,21 @@
                 if (!window.shop.state.cart[productId]) return;
                 
                 window.shop.state.cart[productId] += change;
+                
+                // ФИКС: проверяем именно <= 0, а не < 1
                 if (window.shop.state.cart[productId] <= 0) {
                     delete window.shop.state.cart[productId];
+                    
+                    // Плавное удаление элемента из DOM
+                    const cartItem = document.querySelector(`.cart-item[data-product-id="${productId}"]`);
+                    if (cartItem) {
+                        cartItem.classList.add('cart-item-exit');
+                        setTimeout(() => {
+                            if (cartItem.parentNode) {
+                                cartItem.parentNode.removeChild(cartItem);
+                            }
+                        }, 200);
+                    }
                 }
                 
                 // Save cart to Firebase
@@ -1605,14 +1633,30 @@
 
                 window.shop.updateCartBadge();
                 
-                // If we're on cart page, re-render it
+                // Если мы на странице корзины, пересчитываем и перерисовываем итоговую сумму
                 if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
-                    window.shop.renderCart(document.getElementById('main-content'));
+                    // Пересчет общей суммы
+                    const cartIds = Object.keys(window.shop.state.cart);
+                    const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                    let total = 0;
+                    
+                    products.forEach(p => {
+                        total += p.price * window.shop.state.cart[p.id];
+                    });
+                    
+                    // Обновляем только общую сумму, а не всю корзину
+                    const totalElement = document.querySelector('.fixed.bottom-24 .text-2xl.font-black');
+                    if (totalElement) {
+                        totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
+                    }
+                    
+                    // Если корзина пуста, показываем пустое состояние
+                    if (cartIds.length === 0) {
+                        window.shop.renderCart(document.getElementById('main-content'));
+                    }
                 }
                 
-                setTimeout(() => { 
-                    if(window.lucide) window.lucide.createIcons();
-                }, 50);
+                if(window.lucide) window.lucide.createIcons();
             },
 
             updateCartBadge: () => {
