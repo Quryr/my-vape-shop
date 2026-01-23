@@ -33,6 +33,7 @@
                         'vapor-pulse': 'pulse-glow 4s ease-in-out infinite',
                         'float-up': 'slideUp 0.4s ease-out forwards',
                         'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-out': 'slideOut 0.3s ease-out forwards',
                     },
                     keyframes: {
                         float: {
@@ -50,6 +51,10 @@
                         fadeIn: {
                             '0%': { opacity: '0' },
                             '100%': { opacity: '1' }
+                        },
+                        slideOut: {
+                            '0%': { transform: 'translateX(0)', opacity: '1', height: 'auto' },
+                            '100%': { transform: 'translateX(-100%)', opacity: '0', height: '0', margin: '0', padding: '0' }
                         }
                     }
                 }
@@ -218,23 +223,18 @@
             border-color: #22c55e;
         }
 
-        /* Smooth transitions for cart items */
+        /* Cart item animations */
         .cart-item {
-            transition: all 0.2s ease-out;
+            transition: transform 0.2s ease, opacity 0.2s ease;
         }
-
-        .cart-item-enter {
-            opacity: 0;
-            transform: translateY(10px);
+        
+        .cart-item-removing {
+            animation: slideOut 0.3s ease-out forwards;
         }
-
-        .cart-item-exit {
-            opacity: 0;
-            transform: translateY(-10px);
-            height: 0;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
+        
+        /* Prevent layout shift */
+        #cart-items-container {
+            min-height: 100px;
         }
     </style>
 </head>
@@ -535,8 +535,7 @@
             query,
             orderBy,
             serverTimestamp,
-            writeBatch,
-            where
+            writeBatch
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { 
             getAuth, 
@@ -614,7 +613,8 @@
                 selectedAdminOrders: new Set(),
                 editingProductId: null,
                 cartListenerUnsubscribe: null,
-                lastCartRenderTime: 0
+                isCartView: false,
+                cartRendering: false
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -751,15 +751,17 @@
                     if (doc.exists()) {
                         const cartData = doc.data();
                         if (cartData.items) {
-                            window.shop.state.cart = cartData.items;
-                            window.shop.updateCartBadge();
-                            
-                            // Если текущий вид - корзина, перерисовываем с дебаунсом
-                            if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
-                                const now = Date.now();
-                                if (now - window.shop.state.lastCartRenderTime > 100) {
-                                    window.shop.renderCart(document.getElementById('main-content'));
-                                    window.shop.state.lastCartRenderTime = now;
+                            // Если мы на странице корзины, обновляем только если данные действительно изменились
+                            if (JSON.stringify(cartData.items) !== JSON.stringify(window.shop.state.cart)) {
+                                window.shop.state.cart = cartData.items;
+                                window.shop.updateCartBadge();
+                                
+                                // Если текущий вид - корзина, обновляем только если не в процессе рендера
+                                if (window.shop.state.isCartView && !window.shop.state.cartRendering) {
+                                    // Делаем плавное обновление
+                                    setTimeout(() => {
+                                        window.shop.updateCartView();
+                                    }, 50);
                                 }
                             }
                         }
@@ -884,7 +886,16 @@
                     
                     console.log("Realtime Update Received:", dbProducts.length);
                     window.shop.state.products = dbProducts;
-                    window.shop.renderStore();
+                    
+                    // Обновляем только если на странице магазина
+                    if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
+                        window.shop.renderStore();
+                    }
+                    
+                    // Если на странице корзины, обновляем информацию о товарах
+                    if (window.shop.state.isCartView) {
+                        window.shop.updateCartView();
+                    }
                     
                     // Recreate icons after products are loaded
                     if(window.lucide) window.lucide.createIcons();
@@ -972,6 +983,9 @@
                 const main = document.getElementById('main-content');
                 main.innerHTML = '';
                 main.style.opacity = '0';
+
+                // Обновляем состояние просмотра
+                window.shop.state.isCartView = (viewName === 'cart');
 
                 // Restore slight delay for animation smoothness
                 setTimeout(() => {
@@ -1092,6 +1106,8 @@
             },
 
             renderCart: (container) => {
+                window.shop.state.cartRendering = true;
+                
                 const cartIds = Object.keys(window.shop.state.cart);
                 const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
                 let total = 0;
@@ -1106,8 +1122,8 @@
                             <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
                             <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
                         </div>`;
-                        
-                    // Recreate icons
+                    
+                    window.shop.state.cartRendering = false;
                     if(window.lucide) window.lucide.createIcons();
                     return;
                 }
@@ -1128,7 +1144,7 @@
                     }
 
                     html += `
-                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4 animate-fade-in" data-product-id="${p.id}">
+                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4" data-product-id="${p.id}" id="cart-item-${p.id}">
                             <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
                                 ${imageContent}
                             </div>
@@ -1137,9 +1153,13 @@
                                 <p class="text-xs text-green-400 font-mono mt-1">${p.price} ₽</p>
                             </div>
                             <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5">
-                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                                <span class="text-sm font-bold w-6 text-center text-white">${qty}</span>
-                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                    <i data-lucide="minus" class="w-3 h-3"></i>
+                                </button>
+                                <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
+                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                    <i data-lucide="plus" class="w-3 h-3"></i>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -1151,7 +1171,7 @@
                     <div class="fixed bottom-24 left-4 right-4 glass-panel p-5 rounded-3xl flex items-center justify-between border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         <div>
                             <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Итого</p>
-                            <p class="text-2xl font-black text-white neon-text-green">${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
+                            <p class="text-2xl font-black text-white neon-text-green" id="cart-total">${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
                         </div>
                         <button onclick="window.shop.initCheckout(${total})" class="bg-green-500 text-black px-6 py-4 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
                             ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-4 h-4"></i>
@@ -1161,8 +1181,53 @@
 
                 container.innerHTML = html;
                 
-                // Recreate icons to fix missing icons bug
+                window.shop.state.cartRendering = false;
                 if(window.lucide) window.lucide.createIcons();
+            },
+
+            // Обновление вида корзины без полной перерисовки
+            updateCartView: () => {
+                if (!window.shop.state.isCartView || window.shop.state.cartRendering) return;
+                
+                const cartIds = Object.keys(window.shop.state.cart);
+                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                let total = 0;
+
+                // Если корзина пуста
+                if (products.length === 0) {
+                    const container = document.getElementById('main-content');
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
+                            <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
+                                <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-2">Корзина пуста</h3>
+                            <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
+                            <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
+                        </div>`;
+                    return;
+                }
+
+                // Обновляем количество и общую сумму
+                products.forEach(p => {
+                    const qty = window.shop.state.cart[p.id];
+                    total += p.price * qty;
+                    
+                    const qtyElement = document.querySelector(`#cart-item-${p.id} .cart-item-qty`);
+                    if (qtyElement) {
+                        qtyElement.textContent = qty;
+                    } else {
+                        // Если элемента нет, добавляем его
+                        window.shop.renderCart(document.getElementById('main-content'));
+                        return;
+                    }
+                });
+
+                // Обновляем общую сумму
+                const totalElement = document.getElementById('cart-total');
+                if (totalElement) {
+                    totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
+                }
             },
 
             renderProfile: (container) => {
@@ -1607,22 +1672,34 @@
             updateQty: async (productId, change) => {
                 if (!window.shop.state.cart[productId]) return;
                 
+                // Увеличиваем/уменьшаем количество
                 window.shop.state.cart[productId] += change;
                 
-                // ФИКС: проверяем именно <= 0, а не < 1
+                // Проверяем, если количество стало 0 или меньше
                 if (window.shop.state.cart[productId] <= 0) {
                     delete window.shop.state.cart[productId];
                     
-                    // Плавное удаление элемента из DOM
-                    const cartItem = document.querySelector(`.cart-item[data-product-id="${productId}"]`);
+                    // Находим элемент в DOM
+                    const cartItem = document.querySelector(`#cart-item-${productId}`);
                     if (cartItem) {
-                        cartItem.classList.add('cart-item-exit');
+                        // Добавляем анимацию удаления
+                        cartItem.classList.add('cart-item-removing');
                         setTimeout(() => {
                             if (cartItem.parentNode) {
                                 cartItem.parentNode.removeChild(cartItem);
                             }
-                        }, 200);
+                            // После удаления обновляем общую сумму
+                            window.shop.updateCartTotal();
+                        }, 300);
                     }
+                } else {
+                    // Обновляем количество в DOM
+                    const qtyElement = document.querySelector(`#cart-item-${productId} .cart-item-qty`);
+                    if (qtyElement) {
+                        qtyElement.textContent = window.shop.state.cart[productId];
+                    }
+                    // Обновляем общую сумму
+                    window.shop.updateCartTotal();
                 }
                 
                 // Save cart to Firebase
@@ -1633,30 +1710,39 @@
 
                 window.shop.updateCartBadge();
                 
-                // Если мы на странице корзины, пересчитываем и перерисовываем итоговую сумму
-                if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
-                    // Пересчет общей суммы
-                    const cartIds = Object.keys(window.shop.state.cart);
-                    const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
-                    let total = 0;
-                    
-                    products.forEach(p => {
-                        total += p.price * window.shop.state.cart[p.id];
-                    });
-                    
-                    // Обновляем только общую сумму, а не всю корзину
-                    const totalElement = document.querySelector('.fixed.bottom-24 .text-2xl.font-black');
-                    if (totalElement) {
-                        totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
-                    }
-                    
-                    // Если корзина пуста, показываем пустое состояние
-                    if (cartIds.length === 0) {
-                        window.shop.renderCart(document.getElementById('main-content'));
-                    }
+                // Если корзина пуста после удаления, показываем пустое состояние
+                if (Object.keys(window.shop.state.cart).length === 0 && window.shop.state.isCartView) {
+                    const container = document.getElementById('main-content');
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
+                            <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
+                                <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-white mb-2">Корзина пуста</h3>
+                            <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
+                            <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
+                        </div>`;
                 }
                 
                 if(window.lucide) window.lucide.createIcons();
+            },
+
+            // Функция обновления общей суммы в корзине
+            updateCartTotal: () => {
+                if (!window.shop.state.isCartView) return;
+                
+                const cartIds = Object.keys(window.shop.state.cart);
+                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                let total = 0;
+                
+                products.forEach(p => {
+                    total += p.price * window.shop.state.cart[p.id];
+                });
+                
+                const totalElement = document.getElementById('cart-total');
+                if (totalElement) {
+                    totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
+                }
             },
 
             updateCartBadge: () => {
