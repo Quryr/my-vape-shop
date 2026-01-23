@@ -529,7 +529,7 @@
         // ---------------------------------------------------------
         
         // ВАЖНО: Твои данные Firebase
-        const FIREBASE_CONFIG = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+        const FIREBASE_CONFIG = {
             apiKey: "AIzaSyDCXGwD1a3dJ73JJ2TxShZack-KLCteABI",
             authDomain: "vape-store-60093.firebaseapp.com",
             projectId: "vape-store-60093",
@@ -539,11 +539,14 @@
             measurementId: "G-663WY383DG"
         };
 
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'vape-store-default';
+        const APP_ID = 'vape-store-60093';
 
         try {
             if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-        } catch (e) { console.error("Firebase Init Error", e); }
+        } catch (e) { 
+            console.error("Firebase Init Error", e);
+            window.shop.showToast("Ошибка подключения к базе", "Ошибка");
+        }
         
         const db = firebase.firestore();
         const auth = firebase.auth();
@@ -570,7 +573,8 @@
                 myOrdersListenerUnsubscribe: null,
                 adminSelectionMode: false,
                 selectedAdminOrders: new Set(),
-                editingProductId: null
+                editingProductId: null,
+                cartListenerUnsubscribe: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -621,38 +625,70 @@
                 return { source: 'generated_guest', user: newGuest };
             },
 
-            // --- NEW: AUTO-CREATE USER PROFILE ---
-            saveUserProfile: async (user) => {
-                if (!auth.currentUser) return;
-                
+            // --- Save Cart to Firebase for user ---
+            saveCartToFirebase: async () => {
                 try {
-                    // Use auth.currentUser.uid for write permission
-                    const uid = auth.currentUser.uid;
+                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    if (!uid) return;
                     
-                    // Store TG ID inside the document
-                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('profile').doc('info').set({
-                        telegram_id: user.id,
-                        first_name: user.first_name || '',
-                        last_name: user.last_name || '',
-                        username: user.username || '',
-                        language_code: user.language_code || 'ru',
-                        lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                        platform: 'Telegram WebApp'
+                    await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').set({
+                        items: window.shop.state.cart,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, { merge: true });
                     
-                    console.log("User profile synced to DB under UID:", uid);
+                    console.log("Cart saved to Firebase");
                 } catch (e) {
-                    console.error("Failed to save profile:", e);
+                    console.error("Failed to save cart to Firebase:", e);
                 }
             },
 
-            // --- HELPER: Save Cart to LocalStorage ---
-            saveCartState: () => {
+            // --- Load Cart from Firebase for user ---
+            loadCartFromFirebase: async () => {
                 try {
-                    localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
+                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    if (!uid) return;
+                    
+                    const cartDoc = await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').get();
+                    
+                    if (cartDoc.exists) {
+                        const cartData = cartDoc.data();
+                        if (cartData.items) {
+                            window.shop.state.cart = cartData.items;
+                            window.shop.updateCartBadge();
+                            console.log("Cart loaded from Firebase");
+                        }
+                    }
                 } catch (e) {
-                    console.warn("Could not save cart to storage", e);
+                    console.error("Failed to load cart from Firebase:", e);
                 }
+            },
+
+            // --- Setup realtime cart listener ---
+            setupCartListener: () => {
+                if (window.shop.state.cartListenerUnsubscribe) {
+                    window.shop.state.cartListenerUnsubscribe();
+                }
+                
+                const uid = auth.currentUser ? auth.currentUser.uid : null;
+                if (!uid) return;
+                
+                window.shop.state.cartListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current')
+                    .onSnapshot((doc) => {
+                        if (doc.exists) {
+                            const cartData = doc.data();
+                            if (cartData.items) {
+                                window.shop.state.cart = cartData.items;
+                                window.shop.updateCartBadge();
+                                
+                                // Если текущий вид - корзина, перерисовываем
+                                if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
+                                    window.shop.renderCart(document.getElementById('main-content'));
+                                }
+                            }
+                        }
+                    }, (error) => {
+                        console.error("Cart listener error:", error);
+                    });
             },
 
             init: async () => {
@@ -661,17 +697,6 @@
                 tg.expand();
                 tg.setHeaderColor('#050505');
                 tg.setBackgroundColor('#050505');
-
-                // --- RESTORE CART FROM STORAGE ---
-                try {
-                    const savedCart = localStorage.getItem('vapor_cart_storage');
-                    if (savedCart) {
-                        window.shop.state.cart = JSON.parse(savedCart);
-                        window.shop.updateCartBadge();
-                    }
-                } catch (e) {
-                    console.warn("Failed to load saved cart", e);
-                }
 
                 // --- ROBUST USER PARSING ---
                 const parsed = window.shop.parseUser();
@@ -711,6 +736,12 @@
                     window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
                 }
                 
+                // Load cart from Firebase after auth
+                await window.shop.loadCartFromFirebase();
+                
+                // Setup cart listener for realtime updates
+                window.shop.setupCartListener();
+                
                 // Clear Loader
                 const loader = document.getElementById('loader');
                 loader.style.opacity = '0';
@@ -721,20 +752,23 @@
                 window.shop.switchView('store');
                 
                 // Force Icon Render Safety
-                setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 1000);
+                setTimeout(() => { 
+                    if(window.lucide) {
+                        window.lucide.createIcons();
+                        // Re-create icons again after a delay to fix the missing icons bug
+                        setTimeout(() => window.lucide.createIcons(), 500);
+                    }
+                }, 100);
             },
 
             authenticate: async () => {
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await auth.signInWithCustomToken(__initial_auth_token);
-                    } else {
-                        await auth.signInAnonymously();
-                    }
+                    await auth.signInAnonymously();
                 } catch (e) {
-                    console.error("Auth Error (Using Offline Mode):", e);
+                    console.error("Auth Error:", e);
                 }
-                // Start Realtime Listener
+                
+                // Start Realtime Listener for products
                 window.shop.initRealtimeListener();
             },
 
@@ -745,58 +779,41 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
-                // Check connection status for Debug
-                if (FIREBASE_CONFIG.projectId === 'demo') {
-                    console.warn("DEMO MODE: Sync disabled.");
-                    // In demo mode, rely on localStorage entirely for single-session persistence
-                    const localData = localStorage.getItem('vape_store_products');
-                    if (localData && localData !== "[]") {
-                        window.shop.state.products = JSON.parse(localData);
-                    } else {
-                        window.shop.state.products = [...MOCK_PRODUCTS];
-                    }
-                    window.shop.renderStore();
-                    return;
-                }
-
                 window.shop.state.listenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products')
+                    .orderBy('createdAt', 'desc') // Добавляем сортировку по дате создания
                     .onSnapshot(async (snapshot) => {
-                        // AUTO-SEEDING DISABLED to prevent ghost items returning
                         if (snapshot.empty) {
-                            console.log("DB Empty. Showing empty state.");
-                            window.shop.state.products = []; // Clear products
-                            window.shop.renderStore(); // Render empty
+                            console.log("DB Empty.");
+                            window.shop.state.products = [];
+                            window.shop.renderStore();
                             return; 
                         }
 
                         let dbProducts = [];
                         snapshot.forEach(doc => {
-                            dbProducts.push({ id: doc.id, ...doc.data() });
-                        });
-                        
-                        // --- CLIENT SIDE SORTING (Fixed "Random Order") ---
-                        dbProducts.sort((a, b) => {
-                            const getTime = (t) => {
-                                if (!t) return 0;
-                                if (typeof t === 'number') return t;
-                                if (t.toMillis) return t.toMillis();
-                                if (t instanceof Date) return t.getTime();
-                                return 0;
-                            };
-                            
-                            const dateA = getTime(a.createdAt);
-                            const dateB = getTime(b.createdAt);
-                            
-                            return dateB - dateA; // Descending (newest first)
+                            const data = doc.data();
+                            dbProducts.push({ 
+                                id: doc.id, 
+                                ...data,
+                                // Ensure createdAt is a number for sorting
+                                createdAt: data.createdAt ? 
+                                    (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
+                                    0
+                            });
                         });
                         
                         console.log("Realtime Update Received:", dbProducts.length);
-                        
                         window.shop.state.products = dbProducts;
                         window.shop.renderStore();
                         
+                        // Recreate icons after products are loaded
+                        setTimeout(() => {
+                            if(window.lucide) window.lucide.createIcons();
+                        }, 100);
+                        
                     }, (error) => {
                         console.error("Realtime listener error:", error);
+                        window.shop.showToast("Ошибка синхронизации", "Внимание");
                     });
             },
 
@@ -807,16 +824,26 @@
                     const batch = db.batch();
                     const colRef = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products');
                     
+                    // First, delete all existing products
+                    const snapshot = await colRef.get();
+                    snapshot.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    
+                    // Then add mock products
                     MOCK_PRODUCTS.forEach(item => {
                         const docRef = colRef.doc(); 
-                        batch.set(docRef, { ...item, createdAt: Date.now() }); // Use client timestamp for simple sorting
+                        batch.set(docRef, { 
+                            ...item, 
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+                        });
                     });
 
                     await batch.commit();
-                    window.shop.showToast("База данных восстановлена");
+                    window.shop.showToast("База данных восстановлена", "Успешно");
                 } catch (e) {
                     console.error("Seeding failed", e);
-                    window.shop.showToast("Ошибка восстановления");
+                    window.shop.showToast("Ошибка восстановления", "Сбой");
                 }
             },
 
@@ -829,19 +856,16 @@
                     
                     panel.classList.remove('hidden');
                     
-                    if (FIREBASE_CONFIG.projectId === 'demo') {
-                        warning.classList.remove('hidden');
-                    } else {
-                        warning.classList.add('hidden');
-                    }
-                    
                     const info = {
                         "DETECTED_USER_ID": window.shop.state.user?.id,
                         "EXPECTED_ADMIN_ID": ADMIN_ID,
                         "IS_ADMIN_BOOL": window.shop.state.isAdmin,
                         "PROJECT_ID": FIREBASE_CONFIG.projectId,
                         "SOURCE": window.shop.debugInfo?.parsedSource,
-                        "FULL_USER_OBJ": window.shop.state.user
+                        "FULL_USER_OBJ": window.shop.state.user,
+                        "FIREBASE_AUTH": auth.currentUser ? auth.currentUser.uid : 'Not authenticated',
+                        "PRODUCTS_COUNT": window.shop.state.products.length,
+                        "CART_ITEMS": window.shop.state.cart
                     };
                     
                     content.innerText = JSON.stringify(info, null, 2);
@@ -880,7 +904,11 @@
                     else if (viewName === 'my-orders') window.shop.renderMyOrders(main);
                     
                     main.style.opacity = '1';
-                    if(window.lucide) window.lucide.createIcons();
+                    
+                    // Recreate icons after rendering
+                    setTimeout(() => {
+                        if(window.lucide) window.lucide.createIcons();
+                    }, 50);
                 }, 50);
             },
 
@@ -933,6 +961,8 @@
                         let imageContent;
                         if (p.image && p.image.startsWith('data:image')) {
                             imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
+                        } else if (p.image && p.image.includes('http')) {
+                            imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
                         } else {
                             imageContent = `<i data-lucide="${p.image || 'box'}" class="w-16 h-16 text-gray-600 group-hover:text-green-400 group-hover:scale-110 transition-all duration-300"></i>`;
                         }
@@ -980,6 +1010,11 @@
                 
                 // Init scroll behavior
                 window.shop.setupCategoryScroll();
+                
+                // Recreate icons to fix missing icons bug
+                setTimeout(() => {
+                    if(window.lucide) window.lucide.createIcons();
+                }, 100);
             },
 
             renderCart: (container) => {
@@ -997,6 +1032,11 @@
                             <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
                             <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
                         </div>`;
+                        
+                    // Recreate icons
+                    setTimeout(() => {
+                        if(window.lucide) window.lucide.createIcons();
+                    }, 100);
                     return;
                 }
 
@@ -1008,6 +1048,8 @@
                     
                     let imageContent;
                     if (p.image && p.image.startsWith('data:image')) {
+                        imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
+                    } else if (p.image && p.image.includes('http')) {
                         imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
                     } else {
                         imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400"></i>`;
@@ -1046,6 +1088,11 @@
                 `;
 
                 container.innerHTML = html;
+                
+                // Recreate icons to fix missing icons bug
+                setTimeout(() => {
+                    if(window.lucide) window.lucide.createIcons();
+                }, 100);
             },
 
             renderProfile: (container) => {
@@ -1099,8 +1146,13 @@
                     </div>
                     
                     <!-- DEBUG TRIGGER -->
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.1.0 (Persistent Cart) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.2.0 (Firebase Fix) - Tap 5x for Debug</p>
                 `;
+                
+                // Recreate icons
+                setTimeout(() => {
+                    if(window.lucide) window.lucide.createIcons();
+                }, 100);
             },
 
             // --- USER: RENDER MY ORDERS ---
@@ -1122,6 +1174,7 @@
                 // Function to set up listener
                 const setupListener = (uid) => {
                     window.shop.state.myOrdersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('orders')
+                        .orderBy('date', 'desc')
                         .onSnapshot((snapshot) => {
                             const list = document.getElementById('my-orders-list');
                             if (!list) return;
@@ -1138,9 +1191,6 @@
                             let docs = [];
                             snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
                             
-                            // Client-side Sort
-                            docs.sort((a, b) => new Date(b.date) - new Date(a.date));
-
                             let html = '';
                             docs.forEach(data => {
                                 const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
@@ -1246,6 +1296,7 @@
 
                 // Listen to Global Orders Collection
                 window.shop.state.ordersListenerUnsubscribe = db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders')
+                    .orderBy('date', 'desc')
                     .onSnapshot((snapshot) => {
                         const list = document.getElementById('admin-orders-list');
                         if (!list) return; // View changed
@@ -1258,8 +1309,6 @@
                         let docs = [];
                         snapshot.forEach(doc => docs.push({ firestoreId: doc.id, ...doc.data() }));
                         
-                        docs.sort((a, b) => new Date(b.date) - new Date(a.date));
-
                         let html = '';
                         docs.forEach(data => {
                             const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
@@ -1350,8 +1399,6 @@
                 const ids = Array.from(window.shop.state.selectedAdminOrders);
                 window.shop.showToast(`Удаление ${count} заказов...`, "Обработка");
                 
-                // Batch delete not supported for arbitrary docs in client SDK easily without iteration
-                // We just iterate
                 try {
                     const promises = ids.map(id => db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').doc(id).delete());
                     await Promise.all(promises);
@@ -1458,18 +1505,23 @@
             filterCategory: (cat) => {
                 window.shop.state.currentCategory = cat;
                 window.shop.renderStore();
-                setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
+                setTimeout(() => { 
+                    if(window.lucide) window.lucide.createIcons();
+                }, 50);
             },
 
-            addToCart: (productId) => {
+            addToCart: async (productId) => {
                 if (!window.shop.state.cart[productId]) {
                     window.shop.state.cart[productId] = 0;
                 }
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
                 
-                // SAVE CART
-                window.shop.saveCartState();
+                // Save cart to Firebase
+                await window.shop.saveCartToFirebase();
+                
+                // Also save to localStorage as backup
+                localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
 
                 window.shop.showToast("Добавлено в корзину", "Корзина");
                 
@@ -1478,7 +1530,7 @@
                 }
             },
 
-            updateQty: (productId, change) => {
+            updateQty: async (productId, change) => {
                 if (!window.shop.state.cart[productId]) return;
                 
                 window.shop.state.cart[productId] += change;
@@ -1486,12 +1538,22 @@
                     delete window.shop.state.cart[productId];
                 }
                 
-                // SAVE CART
-                window.shop.saveCartState();
+                // Save cart to Firebase
+                await window.shop.saveCartToFirebase();
+                
+                // Also save to localStorage as backup
+                localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
 
                 window.shop.updateCartBadge();
-                window.shop.renderCart(document.getElementById('main-content'));
-                setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50);
+                
+                // If we're on cart page, re-render it
+                if (document.querySelector('.nav-btn.text-green-400[data-view="cart"]')) {
+                    window.shop.renderCart(document.getElementById('main-content'));
+                }
+                
+                setTimeout(() => { 
+                    if(window.lucide) window.lucide.createIcons();
+                }, 50);
             },
 
             updateCartBadge: () => {
@@ -1534,7 +1596,10 @@
                 if (product.image && product.image.startsWith('data:image')) {
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
-                } else if (product.image) {
+                } else if (product.image && product.image.includes('http')) {
+                    preview.style.backgroundImage = `url(${product.image})`;
+                    placeholder.classList.add('hidden');
+                } else {
                     // Если это иконка, показываем placeholder
                     preview.style.backgroundImage = '';
                     placeholder.classList.remove('hidden');
@@ -1592,7 +1657,7 @@
                     price, 
                     category: cat, 
                     image, 
-                    createdAt: Date.now() // Use simple number for sorting consistency
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
                 window.shop.toggleAddModal();
@@ -1600,9 +1665,10 @@
 
                 try {
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').add(newProduct);
+                    window.shop.showToast("Товар добавлен", "Успешно");
                 } catch (e) {
-                    console.error("Save failed (Using Offline)", e);
-                    window.shop.showToast("Ошибка сохранения", "Сбой");
+                    console.error("Save failed", e);
+                    window.shop.showToast("Ошибка сохранения: " + e.message, "Сбой");
                 }
             },
 
@@ -1622,8 +1688,7 @@
                     price,
                     category: cat,
                     image,
-                    // Сохраняем оригинальную дату создания
-                    createdAt: this.state.products.find(p => p.id === id).createdAt
+                    // Keep original creation date
                 };
 
                 this.toggleEditModal();
@@ -1632,9 +1697,10 @@
                 try {
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).update(updatedProduct);
                     this.state.pendingEditImage = null;
+                    this.showToast("Товар обновлен", "Успешно");
                 } catch (e) {
                     console.error("Update failed", e);
-                    this.showToast("Ошибка обновления", "Сбой");
+                    this.showToast("Ошибка обновления: " + e.message, "Сбой");
                 }
             },
 
@@ -1644,14 +1710,11 @@
                 window.shop.showToast("Удаление...", "Синхронизация");
 
                 try {
-                    if (!id.startsWith('temp-') && !id.startsWith('m')) {
-                        await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
-                    } else {
-                        window.shop.showToast("Нельзя удалить (Фейк)", "Ошибка");
-                    }
+                    await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('products').doc(id).delete();
+                    window.shop.showToast("Товар удален", "Успешно");
                 } catch (e) { 
                     console.error("Delete failed", e); 
-                    window.shop.showToast("Ошибка удаления", "Сбой");
+                    window.shop.showToast("Ошибка удаления: " + e.message, "Сбой");
                 }
             },
 
@@ -1712,7 +1775,7 @@
                 // 2. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
                 // We construct the order object
                 const orderBase = {
-                    order_key: window.shop.state.currentOrderId, // Match with previous naming convention
+                    order_key: window.shop.state.currentOrderId,
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
@@ -1745,18 +1808,22 @@
                     };
                     
                     await db.collection('artifacts').doc(APP_ID).collection('public').doc('data').collection('orders').add(publicOrder);
+                    
+                    // C. Clear cart in Firebase
+                    if (uid) {
+                        await db.collection('artifacts').doc(APP_ID).collection('users').doc(uid).collection('cart').doc('current').delete();
+                    }
                       
                 } catch(e) { 
                     console.error("DB Error", e); 
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
-                    // Proceed anyway to clear UI
                 }
 
-                // 3. UI Cleanup (No more python payload)
+                // 3. UI Cleanup
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 
-                // CLEAR SAVED CART
+                // CLEAR SAVED CART from localStorage
                 localStorage.removeItem('vapor_cart_storage');
 
                 window.shop.updateCartBadge();
