@@ -322,18 +322,11 @@
         <button onclick="document.getElementById('debug-panel').classList.add('hidden')" class="mb-4 bg-red-500 text-white p-2 rounded">CLOSE DEBUG</button>
         <h3 class="text-white text-lg font-bold mb-2">DIAGNOSTICS</h3>
         <div id="debug-content" class="whitespace-pre-wrap">Loading...</div>
-        <div id="debug-warning" class="mt-4 p-3 bg-red-500/20 border border-red-500 text-red-200 rounded hidden">
-            ⚠️ <b>ВНИМАНИЕ:</b> База данных не подключена (Demo Mode).<br>
-            Изменения не сохранятся после перезагрузки.
-        </div>
         <button onclick="window.shop.seedDatabase()" class="mt-4 bg-green-600 text-white p-3 rounded font-bold">ВОССТАНОВИТЬ СТАНДАРТНЫЕ ТОВАРЫ</button>
-        <button onclick="window.shop.testCart()" class="mt-4 bg-blue-600 text-white p-3 rounded font-bold">
-            ТЕСТ КОРЗИНЫ
-        </button>
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 glass-panel px-6 py-4 rounded-2xl flex items-center gap-4 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none shadow-2xl shadow-green-900/20 border border-green-500/20">
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[110] glass-panel px-6 py-4 rounded-2xl flex items-center gap-4 transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none shadow-2xl shadow-green-900/20 border border-green-500/20">
         <div class="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
             <i data-lucide="check" class="w-4 h-4"></i>
         </div>
@@ -365,8 +358,8 @@
         
         <!-- Header -->
         <header class="flex justify-between items-center mb-6 pt-2">
-            <div>
-                <h1 class="text-2xl font-black italic tracking-tighter text-white">VΛPOR <span class="text-green-500 neon-text-green">CLOUD</span></h1>
+            <div onclick="window.shop.switchView('store')" class="cursor-pointer group">
+                <h1 class="text-2xl font-black italic tracking-tighter text-white group-hover:scale-105 transition-transform">VΛPOR <span class="text-green-500 neon-text-green">CLOUD</span></h1>
                 <p class="text-[10px] text-gray-500 tracking-[0.2em] uppercase font-semibold">Premium Store</p>
             </div>
             <div class="flex gap-3">
@@ -374,7 +367,7 @@
                 <button id="admin-add-btn" onclick="window.shop.toggleAddModal()" class="hidden w-10 h-10 rounded-full glass-panel flex items-center justify-center text-green-400 hover:bg-green-500 hover:text-black transition-all border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]">
                     <i data-lucide="plus" class="w-5 h-5"></i>
                 </button>
-                <div class="w-10 h-10 rounded-full glass-panel flex items-center justify-center border border-white/10 overflow-hidden">
+                <div class="w-10 h-10 rounded-full glass-panel flex items-center justify-center border border-white/10 overflow-hidden" onclick="window.shop.switchView('profile')">
                     <img id="user-avatar" src="" class="w-full h-full object-cover opacity-90" alt="Profile">
                 </div>
             </div>
@@ -406,48 +399,62 @@
 
     <!-- Modals -->
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-gray-500/20 shadow-[0_0_50px_rgba(255,255,255,0.05)]">
-            <button onclick="window.shop.toggleSettingsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
-            <h2 class="text-xl font-black italic mb-6 text-white">НАСТРОЙКИ</h2>
+    <!-- USER PROMO MODAL -->
+    <div id="user-promo-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.1)]">
+            <button onclick="window.shop.toggleUserPromoModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h2 class="text-xl font-black italic mb-6 text-white">АКТИВАЦИЯ <span class="text-green-500">КОДА</span></h2>
             
-            <div class="space-y-6">
-                <!-- Toggle 1 -->
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-white font-bold text-sm">Уведомления</div>
-                        <div class="text-gray-500 text-[10px]">Статус заказов и акции</div>
+            <div class="space-y-4">
+                <div id="active-promo-display" class="hidden p-4 bg-green-500/10 border border-green-500/30 rounded-xl mb-4">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                        <div>
+                            <p class="text-xs text-green-400 font-bold uppercase">Активный промокод</p>
+                            <p class="text-white font-bold" id="active-promo-code-text">CODE</p>
+                        </div>
                     </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
                 </div>
 
-                <!-- Toggle 2 -->
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-white font-bold text-sm">Анимации фона</div>
-                        <div class="text-gray-500 text-[10px]">Отключить для производительности</div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="anim-toggle" checked onchange="window.shop.toggleAnimations(this)" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Введите промокод</label>
+                    <input type="text" id="user-promo-input" placeholder="Например: START2024" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-700 uppercase">
                 </div>
+                
+                <button onclick="window.shop.activatePromo()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-2 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                    АКТИВИРОВАТЬ
+                </button>
+            </div>
+        </div>
+    </div>
 
-                 <!-- Action -->
-                <div class="pt-4 border-t border-white/5">
-                    <button onclick="window.shop.clearCache()" class="w-full py-3 bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="trash" class="w-4 h-4"></i> ОЧИСТИТЬ КЭШ ПРИЛОЖЕНИЯ
-                    </button>
+    <!-- ADMIN PROMO MANAGER MODAL -->
+    <div id="admin-promo-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.1)] max-h-[80vh] overflow-y-auto">
+            <button onclick="window.shop.toggleAdminPromoModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h2 class="text-xl font-black italic mb-6 text-white">УПРАВЛЕНИЕ <span class="text-red-500">ПРОМО</span></h2>
+            
+            <div class="space-y-4 border-b border-white/10 pb-6 mb-6">
+                <h3 class="text-xs font-bold text-gray-400 uppercase">Создать новый</h3>
+                <div>
+                    <input type="text" id="new-promo-code" placeholder="Код (English)" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm mb-2 outline-none text-white uppercase">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <input type="number" id="new-promo-value" placeholder="Скидка (RUB)" class="bg-black/60 border border-white/10 rounded-xl p-3 text-sm outline-none text-white">
+                        <input type="number" id="new-promo-limit" placeholder="Лимит акт." class="bg-black/60 border border-white/10 rounded-xl p-3 text-sm outline-none text-white">
+                    </div>
+                </div>
+                <button onclick="window.shop.createPromo()" class="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-xs uppercase transition-all">
+                    СОЗДАТЬ ПРОМОКОД
+                </button>
+            </div>
+
+            <div>
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-3">Активные коды</h3>
+                <div id="admin-promo-list" class="space-y-2">
+                    <!-- Loaded by JS -->
+                    <div class="text-center text-gray-600 text-xs py-4">Загрузка...</div>
                 </div>
             </div>
-            
-             <button onclick="window.shop.saveSettings()" class="w-full bg-white text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-6 transition-all hover:bg-gray-200">
-                СОХРАНИТЬ
-            </button>
         </div>
     </div>
     
@@ -549,6 +556,11 @@
             </div>
 
             <div class="space-y-4">
+                <div id="delivery-promo-info" class="hidden p-3 bg-green-500/10 border border-green-500/30 rounded-xl flex justify-between items-center">
+                    <span class="text-xs text-green-400 font-bold">Активен промокод</span>
+                    <span class="text-xs text-white font-bold" id="delivery-promo-value">-0 ₽</span>
+                </div>
+
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Имя</label>
                     <input type="text" id="del-name" placeholder="Как к вам обращаться" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
@@ -601,6 +613,12 @@
 
             <div class="bg-black/40 rounded-xl p-5 border border-white/5 mb-6 relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-20 h-20 bg-green-500/10 blur-2xl rounded-full pointer-events-none"></div>
+                
+                <div id="checkout-discount-row" class="hidden flex justify-between items-center mb-2">
+                    <span class="text-gray-400 text-xs uppercase tracking-wider">Скидка</span>
+                    <span id="checkout-discount-val" class="text-sm font-bold text-green-400">-0 ₽</span>
+                </div>
+
                 <div class="flex justify-between items-center mb-3">
                     <span class="text-gray-400 text-xs uppercase tracking-wider">Сумма</span>
                     <span id="checkout-total" class="text-2xl font-bold text-white neon-text-green">0 ₽</span>
@@ -657,7 +675,8 @@
             orderBy,
             serverTimestamp,
             writeBatch,
-            getDocs
+            getDocs,
+            where
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { 
             getAuth, 
@@ -731,6 +750,7 @@
                 deliveryTime: null,
                 ordersListenerUnsubscribe: null,
                 myOrdersListenerUnsubscribe: null,
+                promoListenerUnsubscribe: null,
                 adminSelectionMode: false,
                 selectedAdminOrders: new Set(),
                 editingProductId: null,
@@ -743,29 +763,25 @@
                 firebaseUid: null,
                 isProcessingOrder: false,
                 confirmCallback: null,
-                adminOrders: []
+                adminOrders: [],
+                activePromo: null, // { code, value, firestoreId }
+                adminPromos: []
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
             parseUser: () => {
                 const tg = window.Telegram.WebApp;
-                
-                // 1. Try initDataUnsafe directly (Standard)
                 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                     return { source: 'initDataUnsafe', user: tg.initDataUnsafe.user };
                 }
-
-                // 2. Try parsing URL Hash/Search (Legacy/Web version)
                 try {
                     const hash = window.location.hash.substring(1);
                     const params = new URLSearchParams(hash);
                     let tgWebAppData = params.get('tgWebAppData');
-                    
                     if (!tgWebAppData) {
                         const search = new URLSearchParams(window.location.search);
                         tgWebAppData = search.get('tgWebAppData');
                     }
-
                     if (tgWebAppData) {
                         const dataParams = new URLSearchParams(decodeURIComponent(tgWebAppData));
                         const userJson = dataParams.get('user');
@@ -774,14 +790,10 @@
                         }
                     }
                 } catch(e) {}
-
-                // 3. Try LocalStorage for Persistent Guest
                 const storedUser = localStorage.getItem('vape_user_identity');
                 if (storedUser) {
                     return { source: 'local_storage', user: JSON.parse(storedUser) };
                 }
-
-                // 4. Generate New Persistent Guest if nothing else works
                 const guestId = Math.floor(Math.random() * 1000000) + 9000000;
                 const newGuest = {
                     id: guestId,
@@ -799,7 +811,6 @@
                 try {
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
                     if (!uid) return;
-                    
                     const userRef = doc(db, 'artifacts', APP_ID, 'users', uid);
                     await setDoc(userRef, {
                         telegramId: tgUser.id,
@@ -809,8 +820,6 @@
                         photoUrl: tgUser.photo_url || '',
                         lastSeen: new Date().toISOString()
                     }, { merge: true });
-                    
-                    console.log("User profile saved to Firebase");
                 } catch (e) {
                     console.error("Failed to save user profile:", e);
                 }
@@ -820,18 +829,12 @@
             saveCartToFirebase: async () => {
                 try {
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
-                    if (!uid) {
-                        console.log("No UID for cart save");
-                        return;
-                    }
-                    
+                    if (!uid) return;
                     const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
                     await setDoc(cartRef, {
                         items: window.shop.state.cart,
                         updatedAt: new Date().toISOString()
                     });
-                    
-                    console.log("Cart saved to Firebase");
                 } catch (e) {
                     console.error("Failed to save cart to Firebase:", e);
                 }
@@ -841,24 +844,15 @@
             loadCartFromFirebase: async () => {
                 try {
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
-                    if (!uid) {
-                        console.log("No UID for cart load");
-                        return;
-                    }
-                    
+                    if (!uid) return;
                     const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
                     const cartDoc = await getDoc(cartRef);
-                    
                     if (cartDoc.exists()) {
                         const cartData = cartDoc.data();
-                        console.log("Cart data loaded:", cartData);
                         if (cartData.items) {
                             window.shop.state.cart = cartData.items;
                             window.shop.updateCartBadge();
-                            console.log("Cart loaded from Firebase");
                         }
-                    } else {
-                        console.log("No cart document found");
                     }
                 } catch (e) {
                     console.error("Failed to load cart from Firebase:", e);
@@ -870,12 +864,9 @@
                 if (window.shop.state.cartListenerUnsubscribe) {
                     window.shop.state.cartListenerUnsubscribe();
                 }
-                
                 const uid = auth.currentUser ? auth.currentUser.uid : null;
                 if (!uid) return;
-                
                 const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
-                
                 window.shop.state.cartListenerUnsubscribe = onSnapshot(cartRef, (doc) => {
                     if (doc.exists()) {
                         const cartData = doc.data();
@@ -883,7 +874,6 @@
                             if (JSON.stringify(cartData.items) !== JSON.stringify(window.shop.state.cart)) {
                                 window.shop.state.cart = cartData.items;
                                 window.shop.updateCartBadge();
-                                
                                 if (window.shop.state.isCartView && !window.shop.state.cartRendering) {
                                     setTimeout(() => {
                                         window.shop.updateCartView();
@@ -892,8 +882,6 @@
                             }
                         }
                     }
-                }, (error) => {
-                    console.error("Cart listener error:", error);
                 });
             },
 
@@ -904,25 +892,11 @@
                 tg.setHeaderColor('#050505');
                 tg.setBackgroundColor('#050505');
 
-                console.log("Telegram WebApp initialized");
-                console.log("InitData:", tg.initData);
-                console.log("InitDataUnsafe:", tg.initDataUnsafe);
-
-                // --- ROBUST USER PARSING ---
                 const parsed = window.shop.parseUser();
                 let tgUser = parsed.user;
                 
-                window.shop.debugInfo = {
-                    parsedSource: parsed.source,
-                    rawData: tgUser,
-                    initData: tg.initData,
-                    hash: window.location.hash
-                };
-
                 window.shop.state.user = tgUser;
-                
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
-                console.log("Is admin?", window.shop.state.isAdmin);
 
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
@@ -931,16 +905,12 @@
                 // Admin Button Visibility
                 if (window.shop.state.isAdmin) {
                     document.getElementById('admin-add-btn').classList.remove('hidden');
-                } else {
-                    document.getElementById('admin-add-btn').classList.add('hidden');
                 }
 
                 // Ждем, пока Firebase опознает пользователя
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        console.log("Юзер зашел:", user.uid);
                         window.shop.state.firebaseUid = user.uid;
-                        
                         await window.shop.saveUserProfile(tgUser);
                         await window.shop.loadCartFromFirebase();
                         window.shop.setupCartListener();
@@ -956,7 +926,6 @@
                             window.shop.switchView('store');
                         }, 500);
                     } else {
-                        console.log("No user, signing in anonymously...");
                         await signInAnonymously(auth);
                     }
                 });
@@ -968,7 +937,6 @@
                 }, 100);
             },
 
-            // --- REALTIME SYNC: The Key to Multi-User Updates (V10 MODULAR) ---
             initRealtimeListener: () => {
                 if (window.shop.state.listenerUnsubscribe) {
                     window.shop.state.listenerUnsubscribe();
@@ -979,7 +947,6 @@
                 
                 window.shop.state.listenerUnsubscribe = onSnapshot(q, async (snapshot) => {
                     if (snapshot.empty) {
-                        console.log("DB Empty.");
                         window.shop.state.products = [];
                         window.shop.renderStore();
                         return; 
@@ -991,62 +958,39 @@
                         dbProducts.push({ 
                             id: docSnap.id, 
                             ...data,
-                            createdAt: data.createdAt ? 
-                                (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
-                                0
+                            createdAt: data.createdAt ? (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 0
                         });
                     });
                     
-                    console.log("Realtime Update Received:", dbProducts.length);
                     window.shop.state.products = dbProducts;
                     
                     if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
                         window.shop.renderStore();
                     }
-                    
                     if (window.shop.state.isCartView) {
                         window.shop.updateCartView();
                     }
-                    
                     if(window.lucide) window.lucide.createIcons();
-                    
-                }, (error) => {
-                    console.error("Realtime listener error:", error);
-                    window.shop.showToast("Ошибка синхронизации", "Внимание");
                 });
             },
 
             seedDatabase: async () => {
                 try {
-                    window.shop.showConfirm(
-                        "Восстановление базы",
-                        "Это действие восстановит стандартные товары. Продолжить?",
-                        async () => {
-                            window.shop.showToast("Восстановление...", "Синхронизация");
-
-                            const batch = writeBatch(db);
-                            const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-                            
-                            const snapshot = await getDocs(colRef);
-                            snapshot.forEach(docSnap => {
-                                batch.delete(docSnap.ref);
-                            });
-                            
-                            MOCK_PRODUCTS.forEach(item => {
-                                const docRef = doc(colRef);
-                                batch.set(docRef, { 
-                                    ...item, 
-                                    createdAt: serverTimestamp() 
-                                });
-                            });
-
-                            await batch.commit();
-                            window.shop.showToast("База данных восстановлена", "Успешно");
-                        }
-                    );
+                    window.shop.showConfirm("Восстановление базы", "Это действие восстановит стандартные товары.", async () => {
+                        window.shop.showToast("Восстановление...", "Синхронизация");
+                        const batch = writeBatch(db);
+                        const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                        const snapshot = await getDocs(colRef);
+                        snapshot.forEach(docSnap => { batch.delete(docSnap.ref); });
+                        MOCK_PRODUCTS.forEach(item => {
+                            const docRef = doc(colRef);
+                            batch.set(docRef, { ...item, createdAt: serverTimestamp() });
+                        });
+                        await batch.commit();
+                        window.shop.showToast("База данных восстановлена", "Успешно");
+                    });
                 } catch (e) {
-                    console.error("Seeding failed", e);
-                    window.shop.showToast("Ошибка восстановления", "Сбой");
+                    console.error(e);
                 }
             },
 
@@ -1057,12 +1001,10 @@
                 document.getElementById('confirm-modal').classList.remove('hidden');
                 this.state.confirmCallback = callback;
             },
-
             hideConfirm: function() {
                 document.getElementById('confirm-modal').classList.add('hidden');
                 this.state.confirmCallback = null;
             },
-
             confirmAction: function() {
                 if (this.state.confirmCallback) {
                     const callback = this.state.confirmCallback;
@@ -1071,39 +1013,10 @@
                 }
             },
 
-            toggleDebug: () => {
-                window.shop.state.debugClicks++;
-                if (window.shop.state.debugClicks >= 5) {
-                    const panel = document.getElementById('debug-panel');
-                    const content = document.getElementById('debug-content');
-                    const warning = document.getElementById('debug-warning');
-                    
-                    panel.classList.remove('hidden');
-                    
-                    const info = {
-                        "DETECTED_USER_ID": window.shop.state.user?.id,
-                        "EXPECTED_ADMIN_ID": ADMIN_ID,
-                        "IS_ADMIN_BOOL": window.shop.state.isAdmin,
-                        "PROJECT_ID": FIREBASE_CONFIG.projectId,
-                        "SOURCE": window.shop.debugInfo?.parsedSource,
-                        "FIREBASE_AUTH": auth.currentUser ? auth.currentUser.uid : 'Not authenticated',
-                        "PRODUCTS_COUNT": window.shop.state.products.length,
-                        "CART_ITEMS": window.shop.state.cart,
-                        "LOCALSTORAGE_CART": localStorage.getItem('vapor_cart_storage'),
-                        "MY_ORDERS_COUNT": window.shop.state.myOrders.length
-                    };
-                    
-                    content.innerText = JSON.stringify(info, null, 2);
-                    window.shop.state.debugClicks = 0;
-                }
-            },
-
             // --- UI Rendering ---
             switchView: (viewName) => {
                 document.querySelectorAll('.nav-btn').forEach(btn => {
-                    const icon = btn.querySelector('svg') || btn.querySelector('i');
                     const text = btn.querySelector('span');
-                    
                     if (btn.dataset.view === viewName) {
                         btn.classList.add('text-green-400');
                         btn.classList.remove('text-gray-500');
@@ -1129,7 +1042,6 @@
                     else if (viewName === 'my-orders') window.shop.renderMyOrders(main);
                     
                     main.style.opacity = '1';
-                    
                     if(window.lucide) window.lucide.createIcons();
                 }, 50);
             },
@@ -1154,16 +1066,11 @@
                     const activeClass = isActive 
                         ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-105' 
                         : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10';
-                    catHTML += `
-                        <button onclick="window.shop.filterCategory('${cat}')" 
-                                class="whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 ${activeClass}">
-                            ${cat}
-                        </button>`;
+                    catHTML += `<button onclick="window.shop.filterCategory('${cat}')" class="whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 ${activeClass}">${cat}</button>`;
                 });
                 catHTML += `</div>`;
 
                 let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
-                
                 const filtered = window.shop.state.products.filter(p => 
                     window.shop.state.currentCategory === 'Все' || p.category === window.shop.state.currentCategory
                 );
@@ -1172,53 +1079,38 @@
                      gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
                         <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
                         <p>Товаров пока нет</p>
-                        ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте товар в меню админа (+)</p>' : ''}
                       </div>`;
                 } else {
                     filtered.forEach((p, index) => {
-                        const delay = index * 50;
-                        
                         let imageContent;
-                        if (p.image && p.image.startsWith('data:image')) {
-                            imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
-                        } else if (p.image && p.image.includes('http')) {
+                        if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
                             imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
                         } else {
                             imageContent = `<i data-lucide="${p.image || 'box'}" class="w-16 h-16 text-gray-600 group-hover:text-green-400 group-hover:scale-110 transition-all duration-300"></i>`;
                         }
-
                         gridHTML += `
                         <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto">
                             ${window.shop.state.isAdmin ? `
                                 <div class="absolute top-2 right-2 z-20 flex gap-1">
-                                    <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
-                                        <i data-lucide="edit" class="w-4 h-4"></i>
-                                    </button>
-                                    <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                    </button>
+                                    <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                    <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                                 </div>
                             ` : ''}
-                            
                             <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
                                  <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
                                  ${imageContent}
                             </div>
-                            
                             <div class="flex-grow flex flex-col justify-between">
                                 <div>
                                     <h3 class="text-xs font-bold text-gray-100 leading-tight mb-1 line-clamp-2 h-[2.5em]">${p.name}</h3>
                                     <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 border-l-2 border-green-500/50 pl-2">${p.category}</p>
                                 </div>
-                                
                                 <div class="flex items-end justify-between mt-1">
                                     <div class="flex flex-col">
                                         <span class="text-[9px] text-gray-500">Цена</span>
                                         <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
                                     </div>
-                                    <button onclick="window.shop.addToCart('${p.id}')" class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110">
-                                        <i data-lucide="plus" class="w-5 h-5"></i>
-                                    </button>
+                                    <button onclick="window.shop.addToCart('${p.id}')" class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110"><i data-lucide="plus" class="w-5 h-5"></i></button>
                                 </div>
                             </div>
                         </div>`;
@@ -1226,15 +1118,12 @@
                 }
                 gridHTML += `</div>`;
                 container.innerHTML = catHTML + gridHTML;
-                
                 window.shop.setupCategoryScroll();
-                
                 if(window.lucide) window.lucide.createIcons();
             },
 
             renderCart: (container) => {
                 window.shop.state.cartRendering = true;
-                
                 const cartIds = Object.keys(window.shop.state.cart);
                 const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
                 let total = 0;
@@ -1246,52 +1135,34 @@
                                 <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
                             </div>
                             <h3 class="text-lg font-bold text-white mb-2">Корзина пуста</h3>
-                            <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
                             <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
                         </div>`;
-                    
                     window.shop.state.cartRendering = false;
                     if(window.lucide) window.lucide.createIcons();
                     return;
                 }
 
                 let html = `<div class="space-y-3 pb-36 px-1" id="cart-items-container">`;
-                
                 products.forEach((p, idx) => {
                     const qty = window.shop.state.cart[p.id];
                     total += p.price * qty;
-                    
-                    let imageContent;
-                    if (p.image && p.image.startsWith('data:image')) {
-                        imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
-                    } else if (p.image && p.image.includes('http')) {
-                        imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
-                    } else {
-                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400"></i>`;
-                    }
-
+                    let imageContent = (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) 
+                        ? `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">` 
+                        : `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400"></i>`;
                     html += `
                         <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4" data-product-id="${p.id}" id="cart-item-${p.id}">
-                            <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
-                                ${imageContent}
-                            </div>
+                            <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">${imageContent}</div>
                             <div class="flex-grow">
                                 <h3 class="text-sm font-bold text-white">${p.name}</h3>
                                 <p class="text-xs text-green-400 font-mono mt-1">${p.price} ₽</p>
                             </div>
                             <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5">
-                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
-                                    <i data-lucide="minus" class="w-3 h-3"></i>
-                                </button>
+                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i data-lucide="minus" class="w-3 h-3"></i></button>
                                 <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
-                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
-                                    <i data-lucide="plus" class="w-3 h-3"></i>
-                                </button>
+                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors"><i data-lucide="plus" class="w-3 h-3"></i></button>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-
                 html += `</div>`;
                 
                 html += `
@@ -1303,53 +1174,31 @@
                         <button onclick="window.shop.initCheckout(${total})" class="bg-green-500 text-black px-6 py-4 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
                             ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
-                    </div>
-                `;
+                    </div>`;
 
                 container.innerHTML = html;
-                
                 window.shop.state.cartRendering = false;
                 if(window.lucide) window.lucide.createIcons();
             },
 
             updateCartView: () => {
                 if (!window.shop.state.isCartView || window.shop.state.cartRendering) return;
-                
                 const cartIds = Object.keys(window.shop.state.cart);
                 const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
                 let total = 0;
-
                 if (products.length === 0) {
-                    const container = document.getElementById('main-content');
-                    container.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-                            <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
-                                <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
-                            </div>
-                            <h3 class="text-lg font-bold text-white mb-2">Корзина пуста</h3>
-                            <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
-                            <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
-                        </div>`;
+                    window.shop.renderCart(document.getElementById('main-content'));
                     return;
                 }
-
                 products.forEach(p => {
                     const qty = window.shop.state.cart[p.id];
                     total += p.price * qty;
-                    
                     const qtyElement = document.querySelector(`#cart-item-${p.id} .cart-item-qty`);
-                    if (qtyElement) {
-                        qtyElement.textContent = qty;
-                    } else {
-                        window.shop.renderCart(document.getElementById('main-content'));
-                        return;
-                    }
+                    if (qtyElement) qtyElement.textContent = qty;
+                    else { window.shop.renderCart(document.getElementById('main-content')); return; }
                 });
-
                 const totalElement = document.getElementById('cart-total');
-                if (totalElement) {
-                    totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
-                }
+                if (totalElement) totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
             },
 
             renderProfile: (container) => {
@@ -1361,15 +1210,12 @@
                 container.innerHTML = `
                     <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden border border-white/10">
                         <div class="absolute inset-0 bg-gradient-to-b from-green-500/5 to-transparent"></div>
-                        
                         <div class="w-28 h-28 rounded-full p-1 border-2 border-white/10 mb-5 relative z-10 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                             <img src="${document.getElementById('user-avatar').src}" class="w-full h-full rounded-full object-cover">
                             <div class="absolute bottom-1 right-1 w-6 h-6 ${roleBg} rounded-full border-4 border-[#111] z-20"></div>
                         </div>
-                        
                         <h2 class="text-2xl font-black text-white relative z-10 italic">${u.first_name} ${u.last_name || ''}</h2>
                         <p class="text-sm text-gray-500 mb-6 relative z-10 font-mono">ID: ${u.id}</p>
-                        
                         <div class="flex items-center gap-2 bg-black/60 px-5 py-2 rounded-full border border-white/10 relative z-10">
                             <div class="w-2 h-2 rounded-full ${roleBg} animate-pulse"></div>
                             <span class="text-[10px] font-black tracking-[0.2em] ${roleColor}">${roleName}</span>
@@ -1377,18 +1223,28 @@
                     </div>
 
                     ${window.shop.state.isAdmin ? `
-                        <button onclick="window.shop.switchView('admin-orders')" class="w-full mb-6 bg-gradient-to-r from-red-600 to-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-3 animate-pulse border border-red-400/50">
-                            <i data-lucide="package-search" class="w-5 h-5"></i>
-                            УПРАВЛЕНИЕ ЗАКАЗАМИ
-                        </button>
+                        <div class="glass-panel rounded-2xl p-1 space-y-1 mb-6 border border-red-500/20">
+                            <button onclick="window.shop.switchView('admin-orders')" class="w-full bg-gradient-to-r from-red-900/40 to-red-800/40 text-white font-bold uppercase tracking-wider py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-red-900/60 transition-all">
+                                <i data-lucide="package-search" class="w-5 h-5 text-red-400"></i>
+                                УПРАВЛЕНИЕ ЗАКАЗАМИ
+                            </button>
+                             <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer border-t border-white/5" onclick="window.shop.toggleAdminPromoModal()">
+                                <div class="w-10 h-10 rounded-full bg-red-900/20 flex items-center justify-center text-red-400"><i data-lucide="ticket" class="w-5 h-5"></i></div>
+                                <div class="flex-grow">
+                                    <h4 class="text-sm font-bold text-white">Админ Промо</h4>
+                                    <p class="text-xs text-gray-400">Создать коды</p>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
+                             </div>
+                        </div>
                     ` : ''}
                     
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
-                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.toggleSettingsModal()">
-                            <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="settings" class="w-5 h-5"></i></div>
+                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.toggleUserPromoModal()">
+                            <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-green-400"><i data-lucide="ticket" class="w-5 h-5"></i></div>
                             <div class="flex-grow">
-                                <h4 class="text-sm font-bold text-white">Настройки</h4>
-                                <p class="text-xs text-gray-600">Оформление и кэш</p>
+                                <h4 class="text-sm font-bold text-white">Промокоды</h4>
+                                <p class="text-xs text-gray-600">Активация бонусов</p>
                             </div>
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
                          </div>
@@ -1401,884 +1257,493 @@
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
                          </div>
                     </div>
-                    
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.4.0 (qury-60cce) - Tap 5x for Debug</p>
                 `;
                 
                 if(window.lucide) window.lucide.createIcons();
             },
-            
-            toggleSettingsModal: () => {
-                document.getElementById('settings-modal').classList.toggle('hidden');
-            },
-            
-            toggleAnimations: (checkbox) => {
-                const bg = document.querySelector('.vapor-bg');
-                if(bg) bg.style.display = checkbox.checked ? 'block' : 'none';
+
+            // --- PROMO CODE LOGIC ---
+
+            toggleUserPromoModal: () => {
+                const modal = document.getElementById('user-promo-modal');
+                const display = document.getElementById('active-promo-display');
+                
+                if (window.shop.state.activePromo) {
+                    display.classList.remove('hidden');
+                    document.getElementById('active-promo-code-text').innerText = window.shop.state.activePromo.code;
+                } else {
+                    display.classList.add('hidden');
+                }
+                
+                modal.classList.toggle('hidden');
             },
 
-            clearCache: () => {
-                 window.shop.showConfirm("Очистка кэша", "Это сбросит локальные данные корзины и настроек. Продолжить?", () => {
-                     localStorage.clear();
-                     window.shop.showToast("Кэш очищен. Перезагрузка...", "Система");
-                     setTimeout(() => location.reload(), 1500);
-                 });
+            toggleAdminPromoModal: () => {
+                const modal = document.getElementById('admin-promo-modal');
+                modal.classList.toggle('hidden');
+                if (!modal.classList.contains('hidden')) {
+                    window.shop.listenAdminPromos();
+                }
             },
 
-            saveSettings: () => {
-                window.shop.toggleSettingsModal();
-                window.shop.showToast("Настройки сохранены", "Успешно");
+            activatePromo: async () => {
+                const input = document.getElementById('user-promo-input');
+                const code = input.value.trim().toUpperCase();
+                
+                if (!code) return window.shop.showToast("Введите код", "Ошибка");
+                
+                window.shop.showToast("Проверка...", "Система");
+                
+                try {
+                    const promoRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+                    const q = query(promoRef, where("code", "==", code));
+                    const snapshot = await getDocs(q);
+                    
+                    if (snapshot.empty) {
+                        return window.shop.showToast("Промокод не найден", "Ошибка");
+                    }
+                    
+                    const promoDoc = snapshot.docs[0];
+                    const data = promoDoc.data();
+                    
+                    if (data.activations >= data.maxActivations) {
+                        return window.shop.showToast("Лимит активаций исчерпан", "Ошибка");
+                    }
+                    
+                    // Success
+                    window.shop.state.activePromo = {
+                        firestoreId: promoDoc.id,
+                        code: data.code,
+                        value: data.value
+                    };
+                    
+                    window.shop.toggleUserPromoModal();
+                    window.shop.showToast(`Промокод ${data.code} активирован!`, "Успешно");
+                    input.value = "";
+                    
+                } catch (e) {
+                    console.error("Promo check error", e);
+                    window.shop.showToast("Ошибка проверки", "Сбой");
+                }
             },
 
-            // --- USER: RENDER MY ORDERS (FIXED) ---
+            createPromo: async () => {
+                const code = document.getElementById('new-promo-code').value.trim().toUpperCase();
+                const value = parseInt(document.getElementById('new-promo-value').value);
+                const limit = parseInt(document.getElementById('new-promo-limit').value);
+                
+                if (!code || !value || !limit) return window.shop.showToast("Заполните все поля", "Ошибка");
+                
+                try {
+                    const promoRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+                    await addDoc(promoRef, {
+                        code: code,
+                        value: value,
+                        maxActivations: limit,
+                        activations: 0,
+                        createdAt: serverTimestamp()
+                    });
+                    
+                    document.getElementById('new-promo-code').value = '';
+                    document.getElementById('new-promo-value').value = '';
+                    document.getElementById('new-promo-limit').value = '';
+                    
+                    window.shop.showToast("Промокод создан", "Успешно");
+                } catch (e) {
+                    console.error("Create promo error", e);
+                    window.shop.showToast("Ошибка создания", "Сбой");
+                }
+            },
+
+            listenAdminPromos: () => {
+                if (window.shop.state.promoListenerUnsubscribe) return;
+                
+                const promoRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+                const q = query(promoRef, orderBy('createdAt', 'desc'));
+                
+                window.shop.state.promoListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    const container = document.getElementById('admin-promo-list');
+                    if (snapshot.empty) {
+                        container.innerHTML = '<div class="text-center text-gray-600 text-xs">Нет активных кодов</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    snapshot.forEach(doc => {
+                        const d = doc.data();
+                        html += `
+                            <div class="bg-white/5 rounded-xl p-3 flex justify-between items-center border border-white/5">
+                                <div>
+                                    <p class="text-sm font-bold text-white">${d.code}</p>
+                                    <p class="text-[10px] text-gray-500">Скидка: ${d.value}₽ | Исп: ${d.activations}/${d.maxActivations}</p>
+                                </div>
+                                <button onclick="window.shop.deletePromo('${doc.id}')" class="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                    if(window.lucide) window.lucide.createIcons();
+                });
+            },
+
+            deletePromo: async (id) => {
+                if (confirm("Удалить промокод?")) {
+                    try {
+                         await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', id));
+                    } catch (e) {
+                        window.shop.showToast("Ошибка удаления", "Сбой");
+                    }
+                }
+            },
+
+            // --- USER: RENDER MY ORDERS ---
             renderMyOrders: (container) => {
                 const isSelectMode = window.shop.state.myOrdersSelectionMode;
                 const selectedCount = window.shop.state.selectedMyOrders.size;
-                
                 container.innerHTML = `
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
-                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white">
-                                <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                            </button>
+                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                             <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                         </div>
-                        <div id="my-orders-buttons">
-                            <!-- Injected by JS -->
-                        </div>
+                        <div id="my-orders-buttons"></div>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">
-                            <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
-                            <p>Загрузка заказов...</p>
-                        </div>
+                        <div class="text-center py-10 text-gray-500 animate-pulse"><i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i><p>Загрузка заказов...</p></div>
                     </div>
-                    <!-- New Container for Floating Action Button -->
                     <div id="my-orders-fab-container"></div>
                 `;
-
-                // Initial Button Render
                 window.shop.renderMyOrdersFab();
                 window.shop.setupMyOrdersListener();
             },
 
-            // New helper to render the FAB
             renderMyOrdersFab: function() {
                 const container = document.getElementById('my-orders-fab-container');
                 if (!container) return;
-
-                const isSelectMode = this.state.myOrdersSelectionMode;
                 const selectedCount = this.state.selectedMyOrders.size;
-
-                if (isSelectMode && selectedCount > 0) {
-                    container.innerHTML = `
-                        <div class="fixed bottom-24 left-4 right-4 animate-float-up z-[50]">
-                            <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-500/50 flex items-center justify-center gap-2 transition-all active:scale-95">
-                                <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = '';
-                }
+                if (this.state.myOrdersSelectionMode && selectedCount > 0) {
+                    container.innerHTML = `<div class="fixed bottom-24 left-4 right-4 animate-float-up z-[50]"><button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-500/50 flex items-center justify-center gap-2 transition-all active:scale-95"><i data-lucide="trash-2" class="w-5 h-5"></i>УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})</button></div>`;
+                } else { container.innerHTML = ''; }
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Setup Listener
             setupMyOrdersListener: function() {
-                if (this.state.myOrdersListenerUnsubscribe) {
-                    this.state.myOrdersListenerUnsubscribe();
-                }
-
+                if (this.state.myOrdersListenerUnsubscribe) this.state.myOrdersListenerUnsubscribe();
                 const uid = this.state.firebaseUid;
-                if (!uid) {
-                    const list = document.getElementById('my-orders-list');
-                    if (list) list.innerHTML = `<div class="text-center py-10 text-red-500">Ошибка аутентификации</div>`;
-                    return;
-                }
-
+                if (!uid) return;
                 const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                 const q = query(ordersCollection, orderBy('date', 'desc'));
-                
                 this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
                     const list = document.getElementById('my-orders-list');
                     const buttonsContainer = document.getElementById('my-orders-buttons');
-                    
                     if (!list) return;
-
-                    // Update Header Button
                     if (buttonsContainer) {
-                        if (snapshot.empty) {
-                            buttonsContainer.innerHTML = '';
-                        } else {
+                        if (snapshot.empty) buttonsContainer.innerHTML = '';
+                        else {
                             const isSelectMode = this.state.myOrdersSelectionMode;
                             const selectedCount = this.state.selectedMyOrders.size;
-                            buttonsContainer.innerHTML = `
-                                <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                        class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                                    ${isSelectMode ? 
-                                        (selectedCount > 0 ? 
-                                            '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                            '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                                </button>
-                            `;
+                            buttonsContainer.innerHTML = `<button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">${isSelectMode ? (selectedCount > 0 ? '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}</button>`;
                         }
                     }
-
                     if (snapshot.empty) {
-                        list.innerHTML = `
-                            <div class="flex flex-col items-center justify-center py-10 text-gray-500">
-                                <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
-                                <p>История пуста</p>
-                                <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
-                            </div>`;
+                        list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 text-gray-500"><i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i><p>История пуста</p></div>`;
                         this.state.myOrders = [];
                         return;
                     }
-
                     let docs = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        docs.push({ 
-                            id: doc.id, 
-                            ...data,
-                            date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date()
-                        });
+                        docs.push({ id: doc.id, ...data, date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date() });
                     });
-                    
                     docs.sort((a, b) => b.date - a.date);
                     this.state.myOrders = docs;
                     this.updateMyOrdersList(docs);
-                    
                 });
             },
 
-            // Update List Helper
             updateMyOrdersList: function(docs) {
                 const list = document.getElementById('my-orders-list');
                 if (!list) return;
-
                 const isSelectMode = this.state.myOrdersSelectionMode;
                 let html = '';
-                
                 docs.forEach(data => {
-                    const date = new Date(data.date).toLocaleString('ru-RU', { 
-                        day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' 
-                    });
-                    
-                    let statusClass = 'status-pending';
-                    let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                    let statusIcon = 'clock';
-                    
-                    if (data.status === 'approved') {
-                        statusClass = 'status-approved';
-                        statusText = 'ПОДТВЕРЖДЕН';
-                        statusIcon = 'check-circle';
-                    } else if (data.status === 'rejected') {
-                        statusClass = 'status-rejected';
-                        statusText = 'ОТМЕНЕН';
-                        statusIcon = 'x-circle';
-                    } else if (data.status === 'pending') {
-                        statusClass = 'status-pending';
-                        statusText = 'ОБРАБОТКА';
-                        statusIcon = 'refresh-cw';
-                    }
-
+                    const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
+                    let statusClass = 'status-pending', statusText = 'ОЖИДАЕТ ОПЛАТЫ', statusIcon = 'clock';
+                    if (data.status === 'approved') { statusClass = 'status-approved'; statusText = 'ПОДТВЕРЖДЕН'; statusIcon = 'check-circle'; }
+                    else if (data.status === 'rejected') { statusClass = 'status-rejected'; statusText = 'ОТМЕНЕН'; statusIcon = 'x-circle'; }
+                    else if (data.status === 'pending') { statusClass = 'status-pending'; statusText = 'ОБРАБОТКА'; statusIcon = 'refresh-cw'; }
                     const isSelected = this.state.selectedMyOrders.has(data.id);
                     const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
-
                     html += `
-                        <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
-                             onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
+                        <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
                             <div class="flex items-start gap-3">
-                                ${isSelectMode ? `
-                                <div class="pt-1">
-                                    <div class="order-checkbox ${isSelected ? 'checked' : ''}">
-                                        ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
-                                    </div>
-                                </div>` : ''}
-                                
+                                ${isSelectMode ? `<div class="pt-1"><div class="order-checkbox ${isSelected ? 'checked' : ''}">${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}</div></div>` : ''}
                                 <div class="flex-grow">
                                     <div class="flex justify-between items-start mb-2">
-                                        <div class="flex flex-col">
-                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
-                                            <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
-                                        </div>
-                                        <div class="${statusClass} status-badge flex items-center gap-1">
-                                            <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
-                                            ${statusText}
-                                        </div>
+                                        <div class="flex flex-col"><span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span><span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span></div>
+                                        <div class="${statusClass} status-badge flex items-center gap-1"><i data-lucide="${statusIcon}" class="w-3 h-3"></i>${statusText}</div>
                                     </div>
-                                    
-                                    <div class="mt-3 pt-3 border-t border-white/5">
-                                        <div class="flex items-center text-xs text-gray-400 mb-1">
-                                            <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
-                                            ${date}
-                                        </div>
-                                    </div>
+                                    <div class="mt-3 pt-3 border-t border-white/5"><div class="flex items-center text-xs text-gray-400 mb-1"><i data-lucide="calendar" class="w-3 h-3 mr-2"></i>${date}</div></div>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-                
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Toggle Selection Mode
             toggleMyOrdersSelectionMode: function() {
                 this.state.myOrdersSelectionMode = !this.state.myOrdersSelectionMode;
-                if (!this.state.myOrdersSelectionMode) {
-                    this.state.selectedMyOrders.clear();
-                }
-                
-                // Trigger updates
-                this.renderMyOrdersFab(); // Update the big button
-                
-                // Update header button
+                if (!this.state.myOrdersSelectionMode) this.state.selectedMyOrders.clear();
+                this.renderMyOrdersFab();
                 const buttonsContainer = document.getElementById('my-orders-buttons');
                 if (buttonsContainer) {
                     const selectedCount = this.state.selectedMyOrders.size;
-                    buttonsContainer.innerHTML = `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${this.state.myOrdersSelectionMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${this.state.myOrdersSelectionMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                        </button>
-                    `;
+                    buttonsContainer.innerHTML = `<button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${this.state.myOrdersSelectionMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">${this.state.myOrdersSelectionMode ? (selectedCount > 0 ? '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}</button>`;
                 }
-                
                 this.updateMyOrdersList(this.state.myOrders);
             },
 
-            // Toggle Individual Item
             toggleMyOrderSelection: function(orderId) {
                 const set = this.state.selectedMyOrders;
-                if (set.has(orderId)) {
-                    set.delete(orderId);
-                } else {
-                    set.add(orderId);
-                }
-                this.renderMyOrdersFab(); // Update big button visibility
+                if (set.has(orderId)) set.delete(orderId); else set.add(orderId);
+                this.renderMyOrdersFab();
                 this.updateMyOrdersList(this.state.myOrders);
-                
-                // Update header
                 const selectedCount = this.state.selectedMyOrders.size;
                 const buttonsContainer = document.getElementById('my-orders-buttons');
-                if (buttonsContainer) {
-                    buttonsContainer.innerHTML = `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${this.state.myOrdersSelectionMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                        </button>
-                    `;
-                }
+                if (buttonsContainer) buttonsContainer.innerHTML = `<button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${selectedCount > 0 ? 'bg-red-500/20' : ''}">${this.state.myOrdersSelectionMode ? (selectedCount > 0 ? '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}</button>`;
             },
 
-            // --- ФИКС: МГНОВЕННОЕ УДАЛЕНИЕ ИЗ UI ---
             deleteSelectedMyOrders: function() {
                 const count = this.state.selectedMyOrders.size;
                 if (count === 0) return;
-                
-                this.showConfirm(
-                    "УДАЛИТЬ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count})?`,
-                    async () => {
-                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
-                        
-                        // 1. Сохраняем ID для удаления
-                        const idsToDelete = Array.from(this.state.selectedMyOrders);
-                        
-                        // 2. ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ: Мгновенно убираем из локального массива
-                        this.state.myOrders = this.state.myOrders.filter(order => !idsToDelete.includes(order.id));
-                        
-                        // 3. Сбрасываем состояние выбора
-                        this.state.selectedMyOrders.clear();
-                        this.state.myOrdersSelectionMode = false;
-                        
-                        // 4. ФОРСИРУЕМ ПЕРЕРИСОВКУ СПИСКА СРАЗУ ЖЕ (Убираем галочки и удаленные элементы)
-                        this.updateMyOrdersList(this.state.myOrders); 
-                        this.renderMyOrdersFab(); // Убираем нижнюю кнопку
-                        
-                        // Обновляем верхнюю кнопку (сброс)
-                        const buttonsContainer = document.getElementById('my-orders-buttons');
-                        if (buttonsContainer) buttonsContainer.innerHTML = '';
-                        
-                        try {
-                            const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
-                            if (!uid) return;
-
-                            // 5. Отправляем запрос в базу (фоном)
-                            const promises = idsToDelete.map(id => {
-                                const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
-                                return deleteDoc(orderRef);
-                            });
-                            await Promise.all(promises);
-                            
-                            this.showToast("Заказы удалены", "Успешно");
-                        } catch (e) {
-                            console.error(e);
-                            this.showToast("Ошибка удаления: " + e.message, "Сбой");
-                            // Если ошибка - слушатель вернет данные обратно, так что всё безопасно
-                        }
-                    }
-                );
+                this.showConfirm("УДАЛИТЬ ЗАКАЗЫ", `Вы уверены, что хотите удалить выбранные заказы (${count})?`, async () => {
+                    this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                    const idsToDelete = Array.from(this.state.selectedMyOrders);
+                    this.state.myOrders = this.state.myOrders.filter(order => !idsToDelete.includes(order.id));
+                    this.state.selectedMyOrders.clear();
+                    this.state.myOrdersSelectionMode = false;
+                    this.updateMyOrdersList(this.state.myOrders); 
+                    this.renderMyOrdersFab();
+                    const buttonsContainer = document.getElementById('my-orders-buttons');
+                    if (buttonsContainer) buttonsContainer.innerHTML = '';
+                    try {
+                        const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
+                        if (!uid) return;
+                        const promises = idsToDelete.map(id => deleteDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id)));
+                        await Promise.all(promises);
+                        this.showToast("Заказы удалены", "Успешно");
+                    } catch (e) { console.error(e); this.showToast("Ошибка удаления: " + e.message, "Сбой"); }
+                });
             },
 
-            // --- Показать детали заказа пользователю ---
             showOrderDetails: function(orderId) {
                 const order = this.state.myOrders.find(o => o.id === orderId);
-                if (!order) {
-                    this.showToast("Заказ не найден", "Ошибка");
-                    return;
-                }
-
-                const date = new Date(order.date).toLocaleString('ru-RU', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric',
-                    hour: '2-digit', 
-                    minute:'2-digit' 
-                });
-                
-                let statusClass = 'status-pending';
-                let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                
-                if (order.status === 'approved') {
-                    statusClass = 'status-approved';
-                    statusText = 'ПОДТВЕРЖДЕН';
-                } else if (order.status === 'rejected') {
-                    statusClass = 'status-rejected';
-                    statusText = 'ОТМЕНЕН';
-                } else if (order.status === 'pending') {
-                    statusClass = 'status-pending';
-                    statusText = 'В ОБРАБОТКЕ';
-                }
-
+                if (!order) return this.showToast("Заказ не найден", "Ошибка");
+                const date = new Date(order.date).toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute:'2-digit' });
+                let statusClass = 'status-pending', statusText = 'ОЖИДАЕТ ОПЛАТЫ';
+                if (order.status === 'approved') { statusClass = 'status-approved'; statusText = 'ПОДТВЕРЖДЕН'; }
+                else if (order.status === 'rejected') { statusClass = 'status-rejected'; statusText = 'ОТМЕНЕН'; }
                 let itemsHtml = '';
                 if (order.items) {
                     for (const [productId, qty] of Object.entries(order.items)) {
                         const product = this.state.products.find(p => p.id === productId);
                         const name = product ? product.name : `Товар #${productId.substring(0,6)}`;
                         const price = product ? product.price : 0;
-                        const total = price * qty;
-                        
-                        itemsHtml += `
-                            <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-                                <div>
-                                    <p class="text-sm text-white">${name}</p>
-                                    <p class="text-xs text-gray-500">${price} ₽ × ${qty} шт</p>
-                                </div>
-                                <p class="text-sm font-bold text-white">${total} ₽</p>
-                            </div>
-                        `;
+                        itemsHtml += `<div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0"><div><p class="text-sm text-white">${name}</p><p class="text-xs text-gray-500">${price} ₽ × ${qty} шт</p></div><p class="text-sm font-bold text-white">${price * qty} ₽</p></div>`;
                     }
                 }
-
                 const delivery = order.delivery || {};
-
                 const modal = document.getElementById('order-detail-modal');
                 const content = document.getElementById('order-detail-content');
-                
                 content.innerHTML = `
-                    <div class="mb-6">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-lg font-black italic text-white">ЗАКАЗ #${order.order_key || order.id.substring(0,8)}</h3>
-                                <p class="text-xs text-gray-500 mt-1">${date}</p>
-                            </div>
-                            <div class="${statusClass} status-badge">
-                                ${statusText}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-black/40 rounded-xl p-4 mb-4 border border-white/10">
-                            <h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">ДАННЫЕ ДОСТАВКИ</h4>
-                            <div class="space-y-2">
-                                ${delivery.name ? `<p class="text-sm text-white"><span class="text-gray-500">Имя:</span> ${delivery.name}</p>` : ''}
-                                ${delivery.phone ? `<p class="text-sm text-white"><span class="text-gray-500">Телефон:</span> ${delivery.phone}</p>` : ''}
-                                ${delivery.contact ? `<p class="text-sm text-white"><span class="text-gray-500">Контакт:</span> ${delivery.contact}</p>` : ''}
-                                ${delivery.place ? `<p class="text-sm text-white"><span class="text-gray-500">Место:</span> ${delivery.place}</p>` : ''}
-                                ${delivery.time ? `<p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${delivery.time}</p>` : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-black/40 rounded-xl p-4 mb-6 border border-white/10">
-                            <h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">СОСТАВ ЗАКАЗА</h4>
-                            ${itemsHtml}
-                            <div class="flex justify-between items-center pt-3 mt-3 border-t border-white/10">
-                                <span class="text-white font-bold">ИТОГО</span>
-                                <span class="text-green-400 font-bold text-lg">${order.total} ₽</span>
-                            </div>
-                        </div>
-                        
-                        <div class="text-center text-xs text-gray-500">
-                            <p>Заказ создан через VΛPOR CLOUD PREMIUM</p>
-                            <p class="mt-1">Статус заказа обновляется администратором</p>
-                        </div>
-                    </div>
-                    
-                    <button onclick="document.getElementById('order-detail-modal').classList.add('hidden')" class="w-full py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">
-                        ЗАКРЫТЬ
-                    </button>
-                `;
-                
+                    <div class="mb-6"><div class="flex justify-between items-start mb-4"><div><h3 class="text-lg font-black italic text-white">ЗАКАЗ #${order.order_key || order.id.substring(0,8)}</h3><p class="text-xs text-gray-500 mt-1">${date}</p></div><div class="${statusClass} status-badge">${statusText}</div></div>
+                    <div class="bg-black/40 rounded-xl p-4 mb-4 border border-white/10"><h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">ДАННЫЕ ДОСТАВКИ</h4><div class="space-y-2">${delivery.name ? `<p class="text-sm text-white"><span class="text-gray-500">Имя:</span> ${delivery.name}</p>` : ''}${delivery.phone ? `<p class="text-sm text-white"><span class="text-gray-500">Телефон:</span> ${delivery.phone}</p>` : ''}${delivery.place ? `<p class="text-sm text-white"><span class="text-gray-500">Место:</span> ${delivery.place}</p>` : ''}</div></div>
+                    <div class="bg-black/40 rounded-xl p-4 mb-6 border border-white/10"><h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">СОСТАВ ЗАКАЗА</h4>${itemsHtml}<div class="flex justify-between items-center pt-3 mt-3 border-t border-white/10"><span class="text-white font-bold">ИТОГО</span><span class="text-green-400 font-bold text-lg">${order.total} ₽</span></div></div>
+                    </div><button onclick="document.getElementById('order-detail-modal').classList.add('hidden')" class="w-full py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">ЗАКРЫТЬ</button>`;
                 modal.classList.remove('hidden');
-                if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- ADMIN: RENDER ORDERS (ИСПРАВЛЕННАЯ БЕЗ МИГАНИЯ) ---
+            // --- ADMIN: RENDER ORDERS ---
             renderAdminOrders: (container) => {
                 const isSelectMode = window.shop.state.adminSelectionMode;
                 const selectedCount = window.shop.state.selectedAdminOrders.size;
-
                 container.innerHTML = `
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-3">
-                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white">
-                                <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                            </button>
-                            <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
-                        </div>
-                        <button onclick="window.shop.toggleAdminSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${isSelectMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ'}
-                        </button>
-                    </div>
-                    <div id="admin-orders-list" class="space-y-3 pb-32">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
-                    </div>
-                    
-                    ${isSelectMode ? `
-                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
-                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                            УДАЛИТЬ (${selectedCount})
-                        </button>
-                    </div>` : ''}
-                `;
-                
-                // Инициализируем слушатель только если его нет
+                    <div class="flex items-center justify-between mb-6"><div class="flex items-center gap-3"><button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2></div><button onclick="window.shop.toggleAdminSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">${isSelectMode ? (selectedCount > 0 ? '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ'}</button></div>
+                    <div id="admin-orders-list" class="space-y-3 pb-32"><div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div></div>
+                    ${isSelectMode ? `<div class="fixed bottom-24 left-4 right-4 animate-float-up z-30"><button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}"><i data-lucide="trash-2" class="w-5 h-5"></i>УДАЛИТЬ (${selectedCount})</button></div>` : ''}`;
                 if (!window.shop.state.ordersListenerUnsubscribe) {
                     const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
                     const q = query(ordersCollection, orderBy('date', 'desc'));
-                    
-                    window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                        window.shop.updateAdminOrdersList(snapshot);
-                    });
-                } else {
-                    // Если слушатель уже есть, просто обновляем список текущими данными
-                    window.shop.updateAdminOrdersList();
-                }
+                    window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => { window.shop.updateAdminOrdersList(snapshot); });
+                } else { window.shop.updateAdminOrdersList(); }
             },
 
-            // Новая функция для обновления списка заказов без переподписки
             updateAdminOrdersList: function(snapshot = null) {
                 const list = document.getElementById('admin-orders-list');
                 if (!list) return;
-                
-                // Если snapshot передан, обновляем данные
                 if (snapshot) {
-                    if (snapshot.empty) {
-                        list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
-                        this.state.adminOrders = [];
-                        return;
-                    }
-
+                    if (snapshot.empty) { list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`; this.state.adminOrders = []; return; }
                     let docs = [];
                     snapshot.forEach(docSnap => {
                         const data = docSnap.data();
-                        docs.push({ 
-                            firestoreId: docSnap.id, 
-                            ...data,
-                            date: data.date ? 
-                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
-                                new Date()
-                        });
+                        docs.push({ firestoreId: docSnap.id, ...data, date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date() });
                     });
-                    
-                    // Сохраняем заказы в состоянии
                     this.state.adminOrders = docs;
                 }
-                
-                // Используем сохраненные заказы
                 const docs = this.state.adminOrders || [];
-                
                 let html = '';
                 docs.forEach(data => {
-                    const date = new Date(data.date).toLocaleString('ru-RU', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        hour: '2-digit', 
-                        minute:'2-digit' 
-                    });
-                    
+                    const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
                     const isSelected = this.state.selectedAdminOrders.has(data.firestoreId);
-                    
-                    let statusClass = 'status-pending';
-                    let statusText = 'ОЖИДАЕТ';
-                    
-                    if (data.status === 'approved') {
-                        statusClass = 'status-approved';
-                        statusText = 'ПРИНЯТ';
-                    } else if (data.status === 'rejected') {
-                        statusClass = 'status-rejected';
-                        statusText = 'ОТКЛОНЕН';
-                    }
-
-                    const cardStyle = isSelected 
-                        ? 'border-red-500 bg-red-500/10' 
-                        : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
-
-                    const clickAction = this.state.adminSelectionMode 
-                        ? `window.shop.toggleOrderSelection('${data.firestoreId}')`
-                        : `window.shop.openOrderDetails('${data.firestoreId}')`;
-
-                    const checkboxHtml = this.state.adminSelectionMode 
-                        ? `<div class="mr-3 pt-1">
-                             <div class="order-checkbox ${isSelected ? 'checked' : ''}">
-                                ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
-                             </div>
-                           </div>` 
-                        : '';
-
+                    let statusClass = 'status-pending', statusText = 'ОЖИДАЕТ';
+                    if (data.status === 'approved') { statusClass = 'status-approved'; statusText = 'ПРИНЯТ'; }
+                    else if (data.status === 'rejected') { statusClass = 'status-rejected'; statusText = 'ОТКЛОНЕН'; }
+                    const cardStyle = isSelected ? 'border-red-500 bg-red-500/10' : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
+                    const clickAction = this.state.adminSelectionMode ? `window.shop.toggleOrderSelection('${data.firestoreId}')` : `window.shop.openOrderDetails('${data.firestoreId}')`;
                     html += `
                         <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} flex mb-2">
-                            ${checkboxHtml}
+                            ${this.state.adminSelectionMode ? `<div class="mr-3 pt-1"><div class="order-checkbox ${isSelected ? 'checked' : ''}">${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}</div></div>` : ''}
                             <div class="flex-grow">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div class="flex flex-col">
-                                        <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
-                                        <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
-                                    </div>
-                                    <div class="${statusClass} status-badge">
-                                        ${statusText}
-                                    </div>
-                                </div>
-                                <div class="flex justify-between items-end">
-                                    <div class="text-xs text-gray-500">${date}</div>
-                                    <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
-                                </div>
+                                <div class="flex justify-between items-start mb-2"><div class="flex flex-col"><span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span><span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span></div><div class="${statusClass} status-badge">${statusText}</div></div>
+                                <div class="flex justify-between items-end"><div class="text-xs text-gray-500">${date}</div><div class="text-green-400 font-bold font-mono">${data.total} ₽</div></div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-                
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- ADMIN SELECTION LOGIC (ИСПРАВЛЕННАЯ БЕЗ МИГАНИЯ) ---
             toggleAdminSelectionMode: function() {
                 this.state.adminSelectionMode = !this.state.adminSelectionMode;
-                if (!this.state.adminSelectionMode) {
-                    this.state.selectedAdminOrders.clear();
-                }
-                // Обновляем список без перезагрузки данных
+                if (!this.state.adminSelectionMode) this.state.selectedAdminOrders.clear();
                 this.updateAdminOrdersList();
-                
-                // Обновляем кнопку
                 this.updateAdminSelectionButton();
             },
 
             toggleOrderSelection: function(docId) {
                 const set = this.state.selectedAdminOrders;
-                if (set.has(docId)) {
-                    set.delete(docId);
-                } else {
-                    set.add(docId);
-                }
-                
-                // Обновляем визуальное состояние элемента
+                if (set.has(docId)) set.delete(docId); else set.add(docId);
                 const orderElement = document.querySelector(`[onclick*="window.shop.toggleOrderSelection('${docId}')"], [onclick*="window.shop.openOrderDetails('${docId}')"]`);
                 if (orderElement) {
                     const checkbox = orderElement.querySelector('.order-checkbox');
-                    if (set.has(docId)) {
-                        orderElement.classList.add('border-red-500', 'bg-red-500/10');
-                        if (checkbox) {
-                            checkbox.classList.add('checked');
-                            checkbox.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-white"></i>';
-                        }
-                    } else {
-                        orderElement.classList.remove('border-red-500', 'bg-red-500/10');
-                        if (checkbox) {
-                            checkbox.classList.remove('checked');
-                            checkbox.innerHTML = '';
-                        }
-                    }
-                    if(window.lucide) window.lucide.createIcons();
+                    if (set.has(docId)) { orderElement.classList.add('border-red-500', 'bg-red-500/10'); if (checkbox) { checkbox.classList.add('checked'); checkbox.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-white"></i>'; } }
+                    else { orderElement.classList.remove('border-red-500', 'bg-red-500/10'); if (checkbox) { checkbox.classList.remove('checked'); checkbox.innerHTML = ''; } }
                 }
-                
-                // Обновляем кнопку
                 this.updateAdminSelectionButton();
             },
 
-            // Функция для обновления кнопки выбора
             updateAdminSelectionButton: function() {
                 const selectedCount = this.state.selectedAdminOrders.size;
                 const button = document.querySelector('button[onclick="window.shop.toggleAdminSelectionMode()"]');
                 if (button) {
-                    button.innerHTML = this.state.adminSelectionMode ? 
-                        (selectedCount > 0 ? 
-                            `<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ (${selectedCount})` : 
-                            '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                        '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ';
-                    
-                    if (this.state.adminSelectionMode && selectedCount > 0) {
-                        button.classList.add('bg-red-500/20');
-                    } else {
-                        button.classList.remove('bg-red-500/20');
-                    }
+                    button.innerHTML = this.state.adminSelectionMode ? (selectedCount > 0 ? `<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ (${selectedCount})` : '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ';
+                    if (this.state.adminSelectionMode && selectedCount > 0) button.classList.add('bg-red-500/20'); else button.classList.remove('bg-red-500/20');
                 }
             },
 
             deleteSelectedOrders: function() {
                 const count = this.state.selectedAdminOrders.size;
                 if (count === 0) return;
-                
-                this.showConfirm(
-                    "УДАЛИТЬ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count})? Это действие нельзя отменить.`,
-                    async () => {
-                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
-                        
-                        try {
-                            const promises = Array.from(this.state.selectedAdminOrders).map(id => {
-                                const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
-                                return deleteDoc(orderRef);
-                            });
-                            
-                            await Promise.all(promises);
-                            
-                            // Удаляем из локального состояния
-                            this.state.adminOrders = this.state.adminOrders.filter(order => 
-                                !this.state.selectedAdminOrders.has(order.firestoreId)
-                            );
-                            
-                            this.state.selectedAdminOrders.clear();
-                            this.state.adminSelectionMode = false;
-                            
-                            // Обновляем список
-                            this.updateAdminOrdersList();
-                            this.showToast("Заказы удалены", "Успешно");
-                            
-                        } catch (e) {
-                            console.error(e);
-                            this.showToast("Ошибка удаления", "Сбой");
-                        }
-                    }
-                );
+                this.showConfirm("УДАЛИТЬ ЗАКАЗЫ", `Вы уверены, что хотите удалить выбранные заказы (${count})?`, async () => {
+                    this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                    try {
+                        const promises = Array.from(this.state.selectedAdminOrders).map(id => deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id)));
+                        await Promise.all(promises);
+                        this.state.adminOrders = this.state.adminOrders.filter(order => !this.state.selectedAdminOrders.has(order.firestoreId));
+                        this.state.selectedAdminOrders.clear();
+                        this.state.adminSelectionMode = false;
+                        this.updateAdminOrdersList();
+                        this.showToast("Заказы удалены", "Успешно");
+                    } catch (e) { console.error(e); this.showToast("Ошибка удаления", "Сбой"); }
+                });
             },
 
-            // ФИКС: Обновление статуса заказа с немедленным закрытием модального окна
             openOrderDetails: async (docId) => {
                 try {
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
                     const docSnap = await getDoc(orderRef);
                     if (!docSnap.exists()) return;
-                    
                     const data = docSnap.data();
                     const modal = document.getElementById('order-detail-modal');
                     const content = document.getElementById('order-detail-content');
-                    
                     let itemsHtml = '';
                     if (data.items) {
                         for (const [key, qty] of Object.entries(data.items)) {
                              const prod = window.shop.state.products.find(p => p.id === key);
-                             const name = prod ? prod.name : 'Товар (ID)';
-                             itemsHtml += `<div class="flex justify-between text-xs py-1 border-b border-white/5"><span>${name}</span> <span class="text-gray-400">x${qty}</span></div>`;
+                             itemsHtml += `<div class="flex justify-between text-xs py-1 border-b border-white/5"><span>${prod ? prod.name : 'Товар (ID)'}</span> <span class="text-gray-400">x${qty}</span></div>`;
                         }
                     }
-
                     content.innerHTML = `
-                        <div class="text-center mb-4">
-                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key}</h3>
-                            <p class="text-xs text-gray-500">${new Date(data.date).toLocaleString('ru-RU')}</p>
-                        </div>
-                        
-                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
-                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Клиент</p>
-                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
-                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p>
-                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
-                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Где:</span> ${data.delivery?.place}</p>
-                            <p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${data.delivery?.time}</p>
-                        </div>
-
-                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
-                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Корзина</p>
-                            ${itemsHtml}
-                            <div class="flex justify-between mt-3 pt-2 border-t border-white/10">
-                                <span class="text-white font-bold">ИТОГО</span>
-                                <span class="text-green-400 font-bold">${data.total} ₽</span>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-3">
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" 
-                                    class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-                                ОДОБРИТЬ
-                            </button>
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" 
-                                    class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                                ОТКЛОНИТЬ
-                            </button>
-                        </div>
-                    `;
-                    
+                        <div class="text-center mb-4"><h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key}</h3><p class="text-xs text-gray-500">${new Date(data.date).toLocaleString('ru-RU')}</p></div>
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10"><p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Клиент</p><p class="text-sm text-white mb-1"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p><p class="text-sm text-white mb-1"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p><p class="text-sm text-white mb-1"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p><p class="text-sm text-white mb-1"><span class="text-gray-500">Где:</span> ${data.delivery?.place}</p></div>
+                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10"><p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Корзина</p>${itemsHtml}<div class="flex justify-between mt-3 pt-2 border-t border-white/10"><span class="text-white font-bold">ИТОГО</span><span class="text-green-400 font-bold">${data.total} ₽</span></div></div>
+                        <div class="grid grid-cols-2 gap-3"><button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">ОДОБРИТЬ</button><button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">ОТКЛОНИТЬ</button></div>`;
                     modal.classList.remove('hidden');
-
-                } catch (e) {
-                    console.error(e);
-                    window.shop.showToast('Ошибка загрузки', 'Сбой');
-                }
+                } catch (e) { console.error(e); window.shop.showToast('Ошибка загрузки', 'Сбой'); }
             },
 
-            // ФИКС: Упрощенная и исправленная функция обновления статуса
             updateOrderStatus: async (docId, status) => {
-                // Закрываем модалку сразу для UX
                 document.getElementById('order-detail-modal').classList.add('hidden');
                 window.shop.showToast('Обновление статуса...', 'Обработка');
-
                 try {
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
-                    
-                    // 1. Сначала получаем документ, чтобы найти связи
                     const docSnap = await getDoc(orderRef);
-                    if (!docSnap.exists()) {
-                         throw new Error("Заказ не найден");
-                    }
+                    if (!docSnap.exists()) throw new Error("Заказ не найден");
                     const data = docSnap.data();
-
-                    // 2. Обновляем публичный заказ
-                    await updateDoc(orderRef, {
-                        status: status,
-                        updatedAt: new Date().toISOString()
-                    });
-
-                    // 3. Обновляем приватный заказ пользователя (если связь существует)
+                    await updateDoc(orderRef, { status: status, updatedAt: new Date().toISOString() });
                     if (data.linkedUserUid && data.linkedUserOrderId) {
-                        try {
-                            const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId);
-                            await updateDoc(userOrderRef, {
-                                status: status,
-                                updatedAt: new Date().toISOString()
-                            });
-                            console.log("Приватный статус пользователя обновлен");
-                        } catch (privateErr) {
-                            console.error("Ошибка обновления приватного статуса:", privateErr);
-                        }
+                        const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId);
+                        await updateDoc(userOrderRef, { status: status, updatedAt: new Date().toISOString() });
                     }
-
                     window.shop.showToast(`Статус изменен: ${status === 'approved' ? 'Одобрен' : 'Отклонен'}`, 'Успешно');
-                } catch (e) {
-                     console.error(e);
-                     window.shop.showToast('Ошибка обновления: ' + e.message, 'Сбой');
-                }
+                } catch (e) { console.error(e); window.shop.showToast('Ошибка обновления: ' + e.message, 'Сбой'); }
             },
 
             // --- Actions ---
             filterCategory: (cat) => {
                 window.shop.state.currentCategory = cat;
                 window.shop.renderStore();
-                if(window.lucide) window.lucide.createIcons();
             },
 
             addToCart: async (productId) => {
-                if (!window.shop.state.cart[productId]) {
-                    window.shop.state.cart[productId] = 0;
-                }
+                if (!window.shop.state.cart[productId]) window.shop.state.cart[productId] = 0;
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
-                
                 await window.shop.saveCartToFirebase();
-                
-                localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
-
                 window.shop.showToast("Добавлено в корзину", "Корзина");
-                
-                if(window.Telegram.WebApp.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-                }
             },
 
             updateQty: async (productId, change) => {
                 if (!window.shop.state.cart[productId]) return;
-                
                 window.shop.state.cart[productId] += change;
-                
                 if (window.shop.state.cart[productId] <= 0) {
                     delete window.shop.state.cart[productId];
-                    
                     const cartItem = document.querySelector(`#cart-item-${productId}`);
                     if (cartItem) {
                         cartItem.classList.add('cart-item-removing');
-                        setTimeout(() => {
-                            if (cartItem.parentNode) {
-                                cartItem.parentNode.removeChild(cartItem);
-                            }
-                            window.shop.updateCartTotal();
-                        }, 300);
+                        setTimeout(() => { if (cartItem.parentNode) cartItem.parentNode.removeChild(cartItem); window.shop.updateCartTotal(); }, 300);
                     }
                 } else {
                     const qtyElement = document.querySelector(`#cart-item-${productId} .cart-item-qty`);
-                    if (qtyElement) {
-                        qtyElement.textContent = window.shop.state.cart[productId];
-                    }
+                    if (qtyElement) qtyElement.textContent = window.shop.state.cart[productId];
                     window.shop.updateCartTotal();
                 }
-                
                 await window.shop.saveCartToFirebase();
-                
-                localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
-
                 window.shop.updateCartBadge();
-                
-                if (Object.keys(window.shop.state.cart).length === 0 && window.shop.state.isCartView) {
-                    const container = document.getElementById('main-content');
-                    container.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-                            <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
-                                <i data-lucide="shopping-cart" class="w-10 h-10 opacity-30"></i>
-                            </div>
-                            <h3 class="text-lg font-bold text-white mb-2">Корзина пуста</h3>
-                            <p class="text-xs text-gray-500 mb-6">Самое время выбрать что-то топовое.</p>
-                            <button onclick="window.shop.switchView('store')" class="px-8 py-3 bg-green-500 text-black font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-green-400 transition-colors">В КАТАЛОГ</button>
-                        </div>`;
-                }
-                
-                if(window.lucide) window.lucide.createIcons();
+                if (Object.keys(window.shop.state.cart).length === 0 && window.shop.state.isCartView) window.shop.renderCart(document.getElementById('main-content'));
             },
 
             updateCartTotal: () => {
                 if (!window.shop.state.isCartView) return;
-                
                 const cartIds = Object.keys(window.shop.state.cart);
                 const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
                 let total = 0;
-                
-                products.forEach(p => {
-                    total += p.price * window.shop.state.cart[p.id];
-                });
-                
+                products.forEach(p => { total += p.price * window.shop.state.cart[p.id]; });
                 const totalElement = document.getElementById('cart-total');
-                if (totalElement) {
-                    totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
-                }
+                if (totalElement) totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
             },
 
             updateCartBadge: () => {
@@ -2305,36 +1770,22 @@
             editProduct: function(id) {
                 const product = this.state.products.find(p => p.id === id);
                 if (!product) return;
-
                 this.state.editingProductId = id;
-
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
                 document.getElementById('edit-cat').value = product.category;
-
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
-                
-                // Очищаем предыдущее состояние
                 preview.style.backgroundImage = '';
                 placeholder.classList.remove('hidden');
-                
                 if (product.image && product.image.startsWith('data:image')) {
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
                 } else if (product.image && product.image.includes('http')) {
-                    // Загружаем изображение асинхронно
                     const tempImg = new Image();
-                    tempImg.onload = () => {
-                        preview.style.backgroundImage = `url(${product.image})`;
-                        placeholder.classList.add('hidden');
-                    };
-                    tempImg.onerror = () => {
-                        // Если не загрузилось, оставляем плейсхолдер
-                    };
+                    tempImg.onload = () => { preview.style.backgroundImage = `url(${product.image})`; placeholder.classList.add('hidden'); };
                     tempImg.src = product.image;
                 }
-
                 this.toggleEditModal();
             },
 
@@ -2378,85 +1829,58 @@
                 const price = Number(document.getElementById('new-price').value);
                 const cat = document.getElementById('new-cat').value;
                 const image = window.shop.state.pendingImage || 'box';
-
                 if (!name || !price) return window.shop.showToast("Заполните все поля", "Ошибка");
-
-                const newProduct = { 
-                    name, 
-                    price, 
-                    category: cat, 
-                    image, 
-                    createdAt: serverTimestamp()
-                };
-
+                const newProduct = { name, price, category: cat, image, createdAt: serverTimestamp() };
                 window.shop.toggleAddModal();
                 window.shop.showToast("Сохранение...", "Синхронизация");
-
                 try {
-                    const productsCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-                    await addDoc(productsCollection, newProduct);
+                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'products'), newProduct);
                     window.shop.showToast("Товар добавлен", "Успешно");
-                } catch (e) {
-                    console.error("Save failed", e);
-                    window.shop.showToast("Ошибка сохранения: " + e.message, "Сбой");
-                }
+                } catch (e) { console.error(e); window.shop.showToast("Ошибка сохранения", "Сбой"); }
             },
 
             updateProduct: async function() {
                 const id = this.state.editingProductId;
                 if (!id) return;
-
                 const name = document.getElementById('edit-name').value;
                 const price = Number(document.getElementById('edit-price').value);
                 const cat = document.getElementById('edit-cat').value;
                 const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
-
                 if (!name || !price) return this.showToast("Заполните все поля", "Ошибка");
-
-                const updatedProduct = {
-                    name,
-                    price,
-                    category: cat,
-                    image,
-                };
-
+                const updatedProduct = { name, price, category: cat, image };
                 this.toggleEditModal();
                 this.showToast("Обновление...", "Синхронизация");
-
                 try {
-                    const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
-                    await updateDoc(productRef, updatedProduct);
+                    await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id), updatedProduct);
                     this.state.pendingEditImage = null;
                     this.showToast("Товар обновлен", "Успешно");
-                } catch (e) {
-                    console.error("Update failed", e);
-                    this.showToast("Ошибка обновления: " + e.message, "Сбой");
-                }
+                } catch (e) { console.error(e); this.showToast("Ошибка обновления", "Сбой"); }
             },
 
             deleteProduct: async (id) => {
-                this.showConfirm(
-                    "УДАЛИТЬ ТОВАР",
-                    "Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.",
-                    async () => {
-                        window.shop.showToast("Удаление...", "Синхронизация");
-
-                        try {
-                            const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
-                            await deleteDoc(productRef);
-                            window.shop.showToast("Товар удален", "Успешно");
-                        } catch (e) { 
-                            console.error("Delete failed", e); 
-                            window.shop.showToast("Ошибка удаления: " + e.message, "Сбой");
-                        }
-                    }
-                );
+                this.showConfirm("УДАЛИТЬ ТОВАР", "Вы уверены?", async () => {
+                    window.shop.showToast("Удаление...", "Синхронизация");
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id));
+                        window.shop.showToast("Товар удален", "Успешно");
+                    } catch (e) { window.shop.showToast("Ошибка удаления", "Сбой"); }
+                });
             },
 
             // --- CHECKOUT LOGIC ---
 
             initCheckout: (total) => {
                 window.shop.state.currentTotal = total;
+                // Check if promo active
+                if (window.shop.state.activePromo) {
+                    const discount = window.shop.state.activePromo.value;
+                    document.getElementById('delivery-promo-info').classList.remove('hidden');
+                    document.getElementById('delivery-promo-value').innerText = `-${discount} ₽`;
+                    window.shop.state.currentTotal = Math.max(0, total - discount);
+                } else {
+                    document.getElementById('delivery-promo-info').classList.add('hidden');
+                }
+                
                 document.getElementById('delivery-modal').classList.remove('hidden');
             },
 
@@ -2473,55 +1897,44 @@
                 const place = document.getElementById('del-place').value;
                 const time = window.shop.state.deliveryTime;
 
-                if (!name || !phone || !contact || !place || !time) {
-                    window.shop.showToast("Заполните все поля и выберите время", "Ошибка");
-                    return;
-                }
+                if (!name || !phone || !contact || !place || !time) return window.shop.showToast("Заполните все поля", "Ошибка");
 
                 window.shop.state.deliveryInfo = { name, phone, contact, place, time };
-
                 document.getElementById('delivery-modal').classList.add('hidden');
                 
                 document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
+                
+                // Show discount if applied
+                if (window.shop.state.activePromo) {
+                    document.getElementById('checkout-discount-row').classList.remove('hidden');
+                    document.getElementById('checkout-discount-val').innerText = `-${window.shop.state.activePromo.value} ₽`;
+                } else {
+                    document.getElementById('checkout-discount-row').classList.add('hidden');
+                }
+
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
                 window.shop.state.currentOrderId = orderId;
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
-                
-                // Сбрасываем флаг обработки заказа при открытии модального окна оплаты
                 window.shop.state.isProcessingOrder = false;
                 const completeBtn = document.getElementById('complete-order-btn');
-                if (completeBtn) {
-                    completeBtn.disabled = false;
-                    completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
-                    if(window.lucide) window.lucide.createIcons();
-                }
+                if (completeBtn) { completeBtn.disabled = false; completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`; if(window.lucide) window.lucide.createIcons(); }
             },
 
             copyBank: () => {
-                navigator.clipboard.writeText("2204 3209 2444 1944").then(() => {
-                    window.shop.showToast("Номер карты скопирован", "Скопировано");
-                });
+                navigator.clipboard.writeText("2204 3209 2444 1944").then(() => window.shop.showToast("Номер карты скопирован", "Скопировано"));
             },
 
             completeOrder: async () => {
                 if (window.shop.state.isProcessingOrder) return;
                 window.shop.state.isProcessingOrder = true;
-                
                 const completeBtn = document.getElementById('complete-order-btn');
-                if (completeBtn) {
-                    completeBtn.disabled = true;
-                    completeBtn.innerHTML = `<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> ОБРАБОТКА...`;
-                    if(window.lucide) window.lucide.createIcons();
-                }
+                if (completeBtn) { completeBtn.disabled = true; completeBtn.innerHTML = `<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> ОБРАБОТКА...`; if(window.lucide) window.lucide.createIcons(); }
 
                 const now = new Date();
                 const uid = window.shop.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
                 
-                console.log("Создание заказа для UID:", uid);
-                console.log("Корзина:", window.shop.state.cart);
-
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
                     id: window.shop.state.currentOrderId,
@@ -2531,24 +1944,19 @@
                     user: window.shop.state.user,
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending',
-                    createdAt: now
+                    createdAt: now,
+                    promoCode: window.shop.state.activePromo ? window.shop.state.activePromo.code : null,
+                    discountValue: window.shop.state.activePromo ? window.shop.state.activePromo.value : 0
                 };
 
                 try {
                     let userOrderDocId = null;
-
                     if (uid) {
                         try {
-                            console.log("Сохранение заказа в историю пользователя...");
                             const userOrdersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                             const userOrderRef = await addDoc(userOrdersCollection, orderBase);
                             userOrderDocId = userOrderRef.id;
-                            console.log("Заказ сохранен в историю пользователя:", userOrderDocId);
-                        } catch(innerE) {
-                            console.error("Ошибка сохранения в историю пользователя:", innerE);
-                        }
-                    } else {
-                        console.warn("UID не найден, заказ не будет сохранен в историю пользователя");
+                        } catch(innerE) { console.error(innerE); }
                     }
 
                     const publicOrder = {
@@ -2559,82 +1967,45 @@
                         userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
                     };
                     
-                    console.log("Сохранение публичного заказа...");
-                    const publicOrdersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
-                    await addDoc(publicOrdersCollection, publicOrder);
-                    console.log("Публичный заказ сохранен");
+                    await addDoc(collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders'), publicOrder);
                     
-                    if (uid) {
-                        const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
-                        await deleteDoc(cartRef);
-                        console.log("Корзина очищена");
+                    if (uid) await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current'));
+                    
+                    // Increment promo activations if used
+                    if (window.shop.state.activePromo) {
+                        const promoRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', window.shop.state.activePromo.firestoreId);
+                        // Get fresh data to increment atomically-ish
+                        const pSnap = await getDoc(promoRef);
+                        if (pSnap.exists()) {
+                            await updateDoc(promoRef, { activations: (pSnap.data().activations || 0) + 1 });
+                        }
                     }
                        
                 } catch(e) { 
-                    console.error("Ошибка базы данных при создании заказа:", e); 
+                    console.error("Order failed", e); 
                     window.shop.state.isProcessingOrder = false;
-                    if (completeBtn) {
-                        completeBtn.disabled = false;
-                        completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
-                        if(window.lucide) window.lucide.createIcons();
-                    }
-                    window.shop.showToast("Ошибка соединения с базой: " + e.message, "Внимание");
+                    if (completeBtn) { completeBtn.disabled = false; completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`; if(window.lucide) window.lucide.createIcons(); }
+                    window.shop.showToast("Ошибка: " + e.message, "Внимание");
                     return;
                 }
 
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
+                window.shop.state.activePromo = null; // Reset promo
                 
-                localStorage.removeItem('vapor_cart_storage');
-
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
-                
                 window.shop.state.isProcessingOrder = false;
-
-                if (window.shop.state.isCartView) {
-                    setTimeout(() => {
-                        window.shop.switchView('my-orders');
-                    }, 1000);
-                }
-            },
-
-            testCart: async () => {
-                console.log("=== CART TEST ===");
-                console.log("Current cart state:", window.shop.state.cart);
-                console.log("Auth current user:", auth.currentUser);
-                console.log("Auth UID:", auth.currentUser?.uid);
-                console.log("My orders count:", window.shop.state.myOrders.length);
-                console.log("Firebase UID from state:", window.shop.state.firebaseUid);
-                
-                try {
-                    const testRef = doc(db, 'test', 'ping');
-                    await setDoc(testRef, {
-                        timestamp: new Date().toISOString(),
-                        test: "ok"
-                    });
-                    console.log("Firebase connection: OK");
-                } catch (e) {
-                    console.error("Firebase connection error:", e);
-                }
-                
-                await window.shop.saveCartToFirebase();
-                console.log("Cart save attempted");
-                
-                await window.shop.loadCartFromFirebase();
-                console.log("Cart reload attempted");
+                if (window.shop.state.isCartView) setTimeout(() => { window.shop.switchView('my-orders'); }, 1000);
             },
 
             showToast: (msg, title = "Уведомление") => {
                 const toast = document.getElementById('toast');
                 document.getElementById('toast-msg').innerText = msg;
                 document.getElementById('toast-title').innerText = title;
-                
                 toast.classList.remove('opacity-0', 'translate-y-[-20px]');
-                setTimeout(() => {
-                    toast.classList.add('opacity-0', 'translate-y-[-20px]');
-                }, 3000);
+                setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-[-20px]'); }, 3000);
             }
         };
 
