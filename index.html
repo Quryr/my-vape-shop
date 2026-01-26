@@ -1622,6 +1622,7 @@
                 }
             },
 
+            // --- ФИКС: МГНОВЕННОЕ УДАЛЕНИЕ ИЗ UI ---
             deleteSelectedMyOrders: function() {
                 const count = this.state.selectedMyOrders.size;
                 if (count === 0) return;
@@ -1631,42 +1632,41 @@
                     `Вы уверены, что хотите удалить выбранные заказы (${count})?`,
                     async () => {
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                        
+                        // 1. Сохраняем ID для удаления
+                        const idsToDelete = Array.from(this.state.selectedMyOrders);
+                        
+                        // 2. ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ: Мгновенно убираем из локального массива
+                        this.state.myOrders = this.state.myOrders.filter(order => !idsToDelete.includes(order.id));
+                        
+                        // 3. Сбрасываем состояние выбора
+                        this.state.selectedMyOrders.clear();
+                        this.state.myOrdersSelectionMode = false;
+                        
+                        // 4. ФОРСИРУЕМ ПЕРЕРИСОВКУ СПИСКА СРАЗУ ЖЕ (Убираем галочки и удаленные элементы)
+                        this.updateMyOrdersList(this.state.myOrders); 
+                        this.renderMyOrdersFab(); // Убираем нижнюю кнопку
+                        
+                        // Обновляем верхнюю кнопку (сброс)
+                        const buttonsContainer = document.getElementById('my-orders-buttons');
+                        if (buttonsContainer) buttonsContainer.innerHTML = '';
+                        
                         try {
                             const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
-                            
-                            if (!uid) {
-                                this.showToast("Ошибка авторизации", "Сбой");
-                                return;
-                            }
+                            if (!uid) return;
 
-                            const ids = Array.from(this.state.selectedMyOrders);
-                            const promises = ids.map(id => {
+                            // 5. Отправляем запрос в базу (фоном)
+                            const promises = idsToDelete.map(id => {
                                 const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
                                 return deleteDoc(orderRef);
                             });
                             await Promise.all(promises);
                             
-                            // Remove manual filtering to rely on server sync
-                            // this.state.myOrders = ... (REMOVED)
-                            
-                            this.state.selectedMyOrders.clear();
-                            this.state.myOrdersSelectionMode = false;
-                            
-                            this.renderMyOrdersFab(); 
-                            
-                            // Update header button immediately to reset state
-                            const buttonsContainer = document.getElementById('my-orders-buttons');
-                            if (buttonsContainer) {
-                                buttonsContainer.innerHTML = '';
-                            }
-                            
-                            // We do NOT manually update list here. 
-                            // Listener will catch the deletion from server.
-                            
                             this.showToast("Заказы удалены", "Успешно");
                         } catch (e) {
                             console.error(e);
                             this.showToast("Ошибка удаления: " + e.message, "Сбой");
+                            // Если ошибка - слушатель вернет данные обратно, так что всё безопасно
                         }
                     }
                 );
