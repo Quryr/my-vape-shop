@@ -1632,7 +1632,13 @@
                     async () => {
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
                         try {
-                            const uid = this.state.firebaseUid;
+                            const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
+                            
+                            if (!uid) {
+                                this.showToast("Ошибка авторизации", "Сбой");
+                                return;
+                            }
+
                             const ids = Array.from(this.state.selectedMyOrders);
                             const promises = ids.map(id => {
                                 const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
@@ -1640,15 +1646,27 @@
                             });
                             await Promise.all(promises);
                             
-                            this.state.myOrders = this.state.myOrders.filter(order => !ids.includes(order.id));
+                            // Remove manual filtering to rely on server sync
+                            // this.state.myOrders = ... (REMOVED)
+                            
                             this.state.selectedMyOrders.clear();
                             this.state.myOrdersSelectionMode = false;
                             
-                            this.renderMyOrdersFab(); // Hide button
-                            this.updateMyOrdersList(this.state.myOrders);
+                            this.renderMyOrdersFab(); 
+                            
+                            // Update header button immediately to reset state
+                            const buttonsContainer = document.getElementById('my-orders-buttons');
+                            if (buttonsContainer) {
+                                buttonsContainer.innerHTML = '';
+                            }
+                            
+                            // We do NOT manually update list here. 
+                            // Listener will catch the deletion from server.
+                            
                             this.showToast("Заказы удалены", "Успешно");
                         } catch (e) {
-                            this.showToast("Ошибка удаления", "Сбой");
+                            console.error(e);
+                            this.showToast("Ошибка удаления: " + e.message, "Сбой");
                         }
                     }
                 );
