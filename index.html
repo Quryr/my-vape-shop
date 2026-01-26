@@ -236,6 +236,52 @@
         #cart-items-container {
             min-height: 100px;
         }
+        
+        /* Order selection checkbox */
+        .order-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .order-checkbox.checked {
+            background-color: #ef4444;
+            border-color: #ef4444;
+        }
+        
+        /* Status badges */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-pending {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        .status-approved {
+            background-color: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        
+        .status-rejected {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -616,7 +662,10 @@
                 cartListenerUnsubscribe: null,
                 isCartView: false,
                 cartRendering: false,
-                myOrders: []
+                myOrders: [],
+                // Новая переменная для режима выбора в Моих заказах
+                myOrdersSelectionMode: false,
+                selectedMyOrders: new Set()
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -699,7 +748,6 @@
                     }
                     
                     const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
-                    // FIX: Removed { merge: true } to ensure deleted items are actually removed from Firestore
                     await setDoc(cartRef, {
                         items: window.shop.state.cart,
                         updatedAt: new Date().toISOString()
@@ -754,14 +802,11 @@
                     if (doc.exists()) {
                         const cartData = doc.data();
                         if (cartData.items) {
-                            // Если мы на странице корзины, обновляем только если данные действительно изменились
                             if (JSON.stringify(cartData.items) !== JSON.stringify(window.shop.state.cart)) {
                                 window.shop.state.cart = cartData.items;
                                 window.shop.updateCartBadge();
                                 
-                                // Если текущий вид - корзина, обновляем только если не в процессе рендера
                                 if (window.shop.state.isCartView && !window.shop.state.cartRendering) {
-                                    // Делаем плавное обновление
                                     setTimeout(() => {
                                         window.shop.updateCartView();
                                     }, 50);
@@ -789,8 +834,6 @@
                 const parsed = window.shop.parseUser();
                 let tgUser = parsed.user;
                 
-                // Debug Log
-                console.log("User Detection Result:", parsed);
                 window.shop.debugInfo = {
                     parsedSource: parsed.source,
                     rawData: tgUser,
@@ -800,7 +843,6 @@
 
                 window.shop.state.user = tgUser;
                 
-                // STRING COMPARISON for Admin ID to avoid type errors
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
                 console.log("Is admin?", window.shop.state.isAdmin);
 
@@ -820,21 +862,13 @@
                     if (user) {
                         console.log("Юзер зашел:", user.uid);
                         
-                        // Sync Profile
                         await window.shop.saveUserProfile(tgUser);
-                        
-                        // Load cart from Firebase после аутентификации
                         await window.shop.loadCartFromFirebase();
-                        
-                        // Setup cart listener for realtime updates
                         window.shop.setupCartListener();
-                        
-                        // Start Realtime Listener for products
                         window.shop.initRealtimeListener();
                         
                         window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
                         
-                        // Clear Loader
                         const loader = document.getElementById('loader');
                         loader.style.opacity = '0';
                         setTimeout(() => {
@@ -843,13 +877,11 @@
                             window.shop.switchView('store');
                         }, 500);
                     } else {
-                        // Анонимная аутентификация
                         console.log("No user, signing in anonymously...");
                         await signInAnonymously(auth);
                     }
                 });
                 
-                // Force Icon Render Safety
                 setTimeout(() => { 
                     if(window.lucide) {
                         window.lucide.createIcons();
@@ -859,7 +891,6 @@
 
             // --- REALTIME SYNC: The Key to Multi-User Updates (V10 MODULAR) ---
             initRealtimeListener: () => {
-                // 1. Connect to Firestore with onSnapshot
                 if (window.shop.state.listenerUnsubscribe) {
                     window.shop.state.listenerUnsubscribe();
                 }
@@ -890,17 +921,14 @@
                     console.log("Realtime Update Received:", dbProducts.length);
                     window.shop.state.products = dbProducts;
                     
-                    // Обновляем только если на странице магазина
                     if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
                         window.shop.renderStore();
                     }
                     
-                    // Если на странице корзины, обновляем информацию о товарах
                     if (window.shop.state.isCartView) {
                         window.shop.updateCartView();
                     }
                     
-                    // Recreate icons after products are loaded
                     if(window.lucide) window.lucide.createIcons();
                     
                 }, (error) => {
@@ -916,13 +944,11 @@
                     const batch = writeBatch(db);
                     const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
                     
-                    // First, delete all existing products
                     const snapshot = await getDocs(colRef);
                     snapshot.forEach(docSnap => {
                         batch.delete(docSnap.ref);
                     });
                     
-                    // Then add mock products
                     MOCK_PRODUCTS.forEach(item => {
                         const docRef = doc(colRef);
                         batch.set(docRef, { 
@@ -968,7 +994,6 @@
 
             // --- UI Rendering ---
             switchView: (viewName) => {
-                // Nav Styles
                 document.querySelectorAll('.nav-btn').forEach(btn => {
                     const icon = btn.querySelector('svg') || btn.querySelector('i');
                     const text = btn.querySelector('span');
@@ -988,10 +1013,8 @@
                 main.innerHTML = '';
                 main.style.opacity = '0';
 
-                // Обновляем состояние просмотра
                 window.shop.state.isCartView = (viewName === 'cart');
 
-                // Restore slight delay for animation smoothness
                 setTimeout(() => {
                     if (viewName === 'store') window.shop.renderStore(main);
                     else if (viewName === 'cart') window.shop.renderCart(main);
@@ -1001,12 +1024,10 @@
                     
                     main.style.opacity = '1';
                     
-                    // Recreate icons after rendering
                     if(window.lucide) window.lucide.createIcons();
                 }, 50);
             },
 
-            // Added mouse wheel support for categories
             setupCategoryScroll: () => {
                 const scrollContainer = document.querySelector('.category-scroll');
                 if (scrollContainer) {
@@ -1051,7 +1072,6 @@
                     filtered.forEach((p, index) => {
                         const delay = index * 50;
                         
-                        // Handle Image vs Icon
                         let imageContent;
                         if (p.image && p.image.startsWith('data:image')) {
                             imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
@@ -1074,7 +1094,6 @@
                                 </div>
                             ` : ''}
                             
-                            <!-- Taller aspect ratio for vertical card feel -->
                             <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
                                  <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
                                  ${imageContent}
@@ -1102,10 +1121,8 @@
                 gridHTML += `</div>`;
                 container.innerHTML = catHTML + gridHTML;
                 
-                // Init scroll behavior
                 window.shop.setupCategoryScroll();
                 
-                // Recreate icons to fix missing icons bug
                 if(window.lucide) window.lucide.createIcons();
             },
 
@@ -1189,7 +1206,6 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Обновление вида корзины без полной перерисовки
             updateCartView: () => {
                 if (!window.shop.state.isCartView || window.shop.state.cartRendering) return;
                 
@@ -1197,7 +1213,6 @@
                 const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
                 let total = 0;
 
-                // Если корзина пуста
                 if (products.length === 0) {
                     const container = document.getElementById('main-content');
                     container.innerHTML = `
@@ -1212,7 +1227,6 @@
                     return;
                 }
 
-                // Обновляем количество и общую сумму
                 products.forEach(p => {
                     const qty = window.shop.state.cart[p.id];
                     total += p.price * qty;
@@ -1221,13 +1235,11 @@
                     if (qtyElement) {
                         qtyElement.textContent = qty;
                     } else {
-                        // Если элемента нет, добавляем его
                         window.shop.renderCart(document.getElementById('main-content'));
                         return;
                     }
                 });
 
-                // Обновляем общую сумму
                 const totalElement = document.getElementById('cart-total');
                 if (totalElement) {
                     totalElement.innerHTML = `${total} <span class="text-sm align-top text-gray-500 font-normal">RUB</span>`;
@@ -1258,7 +1270,6 @@
                         </div>
                     </div>
 
-                    <!-- Кнопка "Мои заказы" для всех пользователей -->
                     <button onclick="window.shop.switchView('my-orders')" class="w-full mb-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-3 border border-blue-400/50 hover:opacity-90 transition-opacity">
                         <i data-lucide="package" class="w-5 h-5"></i>
                         МОИ ЗАКАЗЫ
@@ -1290,31 +1301,45 @@
                          </div>
                     </div>
                     
-                    <!-- DEBUG TRIGGER -->
                     <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.3.0 (qury-60cce) - Tap 5x for Debug</p>
                 `;
                 
-                // Recreate icons
                 if(window.lucide) window.lucide.createIcons();
             },
 
             // --- USER: RENDER MY ORDERS ---
             renderMyOrders: (container) => {
+                const isSelectMode = window.shop.state.myOrdersSelectionMode;
+                const selectedCount = window.shop.state.selectedMyOrders.size;
+                
                 container.innerHTML = `
-                    <div class="flex items-center gap-3 mb-6">
-                        <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
-                        <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
+                            <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
+                        </div>
+                        ${window.shop.state.myOrders.length > 0 ? `
+                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                            ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                        </button>` : ''}
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
                     </div>
+                    
+                    ${isSelectMode && selectedCount > 0 ? `
+                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
+                        <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
+                        </button>
+                    </div>` : ''}
                 `;
 
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
                 }
 
-                // Function to set up listener
                 const setupListener = (uid) => {
                     const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                     const q = query(ordersCollection, orderBy('date', 'desc'));
@@ -1336,7 +1361,6 @@
                         let docs = [];
                         snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
                         
-                        // Сохраняем заказы в state для доступа из других функций
                         window.shop.state.myOrders = docs;
                         
                         let html = '';
@@ -1348,61 +1372,72 @@
                                 minute:'2-digit' 
                             });
                             
-                            let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+                            let statusClass = 'status-pending';
                             let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
                             let statusIcon = 'clock';
                             
                             if (data.status === 'approved') {
-                                statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
+                                statusClass = 'status-approved';
                                 statusText = 'ПОДТВЕРЖДЕН';
                                 statusIcon = 'check-circle';
                             } else if (data.status === 'rejected') {
-                                statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
+                                statusClass = 'status-rejected';
                                 statusText = 'ОТМЕНЕН';
                                 statusIcon = 'x-circle';
                             } else if (data.status === 'pending') {
-                                statusColor = 'text-blue-400 border-blue-400/30 bg-blue-400/10';
+                                statusClass = 'status-pending';
                                 statusText = 'ОБРАБОТКА';
                                 statusIcon = 'refresh-cw';
                             }
 
+                            const isSelected = window.shop.state.selectedMyOrders.has(data.id);
                             const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
                             const deliveryInfo = data.delivery || {};
 
                             html += `
-                                <div onclick="window.shop.showOrderDetails('${data.id}')" class="glass-panel rounded-xl p-4 border-l-4 cursor-pointer hover:bg-white/5 transition-colors ${
-                                    data.status === 'approved' ? 'border-l-green-500' : 
-                                    (data.status === 'rejected' ? 'border-l-red-500' : 
-                                    (data.status === 'pending' ? 'border-l-blue-500' : 'border-l-yellow-500'))
-                                }">
-                                    <div class="flex justify-between items-start mb-3">
-                                        <div class="flex flex-col">
-                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
-                                            <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
+                                <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
+                                     onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
+                                    <div class="flex items-start gap-3">
+                                        ${isSelectMode ? `
+                                        <div class="pt-1">
+                                            <div class="order-checkbox ${isSelected ? 'checked' : ''}">
+                                                ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+                                            </div>
+                                        </div>` : ''}
+                                        
+                                        <div class="flex-grow">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <div class="flex flex-col">
+                                                    <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
+                                                    <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
+                                                </div>
+                                                <div class="${statusClass} status-badge flex items-center gap-1">
+                                                    <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
+                                                    ${statusText}
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mt-3 pt-3 border-t border-white/5">
+                                                <div class="flex items-center text-xs text-gray-400 mb-1">
+                                                    <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
+                                                    ${date}
+                                                </div>
+                                                ${deliveryInfo.name ? `
+                                                <div class="flex items-center text-xs text-gray-400">
+                                                    <i data-lucide="user" class="w-3 h-3 mr-2"></i>
+                                                    ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
+                                                </div>
+                                                ` : ''}
+                                            </div>
+                                            
+                                            ${!isSelectMode ? `
+                                            <div class="mt-3 flex justify-end">
+                                                <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
+                                                    Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                                                </button>
+                                            </div>
+                                            ` : ''}
                                         </div>
-                                        <div class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${statusColor}">
-                                            <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
-                                            ${statusText}
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mt-3 pt-3 border-t border-white/5">
-                                        <div class="flex items-center text-xs text-gray-400 mb-1">
-                                            <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
-                                            ${date}
-                                        </div>
-                                        ${deliveryInfo.name ? `
-                                        <div class="flex items-center text-xs text-gray-400">
-                                            <i data-lucide="user" class="w-3 h-3 mr-2"></i>
-                                            ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
-                                        </div>
-                                        ` : ''}
-                                    </div>
-                                    
-                                    <div class="mt-3 flex justify-end">
-                                        <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
-                                            Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -1425,7 +1460,6 @@
                     if (user) {
                         setupListener(user.uid);
                     } else {
-                        // Attempt auto-recovery
                         console.log("Auto-authenticating user...");
                         signInAnonymously(auth)
                             .then(cred => setupListener(cred.user.uid))
@@ -1441,7 +1475,6 @@
                     }
                 };
 
-                // Auth Logic
                 if (auth.currentUser) {
                     handleAuth(auth.currentUser);
                 } else {
@@ -1449,6 +1482,56 @@
                         unsub();
                         handleAuth(user);
                     });
+                }
+            },
+
+            // --- Управление выбором в Моих заказах ---
+            toggleMyOrdersSelectionMode: function() {
+                this.state.myOrdersSelectionMode = !this.state.myOrdersSelectionMode;
+                if (!this.state.myOrdersSelectionMode) {
+                    this.state.selectedMyOrders.clear();
+                }
+                const main = document.getElementById('main-content');
+                this.renderMyOrders(main);
+            },
+
+            toggleMyOrderSelection: function(orderId) {
+                const set = this.state.selectedMyOrders;
+                if (set.has(orderId)) {
+                    set.delete(orderId);
+                } else {
+                    set.add(orderId);
+                }
+                const main = document.getElementById('main-content');
+                this.renderMyOrders(main);
+            },
+
+            deleteSelectedMyOrders: async function() {
+                const count = this.state.selectedMyOrders.size;
+                if (count === 0) return;
+                
+                if (!confirm(`Удалить выбранные заказы (${count}) из вашей истории? Это действие нельзя отменить.`)) return;
+
+                const ids = Array.from(this.state.selectedMyOrders);
+                this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                
+                try {
+                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    if (!uid) throw new Error("Не удалось определить пользователя");
+                    
+                    const promises = ids.map(id => {
+                        const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
+                        return deleteDoc(orderRef);
+                    });
+                    
+                    await Promise.all(promises);
+                    
+                    this.state.selectedMyOrders.clear();
+                    this.toggleMyOrdersSelectionMode();
+                    this.showToast("Заказы удалены из истории", "Успешно");
+                } catch (e) {
+                    console.error(e);
+                    this.showToast("Ошибка удаления", "Сбой");
                 }
             },
 
@@ -1468,25 +1551,20 @@
                     minute:'2-digit' 
                 });
                 
-                let statusColor = 'text-yellow-400';
+                let statusClass = 'status-pending';
                 let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                let statusBg = 'bg-yellow-400/10';
                 
                 if (order.status === 'approved') {
-                    statusColor = 'text-green-400';
+                    statusClass = 'status-approved';
                     statusText = 'ПОДТВЕРЖДЕН';
-                    statusBg = 'bg-green-400/10';
                 } else if (order.status === 'rejected') {
-                    statusColor = 'text-red-400';
+                    statusClass = 'status-rejected';
                     statusText = 'ОТМЕНЕН';
-                    statusBg = 'bg-red-400/10';
                 } else if (order.status === 'pending') {
-                    statusColor = 'text-blue-400';
+                    statusClass = 'status-pending';
                     statusText = 'В ОБРАБОТКЕ';
-                    statusBg = 'bg-blue-400/10';
                 }
 
-                // Найти названия товаров
                 let itemsHtml = '';
                 if (order.items) {
                     for (const [productId, qty] of Object.entries(order.items)) {
@@ -1519,7 +1597,7 @@
                                 <h3 class="text-lg font-black italic text-white">ЗАКАЗ #${order.order_key || order.id.substring(0,8)}</h3>
                                 <p class="text-xs text-gray-500 mt-1">${date}</p>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${statusColor} ${statusBg}">
+                            <div class="${statusClass} status-badge">
                                 ${statusText}
                             </div>
                         </div>
@@ -1564,7 +1642,6 @@
                 const isSelectMode = window.shop.state.adminSelectionMode;
                 const selectedCount = window.shop.state.selectedAdminOrders.size;
 
-                // Header
                 container.innerHTML = `
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
@@ -1588,18 +1665,16 @@
                     </div>` : ''}
                 `;
                 
-                // Clear old listener
                 if (window.shop.state.ordersListenerUnsubscribe) {
                     window.shop.state.ordersListenerUnsubscribe();
                 }
 
-                // Listen to Global Orders Collection (V10 MODULAR)
                 const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
                 const q = query(ordersCollection, orderBy('date', 'desc'));
                 
                 window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
                     const list = document.getElementById('admin-orders-list');
-                    if (!list) return; // View changed
+                    if (!list) return;
 
                     if (snapshot.empty) {
                         list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
@@ -1614,18 +1689,17 @@
                         const date = new Date(data.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' });
                         const isSelected = window.shop.state.selectedAdminOrders.has(data.firestoreId);
                         
-                        let statusColor = 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+                        let statusClass = 'status-pending';
                         let statusText = 'ОЖИДАЕТ';
                         
                         if (data.status === 'approved') {
-                            statusColor = 'text-green-400 border-green-400/30 bg-green-400/10';
+                            statusClass = 'status-approved';
                             statusText = 'ПРИНЯТ';
                         } else if (data.status === 'rejected') {
-                            statusColor = 'text-red-400 border-red-400/30 bg-red-400/10';
+                            statusClass = 'status-rejected';
                             statusText = 'ОТКЛОНЕН';
                         }
 
-                        // Selection Mode Logic
                         const clickAction = isSelectMode 
                             ? `window.shop.toggleOrderSelection('${data.firestoreId}')`
                             : `window.shop.openOrderDetails('${data.firestoreId}')`;
@@ -1636,8 +1710,8 @@
 
                         const checkboxHtml = isSelectMode 
                             ? `<div class="mr-3 pt-1">
-                                 <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-red-500 bg-red-500 text-white' : 'border-gray-600'}">
-                                    ${isSelected ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+                                 <div class="order-checkbox ${isSelected ? 'checked' : ''}">
+                                    ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
                                  </div>
                                </div>` 
                             : '';
@@ -1651,7 +1725,7 @@
                                             <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
                                             <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
                                         </div>
-                                        <div class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider border ${statusColor}">
+                                        <div class="${statusClass} status-badge">
                                             ${statusText}
                                         </div>
                                     </div>
@@ -1685,7 +1759,6 @@
                 } else {
                     set.add(docId);
                 }
-                // Re-render only to update UI state, optimization possible but keeping it simple
                 const main = document.getElementById('main-content');
                 window.shop.renderAdminOrders(main);
             },
@@ -1707,7 +1780,7 @@
                     await Promise.all(promises);
                     
                     window.shop.state.selectedAdminOrders.clear();
-                    window.shop.toggleAdminSelectionMode(); // Exit mode
+                    window.shop.toggleAdminSelectionMode();
                     window.shop.showToast("Заказы удалены", "Успешно");
                 } catch (e) {
                     console.error(e);
@@ -1715,6 +1788,7 @@
                 }
             },
 
+            // ФИКС: Обновление статуса заказа с немедленным закрытием модального окна
             openOrderDetails: async (docId) => {
                 try {
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
@@ -1725,11 +1799,9 @@
                     const modal = document.getElementById('order-detail-modal');
                     const content = document.getElementById('order-detail-content');
                     
-                    // Render Items
                     let itemsHtml = '';
                     if (data.items) {
                         for (const [key, qty] of Object.entries(data.items)) {
-                             // Try to find product name in current state
                              const prod = window.shop.state.products.find(p => p.id === key);
                              const name = prod ? prod.name : 'Товар (ID)';
                              itemsHtml += `<div class="flex justify-between text-xs py-1 border-b border-white/5"><span>${name}</span> <span class="text-gray-400">x${qty}</span></div>`;
@@ -1761,10 +1833,12 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved'); document.getElementById('order-detail-modal').classList.add('hidden');" 
+                                    class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
                                 ОДОБРИТЬ
                             </button>
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected'); document.getElementById('order-detail-modal').classList.add('hidden');" 
+                                    class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                                 ОТКЛОНИТЬ
                             </button>
                         </div>
@@ -1778,6 +1852,7 @@
                 }
             },
 
+            // ФИКС: Упрощенная функция обновления статуса
             updateOrderStatus: async (docId, status) => {
                 try {
                     // 1. Update Public Order
@@ -1787,8 +1862,7 @@
                         updatedAt: new Date().toISOString()
                     });
 
-                    // 2. Try to update User's Private Order (Sync Status)
-                    // We need to fetch the public doc first to get the linked User Order ID
+                    // 2. Try to update User's Private Order
                     const docSnap = await getDoc(orderRef);
                     if (docSnap.exists()) {
                         const data = docSnap.data();
@@ -1801,7 +1875,6 @@
                         }
                     }
 
-                    document.getElementById('order-detail-modal').classList.add('hidden');
                     window.shop.showToast(`Статус изменен: ${status}`, 'Успешно');
                 } catch (e) {
                      console.error(e);
@@ -1823,10 +1896,8 @@
                 window.shop.state.cart[productId]++;
                 window.shop.updateCartBadge();
                 
-                // Save cart to Firebase
                 await window.shop.saveCartToFirebase();
                 
-                // Also save to localStorage as backup
                 localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
 
                 window.shop.showToast("Добавлено в корзину", "Корзина");
@@ -1839,45 +1910,35 @@
             updateQty: async (productId, change) => {
                 if (!window.shop.state.cart[productId]) return;
                 
-                // Увеличиваем/уменьшаем количество
                 window.shop.state.cart[productId] += change;
                 
-                // Проверяем, если количество стало 0 или меньше
                 if (window.shop.state.cart[productId] <= 0) {
                     delete window.shop.state.cart[productId];
                     
-                    // Находим элемент в DOM
                     const cartItem = document.querySelector(`#cart-item-${productId}`);
                     if (cartItem) {
-                        // Добавляем анимацию удаления
                         cartItem.classList.add('cart-item-removing');
                         setTimeout(() => {
                             if (cartItem.parentNode) {
                                 cartItem.parentNode.removeChild(cartItem);
                             }
-                            // После удаления обновляем общую сумму
                             window.shop.updateCartTotal();
                         }, 300);
                     }
                 } else {
-                    // Обновляем количество в DOM
                     const qtyElement = document.querySelector(`#cart-item-${productId} .cart-item-qty`);
                     if (qtyElement) {
                         qtyElement.textContent = window.shop.state.cart[productId];
                     }
-                    // Обновляем общую сумму
                     window.shop.updateCartTotal();
                 }
                 
-                // Save cart to Firebase
                 await window.shop.saveCartToFirebase();
                 
-                // Also save to localStorage as backup
                 localStorage.setItem('vapor_cart_storage', JSON.stringify(window.shop.state.cart));
 
                 window.shop.updateCartBadge();
                 
-                // Если корзина пуста после удаления, показываем пустое состояние
                 if (Object.keys(window.shop.state.cart).length === 0 && window.shop.state.isCartView) {
                     const container = document.getElementById('main-content');
                     container.innerHTML = `
@@ -1894,7 +1955,6 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Функция обновления общей суммы в корзине
             updateCartTotal: () => {
                 if (!window.shop.state.isCartView) return;
                 
@@ -1925,7 +1985,6 @@
             toggleAddModal: () => {
                 const modal = document.getElementById('add-modal');
                 modal.classList.toggle('hidden');
-                // Reset form
                 document.getElementById('new-name').value = '';
                 document.getElementById('new-price').value = '';
                 document.getElementById('new-image-input').value = '';
@@ -1934,19 +1993,16 @@
                 document.getElementById('img-placeholder').classList.remove('hidden');
             },
 
-            // Редактирование товара
             editProduct: function(id) {
                 const product = this.state.products.find(p => p.id === id);
                 if (!product) return;
 
                 this.state.editingProductId = id;
 
-                // Заполняем форму
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
                 document.getElementById('edit-cat').value = product.category;
 
-                // Изображение
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
                 if (product.image && product.image.startsWith('data:image')) {
@@ -1956,7 +2012,6 @@
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
                 } else {
-                    // Если это иконка, показываем placeholder
                     preview.style.backgroundImage = '';
                     placeholder.classList.remove('hidden');
                 }
@@ -1967,7 +2022,6 @@
             toggleEditModal: function() {
                 const modal = document.getElementById('edit-modal');
                 modal.classList.toggle('hidden');
-                // Сброс при закрытии
                 if (modal.classList.contains('hidden')) {
                     this.state.editingProductId = null;
                     this.state.pendingEditImage = null;
@@ -2045,7 +2099,6 @@
                     price,
                     category: cat,
                     image,
-                    // Keep original creation date
                 };
 
                 this.toggleEditModal();
@@ -2081,20 +2134,16 @@
 
             initCheckout: (total) => {
                 window.shop.state.currentTotal = total;
-                // Open Delivery Form First
                 document.getElementById('delivery-modal').classList.remove('hidden');
             },
 
             selectTime: (time, btn) => {
-                // Clear active class from all buttons
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-                // Add to clicked
                 btn.classList.add('active');
                 window.shop.state.deliveryTime = time;
             },
 
             proceedToPayment: () => {
-                // Validation
                 const name = document.getElementById('del-name').value;
                 const phone = document.getElementById('del-phone').value;
                 const contact = document.getElementById('del-contact').value;
@@ -2106,13 +2155,10 @@
                     return;
                 }
 
-                // Store info temporarily
                 window.shop.state.deliveryInfo = { name, phone, contact, place, time };
 
-                // Switch Modals
                 document.getElementById('delivery-modal').classList.add('hidden');
                 
-                // Update Total and Order ID for Payment Screen
                 document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
@@ -2128,12 +2174,9 @@
             },
 
             completeOrder: async () => {
-                // 1. Prepare Data
                 const now = new Date();
                 const uid = auth.currentUser ? auth.currentUser.uid : null;
                 
-                // 2. Save to Firebase (History + PUBLIC ADMIN COLLECTION)
-                // We construct the order object
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
                     id: window.shop.state.currentOrderId,
@@ -2149,7 +2192,6 @@
                 try {
                     let userOrderDocId = null;
 
-                    // A. Save to User History (Private) if Authenticated
                     if (uid) {
                         try {
                             const userOrdersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
@@ -2161,8 +2203,6 @@
                         }
                     }
 
-                    // B. Save to PUBLIC ADMIN COLLECTION (Always)
-                    // We link it to the user doc so Admin can update status later
                     const publicOrder = {
                         ...orderBase,
                         linkedUserUid: uid,
@@ -2174,7 +2214,6 @@
                     const publicOrdersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
                     await addDoc(publicOrdersCollection, publicOrder);
                     
-                    // C. Clear cart in Firebase
                     if (uid) {
                         const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
                         await deleteDoc(cartRef);
@@ -2185,18 +2224,15 @@
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
                 }
 
-                // 3. UI Cleanup
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
                 
-                // CLEAR SAVED CART from localStorage
                 localStorage.removeItem('vapor_cart_storage');
 
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
                 
-                // Update orders list if we're on my-orders page
                 if (window.shop.state.isCartView) {
                     setTimeout(() => {
                         window.shop.switchView('my-orders');
@@ -2204,7 +2240,6 @@
                 }
             },
 
-            // --- TEST CART FUNCTION ---
             testCart: async () => {
                 console.log("=== CART TEST ===");
                 console.log("Current cart state:", window.shop.state.cart);
@@ -2212,7 +2247,6 @@
                 console.log("Auth UID:", auth.currentUser?.uid);
                 console.log("My orders count:", window.shop.state.myOrders.length);
                 
-                // Проверяем Firebase соединение
                 try {
                     const testRef = doc(db, 'test', 'ping');
                     await setDoc(testRef, {
@@ -2224,11 +2258,9 @@
                     console.error("Firebase connection error:", e);
                 }
                 
-                // Пробуем сохранить текущую корзину
                 await window.shop.saveCartToFirebase();
                 console.log("Cart save attempted");
                 
-                // Пробуем загрузить заново
                 await window.shop.loadCartFromFirebase();
                 console.log("Cart reload attempted");
             },
