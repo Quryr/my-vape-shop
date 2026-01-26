@@ -1366,7 +1366,7 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- USER: RENDER MY ORDERS ---
+            // --- USER: RENDER MY ORDERS (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
             renderMyOrders: (container) => {
                 const isSelectMode = window.shop.state.myOrdersSelectionMode;
                 const selectedCount = window.shop.state.selectedMyOrders.size;
@@ -1377,13 +1377,17 @@
                             <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                             <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                         </div>
-                        ${window.shop.state.myOrders.length > 0 ? `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
-                            ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                        </button>` : ''}
+                        <div id="my-orders-buttons">
+                            <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                                ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                            </button>
+                        </div>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
+                        <div class="text-center py-10 text-gray-500 animate-pulse">
+                            <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin"></i>
+                            <p>Загрузка заказов...</p>
+                        </div>
                     </div>
                     
                     ${isSelectMode && selectedCount > 0 ? `
@@ -1396,94 +1400,109 @@
                 `;
 
                 // Устанавливаем слушатель для загрузки заказов пользователя
-                this.setupMyOrdersListener();
+                window.shop.setupMyOrdersListener();
             },
 
-            // Настройка слушателя для заказов пользователя
+            // Настройка слушателя для заказов пользователя (ИСПРАВЛЕННАЯ ВЕРСИЯ)
             setupMyOrdersListener: function() {
                 // Отписываемся от предыдущего слушателя
                 if (this.state.myOrdersListenerUnsubscribe) {
                     this.state.myOrdersListenerUnsubscribe();
+                    console.log("Отписались от предыдущего слушателя заказов");
                 }
 
-                const setupListener = (uid) => {
-                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
-                    const q = query(ordersCollection, orderBy('date', 'desc'));
-                    
-                    this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                        const list = document.getElementById('my-orders-list');
-                        if (!list) return;
+                console.log("Настройка слушателя для заказов пользователя...");
 
-                        if (snapshot.empty) {
-                            list.innerHTML = `
-                                <div class="flex flex-col items-center justify-center py-10 text-gray-500">
-                                    <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
-                                    <p>История пуста</p>
-                                    <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
-                                </div>`;
-                            this.state.myOrders = [];
-                            return;
-                        }
-
-                        let docs = [];
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            docs.push({ 
-                                id: doc.id, 
-                                ...data,
-                                // Преобразуем Firestore Timestamp в Date
-                                date: data.date ? 
-                                    (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
-                                    new Date()
-                            });
-                        });
-                        
-                        // Сортируем по дате (на всякий случай)
-                        docs.sort((a, b) => b.date - a.date);
-                        
-                        this.state.myOrders = docs;
-                        
-                        this.updateMyOrdersList(docs);
-                        
-                    }, (error) => {
-                        console.error("My Orders Error:", error);
-                        const list = document.getElementById('my-orders-list');
-                        if(list) list.innerHTML = `
-                            <div class="text-center text-red-500 py-10">
-                                <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                                <p>Не удалось загрузить заказы</p>
-                                <p class="text-xs text-gray-600 mt-2">Попробуйте позже</p>
+                // Получаем UID пользователя
+                const uid = this.state.firebaseUid;
+                
+                if (!uid) {
+                    console.log("UID пользователя не найден, ждем аутентификации...");
+                    const list = document.getElementById('my-orders-list');
+                    if (list) {
+                        list.innerHTML = `
+                            <div class="text-center py-10 text-red-500">
+                                <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                                <p>Ошибка аутентификации</p>
+                                <p class="text-xs text-gray-600 mt-2">Обновите страницу</p>
                             </div>`;
-                    });
-                };
-
-                const handleAuth = (user) => {
-                    if (user) {
-                        setupListener(user.uid);
-                    } else {
-                        console.log("Auto-authenticating user...");
-                        signInAnonymously(auth)
-                            .then(cred => setupListener(cred.user.uid))
-                            .catch(e => {
-                                const list = document.getElementById('my-orders-list');
-                                if(list) list.innerHTML = `
-                                    <div class="text-center text-red-500 py-10">
-                                        <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                                        <p>Ошибка авторизации</p>
-                                        <p class="text-xs text-gray-600 mt-2">Обновите страницу</p>
-                                    </div>`;
-                            });
                     }
-                };
-
-                if (auth.currentUser) {
-                    handleAuth(auth.currentUser);
-                } else {
-                    const unsub = onAuthStateChanged(auth, user => {
-                        unsub();
-                        handleAuth(user);
-                    });
+                    return;
                 }
+
+                console.log("Слушатель заказов для UID:", uid);
+                console.log("Путь к коллекции: artifacts/${APP_ID}/users/${uid}/orders");
+
+                // Создаем запрос к коллекции заказов пользователя
+                const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+                const q = query(ordersCollection, orderBy('date', 'desc'));
+                
+                // Устанавливаем слушатель в реальном времени
+                this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    console.log("Получены данные заказов:", snapshot.size, "заказов");
+                    
+                    const list = document.getElementById('my-orders-list');
+                    const buttonsContainer = document.getElementById('my-orders-buttons');
+                    
+                    if (!list) return;
+
+                    if (snapshot.empty) {
+                        console.log("Нет заказов для пользователя");
+                        list.innerHTML = `
+                            <div class="flex flex-col items-center justify-center py-10 text-gray-500">
+                                <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
+                                <p>История пуста</p>
+                                <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
+                            </div>`;
+                        
+                        // Скрываем кнопку удаления, если нет заказов
+                        if (buttonsContainer) {
+                            buttonsContainer.innerHTML = '';
+                        }
+                        
+                        this.state.myOrders = [];
+                        return;
+                    }
+
+                    // Показываем кнопку удаления, если есть заказы
+                    if (buttonsContainer && this.state.myOrders.length > 0) {
+                        buttonsContainer.innerHTML = `
+                            <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                                ${this.state.myOrdersSelectionMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                            </button>
+                        `;
+                    }
+
+                    let docs = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        console.log("Заказ:", data.order_key || doc.id, "статус:", data.status);
+                        docs.push({ 
+                            id: doc.id, 
+                            ...data,
+                            // Преобразуем Firestore Timestamp в Date
+                            date: data.date ? 
+                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
+                                new Date()
+                        });
+                    });
+                    
+                    // Сортируем по дате (на всякий случай)
+                    docs.sort((a, b) => b.date - a.date);
+                    
+                    this.state.myOrders = docs;
+                    this.updateMyOrdersList(docs);
+                    
+                }, (error) => {
+                    console.error("Ошибка при загрузке заказов:", error);
+                    const list = document.getElementById('my-orders-list');
+                    if(list) list.innerHTML = `
+                        <div class="text-center text-red-500 py-10">
+                            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                            <p>Не удалось загрузить заказы</p>
+                            <p class="text-xs text-gray-600 mt-2">${error.message}</p>
+                        </div>`;
+                });
             },
 
             // Обновление списка заказов (без переустановки слушателя)
@@ -1583,7 +1602,16 @@
                 if (!this.state.myOrdersSelectionMode) {
                     this.state.selectedMyOrders.clear();
                 }
-                // Просто обновляем список без переустановки слушателя
+                // Обновляем кнопку в заголовке
+                const buttonsContainer = document.getElementById('my-orders-buttons');
+                if (buttonsContainer) {
+                    buttonsContainer.innerHTML = `
+                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                            ${this.state.myOrdersSelectionMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                        </button>
+                    `;
+                }
+                // Обновляем список без переустановки слушателя
                 this.updateMyOrdersList(this.state.myOrders);
             },
 
@@ -1613,6 +1641,7 @@
                             if (!uid) throw new Error("Не удалось определить пользователя");
                             
                             const ids = Array.from(this.state.selectedMyOrders);
+                            console.log("Удаление заказов:", ids);
                             
                             // Удаляем из Firestore
                             const promises = ids.map(id => {
@@ -1622,24 +1651,28 @@
                             
                             await Promise.all(promises);
                             
-                            // НЕ вызываем renderMyOrders - слушатель onSnapshot автоматически обновит список
-                            // и вызовет updateMyOrdersList через колбэк
-                            
                             // Очищаем выбранные
                             this.state.selectedMyOrders.clear();
                             
                             // Выходим из режима выбора
                             this.state.myOrdersSelectionMode = false;
                             
-                            // Обновляем список в состоянии (он будет обновлен слушателем)
-                            this.state.myOrders = this.state.myOrders.filter(order => !ids.includes(order.id));
+                            // Обновляем кнопку
+                            const buttonsContainer = document.getElementById('my-orders-buttons');
+                            if (buttonsContainer) {
+                                buttonsContainer.innerHTML = `
+                                    <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ
+                                    </button>
+                                `;
+                            }
                             
                             // Показываем уведомление
                             this.showToast("Заказы удалены из истории", "Успешно");
                             
                         } catch (e) {
-                            console.error(e);
-                            this.showToast("Ошибка удаления", "Сбой");
+                            console.error("Ошибка удаления заказов:", e);
+                            this.showToast("Ошибка удаления: " + e.message, "Сбой");
                         }
                     }
                 );
@@ -2322,18 +2355,21 @@
                 }
 
                 const now = new Date();
-                const uid = auth.currentUser ? auth.currentUser.uid : null;
+                const uid = window.shop.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
                 
+                console.log("Создание заказа для UID:", uid);
+                console.log("Корзина:", window.shop.state.cart);
+
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
                     id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
-                    date: now.toISOString(),
+                    date: now,
                     user: window.shop.state.user,
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending',
-                    createdAt: now.toISOString()
+                    createdAt: now
                 };
 
                 try {
@@ -2341,13 +2377,16 @@
 
                     if (uid) {
                         try {
+                            console.log("Сохранение заказа в историю пользователя...");
                             const userOrdersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                             const userOrderRef = await addDoc(userOrdersCollection, orderBase);
                             userOrderDocId = userOrderRef.id;
-                            console.log("Order saved to user history:", userOrderDocId);
+                            console.log("Заказ сохранен в историю пользователя:", userOrderDocId);
                         } catch(innerE) {
-                            console.warn("Could not save to user history", innerE);
+                            console.error("Ошибка сохранения в историю пользователя:", innerE);
                         }
+                    } else {
+                        console.warn("UID не найден, заказ не будет сохранен в историю пользователя");
                     }
 
                     const publicOrder = {
@@ -2358,23 +2397,26 @@
                         userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
                     };
                     
+                    console.log("Сохранение публичного заказа...");
                     const publicOrdersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
                     await addDoc(publicOrdersCollection, publicOrder);
+                    console.log("Публичный заказ сохранен");
                     
                     if (uid) {
                         const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
                         await deleteDoc(cartRef);
+                        console.log("Корзина очищена");
                     }
                        
                 } catch(e) { 
-                    console.error("DB Error", e); 
+                    console.error("Ошибка базы данных при создании заказа:", e); 
                     window.shop.state.isProcessingOrder = false;
                     if (completeBtn) {
                         completeBtn.disabled = false;
                         completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
                         if(window.lucide) window.lucide.createIcons();
                     }
-                    window.shop.showToast("Ошибка соединения с базой", "Внимание");
+                    window.shop.showToast("Ошибка соединения с базой: " + e.message, "Внимание");
                     return;
                 }
 
@@ -2402,6 +2444,7 @@
                 console.log("Auth current user:", auth.currentUser);
                 console.log("Auth UID:", auth.currentUser?.uid);
                 console.log("My orders count:", window.shop.state.myOrders.length);
+                console.log("Firebase UID from state:", window.shop.state.firebaseUid);
                 
                 try {
                     const testRef = doc(db, 'test', 'ping');
