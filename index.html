@@ -89,6 +89,7 @@
             z-index: -1;
             background: radial-gradient(circle at 50% 120%, rgba(34, 197, 94, 0.15), transparent 70%);
             pointer-events: none;
+            transition: opacity 0.5s ease;
         }
         
         .vapor-cloud {
@@ -404,6 +405,51 @@
     </nav>
 
     <!-- Modals -->
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-gray-500/20 shadow-[0_0_50px_rgba(255,255,255,0.05)]">
+            <button onclick="window.shop.toggleSettingsModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <h2 class="text-xl font-black italic mb-6 text-white">НАСТРОЙКИ</h2>
+            
+            <div class="space-y-6">
+                <!-- Toggle 1 -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-white font-bold text-sm">Уведомления</div>
+                        <div class="text-gray-500 text-[10px]">Статус заказов и акции</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                </div>
+
+                <!-- Toggle 2 -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-white font-bold text-sm">Анимации фона</div>
+                        <div class="text-gray-500 text-[10px]">Отключить для производительности</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="anim-toggle" checked onchange="window.shop.toggleAnimations(this)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    </label>
+                </div>
+
+                 <!-- Action -->
+                <div class="pt-4 border-t border-white/5">
+                    <button onclick="window.shop.clearCache()" class="w-full py-3 bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="trash" class="w-4 h-4"></i> ОЧИСТИТЬ КЭШ ПРИЛОЖЕНИЯ
+                    </button>
+                </div>
+            </div>
+            
+             <button onclick="window.shop.saveSettings()" class="w-full bg-white text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-6 transition-all hover:bg-gray-200">
+                СОХРАНИТЬ
+            </button>
+        </div>
+    </div>
     
     <!-- Add Product Modal (Admin) -->
     <div id="add-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
@@ -1330,11 +1376,6 @@
                         </div>
                     </div>
 
-                    <button onclick="window.shop.switchView('my-orders')" class="w-full mb-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-3 border border-blue-400/50 hover:opacity-90 transition-opacity">
-                        <i data-lucide="package" class="w-5 h-5"></i>
-                        МОИ ЗАКАЗЫ
-                    </button>
-                    
                     ${window.shop.state.isAdmin ? `
                         <button onclick="window.shop.switchView('admin-orders')" class="w-full mb-6 bg-gradient-to-r from-red-600 to-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-3 animate-pulse border border-red-400/50">
                             <i data-lucide="package-search" class="w-5 h-5"></i>
@@ -1343,11 +1384,11 @@
                     ` : ''}
                     
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
-                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.showToast('Настройки сохранены', 'Инфо')">
+                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.toggleSettingsModal()">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="settings" class="w-5 h-5"></i></div>
                             <div class="flex-grow">
                                 <h4 class="text-sm font-bold text-white">Настройки</h4>
-                                <p class="text-xs text-gray-600">Уведомления и приватность</p>
+                                <p class="text-xs text-gray-600">Оформление и кэш</p>
                             </div>
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
                          </div>
@@ -1361,13 +1402,35 @@
                          </div>
                     </div>
                     
-                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.3.0 (qury-60cce) - Tap 5x for Debug</p>
+                    <p onclick="window.shop.toggleDebug()" class="text-center text-[10px] text-gray-700 mt-6 tracking-widest uppercase cursor-pointer select-none">Version 14.4.0 (qury-60cce) - Tap 5x for Debug</p>
                 `;
                 
                 if(window.lucide) window.lucide.createIcons();
             },
+            
+            toggleSettingsModal: () => {
+                document.getElementById('settings-modal').classList.toggle('hidden');
+            },
+            
+            toggleAnimations: (checkbox) => {
+                const bg = document.querySelector('.vapor-bg');
+                if(bg) bg.style.display = checkbox.checked ? 'block' : 'none';
+            },
 
-            // --- USER: RENDER MY ORDERS (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+            clearCache: () => {
+                 window.shop.showConfirm("Очистка кэша", "Это сбросит локальные данные корзины и настроек. Продолжить?", () => {
+                     localStorage.clear();
+                     window.shop.showToast("Кэш очищен. Перезагрузка...", "Система");
+                     setTimeout(() => location.reload(), 1500);
+                 });
+            },
+
+            saveSettings: () => {
+                window.shop.toggleSettingsModal();
+                window.shop.showToast("Настройки сохранены", "Успешно");
+            },
+
+            // --- USER: RENDER MY ORDERS (FIXED) ---
             renderMyOrders: (container) => {
                 const isSelectMode = window.shop.state.myOrdersSelectionMode;
                 const selectedCount = window.shop.state.selectedMyOrders.size;
@@ -1381,14 +1444,7 @@
                             <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                         </div>
                         <div id="my-orders-buttons">
-                            <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                    class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                                ${isSelectMode ? 
-                                    (selectedCount > 0 ? 
-                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                        '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                            </button>
+                            <!-- Injected by JS -->
                         </div>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
@@ -1397,43 +1453,39 @@
                             <p>Загрузка заказов...</p>
                         </div>
                     </div>
-                    <!-- БЛОК ДЛЯ КНОПКИ УДАЛЕНИЯ (ПОЯВЛЯЕТСЯ ТОЛЬКО В РЕЖИМЕ ВЫБОРА) -->
-                    <div id="my-orders-footer" class="fixed bottom-24 left-4 right-4 z-30"></div>
+                    <!-- New Container for Floating Action Button -->
+                    <div id="my-orders-fab-container"></div>
                 `;
 
-                // Устанавливаем слушатель для загрузки заказов пользователя
+                // Initial Button Render
+                window.shop.renderMyOrdersFab();
                 window.shop.setupMyOrdersListener();
-                
-                // Обновляем футер
-                setTimeout(() => {
-                    window.shop.updateMyOrdersFooter();
-                }, 100);
             },
 
-            // Новая функция для обновления нижней кнопки удаления
-            updateMyOrdersFooter: function() {
-                const footer = document.getElementById('my-orders-footer');
-                if (!footer) return;
-                
+            // New helper to render the FAB
+            renderMyOrdersFab: function() {
+                const container = document.getElementById('my-orders-fab-container');
+                if (!container) return;
+
                 const isSelectMode = this.state.myOrdersSelectionMode;
                 const selectedCount = this.state.selectedMyOrders.size;
-                
+
                 if (isSelectMode && selectedCount > 0) {
-                    footer.innerHTML = `
-                        <div class="animate-float-up">
-                            <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
+                    container.innerHTML = `
+                        <div class="fixed bottom-24 left-4 right-4 animate-float-up z-[50]">
+                            <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-500/50 flex items-center justify-center gap-2 transition-all active:scale-95">
                                 <i data-lucide="trash-2" class="w-5 h-5"></i>
                                 УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
                             </button>
                         </div>
                     `;
-                    if(window.lucide) window.lucide.createIcons();
                 } else {
-                    footer.innerHTML = '';
+                    container.innerHTML = '';
                 }
+                if(window.lucide) window.lucide.createIcons();
             },
 
-            // Настройка слушателя для заказов пользователя
+            // Setup Listener
             setupMyOrdersListener: function() {
                 if (this.state.myOrdersListenerUnsubscribe) {
                     this.state.myOrdersListenerUnsubscribe();
@@ -1442,14 +1494,7 @@
                 const uid = this.state.firebaseUid;
                 if (!uid) {
                     const list = document.getElementById('my-orders-list');
-                    if (list) {
-                        list.innerHTML = `
-                            <div class="text-center py-10 text-red-500">
-                                <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                                <p>Ошибка аутентификации</p>
-                                <p class="text-xs text-gray-600 mt-2">Обновите страницу</p>
-                            </div>`;
-                    }
+                    if (list) list.innerHTML = `<div class="text-center py-10 text-red-500">Ошибка аутентификации</div>`;
                     return;
                 }
 
@@ -1458,7 +1503,29 @@
                 
                 this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
                     const list = document.getElementById('my-orders-list');
+                    const buttonsContainer = document.getElementById('my-orders-buttons');
+                    
                     if (!list) return;
+
+                    // Update Header Button
+                    if (buttonsContainer) {
+                        if (snapshot.empty) {
+                            buttonsContainer.innerHTML = '';
+                        } else {
+                            const isSelectMode = this.state.myOrdersSelectionMode;
+                            const selectedCount = this.state.selectedMyOrders.size;
+                            buttonsContainer.innerHTML = `
+                                <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
+                                        class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                                    ${isSelectMode ? 
+                                        (selectedCount > 0 ? 
+                                            '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
+                                            '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
+                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                                </button>
+                            `;
+                        }
+                    }
 
                     if (snapshot.empty) {
                         list.innerHTML = `
@@ -1477,9 +1544,7 @@
                         docs.push({ 
                             id: doc.id, 
                             ...data,
-                            date: data.date ? 
-                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
-                                new Date()
+                            date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date()
                         });
                     });
                     
@@ -1487,19 +1552,10 @@
                     this.state.myOrders = docs;
                     this.updateMyOrdersList(docs);
                     
-                }, (error) => {
-                    console.error("Ошибка при загрузке заказов:", error);
-                    const list = document.getElementById('my-orders-list');
-                    if(list) list.innerHTML = `
-                        <div class="text-center text-red-500 py-10">
-                            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                            <p>Не удалось загрузить заказы</p>
-                            <p class="text-xs text-gray-600 mt-2">${error.message}</p>
-                        </div>`;
                 });
             },
 
-            // Обновление списка заказов
+            // Update List Helper
             updateMyOrdersList: function(docs) {
                 const list = document.getElementById('my-orders-list');
                 if (!list) return;
@@ -1509,10 +1565,7 @@
                 
                 docs.forEach(data => {
                     const date = new Date(data.date).toLocaleString('ru-RU', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        hour: '2-digit', 
-                        minute:'2-digit' 
+                        day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' 
                     });
                     
                     let statusClass = 'status-pending';
@@ -1535,7 +1588,6 @@
 
                     const isSelected = this.state.selectedMyOrders.has(data.id);
                     const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
-                    const deliveryInfo = data.delivery || {};
 
                     html += `
                         <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
@@ -1565,21 +1617,7 @@
                                             <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
                                             ${date}
                                         </div>
-                                        ${deliveryInfo.name ? `
-                                        <div class="flex items-center text-xs text-gray-400">
-                                            <i data-lucide="user" class="w-3 h-3 mr-2"></i>
-                                            ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
-                                        </div>
-                                        ` : ''}
                                     </div>
-                                    
-                                    ${!isSelectMode ? `
-                                    <div class="mt-3 flex justify-end">
-                                        <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
-                                            Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                                        </button>
-                                    </div>
-                                    ` : ''}
                                 </div>
                             </div>
                         </div>
@@ -1588,23 +1626,38 @@
                 
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
-                
-                // Обновляем футер после обновления списка
-                this.updateMyOrdersFooter();
             },
 
-            // --- Управление выбором в Моих заказах ---
+            // Toggle Selection Mode
             toggleMyOrdersSelectionMode: function() {
                 this.state.myOrdersSelectionMode = !this.state.myOrdersSelectionMode;
                 if (!this.state.myOrdersSelectionMode) {
                     this.state.selectedMyOrders.clear();
                 }
-                // Обновляем список
+                
+                // Trigger updates
+                this.renderMyOrdersFab(); // Update the big button
+                
+                // Update header button
+                const buttonsContainer = document.getElementById('my-orders-buttons');
+                if (buttonsContainer) {
+                    const selectedCount = this.state.selectedMyOrders.size;
+                    buttonsContainer.innerHTML = `
+                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
+                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${this.state.myOrdersSelectionMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                            ${this.state.myOrdersSelectionMode ? 
+                                (selectedCount > 0 ? 
+                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
+                                    '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
+                                '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                        </button>
+                    `;
+                }
+                
                 this.updateMyOrdersList(this.state.myOrders);
-                // Обновляем футер
-                this.updateMyOrdersFooter();
             },
 
+            // Toggle Individual Item
             toggleMyOrderSelection: function(orderId) {
                 const set = this.state.selectedMyOrders;
                 if (set.has(orderId)) {
@@ -1612,55 +1665,71 @@
                 } else {
                     set.add(orderId);
                 }
-                // Обновляем список
+                this.renderMyOrdersFab(); // Update big button visibility
                 this.updateMyOrdersList(this.state.myOrders);
-                // Обновляем футер
-                this.updateMyOrdersFooter();
+                
+                // Update header
+                const selectedCount = this.state.selectedMyOrders.size;
+                const buttonsContainer = document.getElementById('my-orders-buttons');
+                if (buttonsContainer) {
+                    buttonsContainer.innerHTML = `
+                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
+                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                            ${this.state.myOrdersSelectionMode ? 
+                                (selectedCount > 0 ? 
+                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
+                                    '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
+                                '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                        </button>
+                    `;
+                }
             },
 
+            // --- ФИКС: МГНОВЕННОЕ УДАЛЕНИЕ ИЗ UI ---
             deleteSelectedMyOrders: function() {
                 const count = this.state.selectedMyOrders.size;
                 if (count === 0) return;
                 
                 this.showConfirm(
                     "УДАЛИТЬ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count}) из вашей истории? Это действие нельзя отменить.`,
+                    `Вы уверены, что хотите удалить выбранные заказы (${count})?`,
                     async () => {
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
                         
+                        // 1. Сохраняем ID для удаления
+                        const idsToDelete = Array.from(this.state.selectedMyOrders);
+                        
+                        // 2. ОПТИМИСТИЧНОЕ ОБНОВЛЕНИЕ: Мгновенно убираем из локального массива
+                        this.state.myOrders = this.state.myOrders.filter(order => !idsToDelete.includes(order.id));
+                        
+                        // 3. Сбрасываем состояние выбора
+                        this.state.selectedMyOrders.clear();
+                        this.state.myOrdersSelectionMode = false;
+                        
+                        // 4. ФОРСИРУЕМ ПЕРЕРИСОВКУ СПИСКА СРАЗУ ЖЕ (Убираем галочки и удаленные элементы)
+                        this.updateMyOrdersList(this.state.myOrders); 
+                        this.renderMyOrdersFab(); // Убираем нижнюю кнопку
+                        
+                        // Обновляем верхнюю кнопку (сброс)
+                        const buttonsContainer = document.getElementById('my-orders-buttons');
+                        if (buttonsContainer) buttonsContainer.innerHTML = '';
+                        
                         try {
-                            const uid = this.state.firebaseUid;
-                            if (!uid) throw new Error("Не удалось определить пользователя");
-                            
-                            const ids = Array.from(this.state.selectedMyOrders);
-                            console.log("Удаление заказов:", ids);
-                            
-                            // Удаляем из Firestore
-                            const promises = ids.map(id => {
+                            const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
+                            if (!uid) return;
+
+                            // 5. Отправляем запрос в базу (фоном)
+                            const promises = idsToDelete.map(id => {
                                 const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
                                 return deleteDoc(orderRef);
                             });
-                            
                             await Promise.all(promises);
                             
-                            // Обновляем локальный список
-                            this.state.myOrders = this.state.myOrders.filter(order => !ids.includes(order.id));
-                            
-                            // Очищаем выбранные
-                            this.state.selectedMyOrders.clear();
-                            
-                            // Выходим из режима выбора
-                            this.state.myOrdersSelectionMode = false;
-                            
-                            // Обновляем список
-                            this.updateMyOrdersList(this.state.myOrders);
-                            
-                            // Показываем уведомление
-                            this.showToast("Заказы удалены из истории", "Успешно");
-                            
+                            this.showToast("Заказы удалены", "Успешно");
                         } catch (e) {
-                            console.error("Ошибка удаления заказов:", e);
+                            console.error(e);
                             this.showToast("Ошибка удаления: " + e.message, "Сбой");
+                            // Если ошибка - слушатель вернет данные обратно, так что всё безопасно
                         }
                     }
                 );
@@ -1768,7 +1837,7 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- ADMIN: RENDER ORDERS ---
+            // --- ADMIN: RENDER ORDERS (ИСПРАВЛЕННАЯ БЕЗ МИГАНИЯ) ---
             renderAdminOrders: (container) => {
                 const isSelectMode = window.shop.state.adminSelectionMode;
                 const selectedCount = window.shop.state.selectedAdminOrders.size;
@@ -1794,78 +1863,60 @@
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
                     </div>
                     
-                    <!-- БЛОК ДЛЯ КНОПКИ УДАЛЕНИЯ (ПОЯВЛЯЕТСЯ ТОЛЬКО В РЕЖИМЕ ВЫБОРА) -->
-                    <div id="admin-orders-footer" class="fixed bottom-24 left-4 right-4 z-30"></div>
+                    ${isSelectMode ? `
+                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
+                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            УДАЛИТЬ (${selectedCount})
+                        </button>
+                    </div>` : ''}
                 `;
                 
-                // Инициализируем слушатель
-                window.shop.setupAdminOrdersListener();
-                
-                // Обновляем футер
-                setTimeout(() => {
-                    window.shop.updateAdminOrdersFooter();
-                }, 100);
-            },
-
-            // Новая функция для обновления нижней кнопки удаления админа
-            updateAdminOrdersFooter: function() {
-                const footer = document.getElementById('admin-orders-footer');
-                if (!footer) return;
-                
-                const isSelectMode = this.state.adminSelectionMode;
-                const selectedCount = this.state.selectedAdminOrders.size;
-                
-                if (isSelectMode && selectedCount > 0) {
-                    footer.innerHTML = `
-                        <div class="animate-float-up">
-                            <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
-                                <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
-                            </button>
-                        </div>
-                    `;
-                    if(window.lucide) window.lucide.createIcons();
+                // Инициализируем слушатель только если его нет
+                if (!window.shop.state.ordersListenerUnsubscribe) {
+                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
+                    const q = query(ordersCollection, orderBy('date', 'desc'));
+                    
+                    window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                        window.shop.updateAdminOrdersList(snapshot);
+                    });
                 } else {
-                    footer.innerHTML = '';
+                    // Если слушатель уже есть, просто обновляем список текущими данными
+                    window.shop.updateAdminOrdersList();
                 }
             },
 
-            setupAdminOrdersListener: function() {
-                if (this.state.ordersListenerUnsubscribe) {
-                    this.state.ordersListenerUnsubscribe();
-                }
-
-                const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
-                const q = query(ordersCollection, orderBy('date', 'desc'));
-                
-                this.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                    this.updateAdminOrdersList(snapshot);
-                });
-            },
-
-            updateAdminOrdersList: function(snapshot) {
+            // Новая функция для обновления списка заказов без переподписки
+            updateAdminOrdersList: function(snapshot = null) {
                 const list = document.getElementById('admin-orders-list');
                 if (!list) return;
                 
-                if (snapshot.empty) {
-                    list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
-                    this.state.adminOrders = [];
-                    return;
-                }
+                // Если snapshot передан, обновляем данные
+                if (snapshot) {
+                    if (snapshot.empty) {
+                        list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
+                        this.state.adminOrders = [];
+                        return;
+                    }
 
-                let docs = [];
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    docs.push({ 
-                        firestoreId: docSnap.id, 
-                        ...data,
-                        date: data.date ? 
-                            (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
-                            new Date()
+                    let docs = [];
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        docs.push({ 
+                            firestoreId: docSnap.id, 
+                            ...data,
+                            date: data.date ? 
+                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
+                                new Date()
+                        });
                     });
-                });
+                    
+                    // Сохраняем заказы в состоянии
+                    this.state.adminOrders = docs;
+                }
                 
-                this.state.adminOrders = docs;
+                // Используем сохраненные заказы
+                const docs = this.state.adminOrders || [];
                 
                 let html = '';
                 docs.forEach(data => {
@@ -1929,21 +1980,19 @@
                 
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
-                
-                // Обновляем футер
-                this.updateAdminOrdersFooter();
             },
 
-            // --- ADMIN SELECTION LOGIC ---
+            // --- ADMIN SELECTION LOGIC (ИСПРАВЛЕННАЯ БЕЗ МИГАНИЯ) ---
             toggleAdminSelectionMode: function() {
                 this.state.adminSelectionMode = !this.state.adminSelectionMode;
                 if (!this.state.adminSelectionMode) {
                     this.state.selectedAdminOrders.clear();
                 }
-                // Обновляем список
-                this.updateAdminOrdersList({ empty: false, forEach: (cb) => this.state.adminOrders.forEach(cb) });
-                // Обновляем футер
-                this.updateAdminOrdersFooter();
+                // Обновляем список без перезагрузки данных
+                this.updateAdminOrdersList();
+                
+                // Обновляем кнопку
+                this.updateAdminSelectionButton();
             },
 
             toggleOrderSelection: function(docId) {
@@ -1954,10 +2003,47 @@
                     set.add(docId);
                 }
                 
-                // Обновляем список
-                this.updateAdminOrdersList({ empty: false, forEach: (cb) => this.state.adminOrders.forEach(cb) });
-                // Обновляем футер
-                this.updateAdminOrdersFooter();
+                // Обновляем визуальное состояние элемента
+                const orderElement = document.querySelector(`[onclick*="window.shop.toggleOrderSelection('${docId}')"], [onclick*="window.shop.openOrderDetails('${docId}')"]`);
+                if (orderElement) {
+                    const checkbox = orderElement.querySelector('.order-checkbox');
+                    if (set.has(docId)) {
+                        orderElement.classList.add('border-red-500', 'bg-red-500/10');
+                        if (checkbox) {
+                            checkbox.classList.add('checked');
+                            checkbox.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-white"></i>';
+                        }
+                    } else {
+                        orderElement.classList.remove('border-red-500', 'bg-red-500/10');
+                        if (checkbox) {
+                            checkbox.classList.remove('checked');
+                            checkbox.innerHTML = '';
+                        }
+                    }
+                    if(window.lucide) window.lucide.createIcons();
+                }
+                
+                // Обновляем кнопку
+                this.updateAdminSelectionButton();
+            },
+
+            // Функция для обновления кнопки выбора
+            updateAdminSelectionButton: function() {
+                const selectedCount = this.state.selectedAdminOrders.size;
+                const button = document.querySelector('button[onclick="window.shop.toggleAdminSelectionMode()"]');
+                if (button) {
+                    button.innerHTML = this.state.adminSelectionMode ? 
+                        (selectedCount > 0 ? 
+                            `<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ (${selectedCount})` : 
+                            '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
+                        '<i data-lucide="trash-2" class="w-4 h-4"></i> ВЫБРАТЬ';
+                    
+                    if (this.state.adminSelectionMode && selectedCount > 0) {
+                        button.classList.add('bg-red-500/20');
+                    } else {
+                        button.classList.remove('bg-red-500/20');
+                    }
+                }
             },
 
             deleteSelectedOrders: function() {
@@ -1971,28 +2057,12 @@
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
                         
                         try {
-                            const ids = Array.from(this.state.selectedAdminOrders);
-                            for (const id of ids) {
-                                try {
-                                    // Получаем данные заказа, чтобы узнать linkedUserUid и linkedUserOrderId
-                                    const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
-                                    const orderSnap = await getDoc(orderRef);
-                                    if (!orderSnap.exists()) continue;
-                                    
-                                    const orderData = orderSnap.data();
-                                    
-                                    // Удаляем публичный заказ
-                                    await deleteDoc(orderRef);
-                                    
-                                    // Если есть привязка, удаляем и личный заказ
-                                    if (orderData.linkedUserUid && orderData.linkedUserOrderId) {
-                                        const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', orderData.linkedUserUid, 'orders', orderData.linkedUserOrderId);
-                                        await deleteDoc(userOrderRef).catch(e => console.error("Ошибка удаления личного заказа:", e));
-                                    }
-                                } catch (e) {
-                                    console.error(`Ошибка при удалении заказа ${id}:`, e);
-                                }
-                            }
+                            const promises = Array.from(this.state.selectedAdminOrders).map(id => {
+                                const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
+                                return deleteDoc(orderRef);
+                            });
+                            
+                            await Promise.all(promises);
                             
                             // Удаляем из локального состояния
                             this.state.adminOrders = this.state.adminOrders.filter(order => 
@@ -2003,7 +2073,7 @@
                             this.state.adminSelectionMode = false;
                             
                             // Обновляем список
-                            this.updateAdminOrdersList({ empty: false, forEach: (cb) => this.state.adminOrders.forEach(cb) });
+                            this.updateAdminOrdersList();
                             this.showToast("Заказы удалены", "Успешно");
                             
                         } catch (e) {
@@ -2014,7 +2084,7 @@
                 );
             },
 
-            // ОБНОВЛЕННАЯ ФУНКЦИЯ: Обновление статуса заказа с синхронизацией
+            // ФИКС: Обновление статуса заказа с немедленным закрытием модального окна
             openOrderDetails: async (docId) => {
                 try {
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
@@ -2068,9 +2138,6 @@
                                 ОТКЛОНИТЬ
                             </button>
                         </div>
-                        <button onclick="document.getElementById('order-detail-modal').classList.add('hidden')" class="w-full mt-3 py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">
-                            ЗАКРЫТЬ
-                        </button>
                     `;
                     
                     modal.classList.remove('hidden');
@@ -2081,25 +2148,29 @@
                 }
             },
 
-            // ОБНОВЛЕННАЯ ФУНКЦИЯ: Обновление статуса с синхронизацией в личные заказы пользователя
+            // ФИКС: Упрощенная и исправленная функция обновления статуса
             updateOrderStatus: async (docId, status) => {
+                // Закрываем модалку сразу для UX
+                document.getElementById('order-detail-modal').classList.add('hidden');
+                window.shop.showToast('Обновление статуса...', 'Обработка');
+
                 try {
-                    // 1. Получаем текущий заказ
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
+                    
+                    // 1. Сначала получаем документ, чтобы найти связи
                     const docSnap = await getDoc(orderRef);
                     if (!docSnap.exists()) {
-                        throw new Error("Заказ не найден");
+                         throw new Error("Заказ не найден");
                     }
-                    
                     const data = docSnap.data();
-                    
+
                     // 2. Обновляем публичный заказ
                     await updateDoc(orderRef, {
                         status: status,
                         updatedAt: new Date().toISOString()
                     });
-                    
-                    // 3. Синхронизируем статус в личные заказы пользователя
+
+                    // 3. Обновляем приватный заказ пользователя (если связь существует)
                     if (data.linkedUserUid && data.linkedUserOrderId) {
                         try {
                             const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId);
@@ -2107,21 +2178,16 @@
                                 status: status,
                                 updatedAt: new Date().toISOString()
                             });
-                            console.log("Статус синхронизирован в личный заказ пользователя");
-                        } catch (userError) {
-                            console.error("Ошибка синхронизации в личный заказ:", userError);
+                            console.log("Приватный статус пользователя обновлен");
+                        } catch (privateErr) {
+                            console.error("Ошибка обновления приватного статуса:", privateErr);
                         }
-                    } else {
-                        console.log("Нет данных для синхронизации в личный заказ");
                     }
-                    
-                    // 4. Показываем уведомление и закрываем модальное окно
-                    window.shop.showToast(`Статус изменен: ${status}`, 'Успешно');
-                    document.getElementById('order-detail-modal').classList.add('hidden');
-                    
+
+                    window.shop.showToast(`Статус изменен: ${status === 'approved' ? 'Одобрен' : 'Отклонен'}`, 'Успешно');
                 } catch (e) {
-                    console.error("Ошибка обновления статуса:", e);
-                    window.shop.showToast('Ошибка обновления: ' + e.message, 'Сбой');
+                     console.error(e);
+                     window.shop.showToast('Ошибка обновления: ' + e.message, 'Сбой');
                 }
             },
 
@@ -2249,6 +2315,7 @@
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
                 
+                // Очищаем предыдущее состояние
                 preview.style.backgroundImage = '';
                 placeholder.classList.remove('hidden');
                 
@@ -2256,12 +2323,15 @@
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
                 } else if (product.image && product.image.includes('http')) {
+                    // Загружаем изображение асинхронно
                     const tempImg = new Image();
                     tempImg.onload = () => {
                         preview.style.backgroundImage = `url(${product.image})`;
                         placeholder.classList.add('hidden');
                     };
-                    tempImg.onerror = () => {};
+                    tempImg.onerror = () => {
+                        // Если не загрузилось, оставляем плейсхолдер
+                    };
                     tempImg.src = product.image;
                 }
 
@@ -2419,6 +2489,7 @@
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
                 
+                // Сбрасываем флаг обработки заказа при открытии модального окна оплаты
                 window.shop.state.isProcessingOrder = false;
                 const completeBtn = document.getElementById('complete-order-btn');
                 if (completeBtn) {
@@ -2449,6 +2520,7 @@
                 const uid = window.shop.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
                 
                 console.log("Создание заказа для UID:", uid);
+                console.log("Корзина:", window.shop.state.cart);
 
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
