@@ -692,13 +692,11 @@
                 isCartView: false,
                 cartRendering: false,
                 myOrders: [],
-                // Новая переменная для режима выбора в Моих заказах
                 myOrdersSelectionMode: false,
                 selectedMyOrders: new Set(),
                 firebaseUid: null,
                 isProcessingOrder: false,
-                confirmCallback: null,
-                editLoading: false
+                confirmCallback: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -1055,12 +1053,6 @@
 
             // --- UI Rendering ---
             switchView: (viewName) => {
-                // FIX: Cleanup myOrders listener if leaving the view
-                if (viewName !== 'my-orders' && window.shop.state.myOrdersListenerUnsubscribe) {
-                    window.shop.state.myOrdersListenerUnsubscribe();
-                    window.shop.state.myOrdersListenerUnsubscribe = null;
-                }
-
                 document.querySelectorAll('.nav-btn').forEach(btn => {
                     const icon = btn.querySelector('svg') || btn.querySelector('i');
                     const text = btn.querySelector('span');
@@ -1374,194 +1366,215 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- FIX: RENDER MY ORDERS (LOGIC SEPARATED) ---
+            // --- USER: RENDER MY ORDERS ---
             renderMyOrders: (container) => {
-                // 1. Initial Scaffold (Header + Container + Footer Placeholder)
+                const isSelectMode = window.shop.state.myOrdersSelectionMode;
+                const selectedCount = window.shop.state.selectedMyOrders.size;
+                
                 container.innerHTML = `
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
                             <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button>
                             <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                         </div>
-                        <div id="my-orders-mode-btn-container"></div>
+                        ${window.shop.state.myOrders.length > 0 ? `
+                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
+                            ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                        </button>` : ''}
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка...</div>
                     </div>
-                    <div id="my-orders-action-bar"></div>
+                    
+                    ${isSelectMode && selectedCount > 0 ? `
+                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
+                        <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
+                        </button>
+                    </div>` : ''}
                 `;
 
-                // 2. Render List content immediately (updates loading state if needed)
-                window.shop.renderMyOrdersList();
+                // Устанавливаем слушатель для загрузки заказов пользователя
+                this.setupMyOrdersListener();
+            },
 
-                // 3. Setup Listener ONLY if not already running
-                const uid = window.shop.state.firebaseUid;
-                if (uid && !window.shop.state.myOrdersListenerUnsubscribe) {
-                    window.shop.setupMyOrdersListener(uid);
-                } else if (!uid) {
-                    // Try to wait for auth
+            // Настройка слушателя для заказов пользователя
+            setupMyOrdersListener: function() {
+                // Отписываемся от предыдущего слушателя
+                if (this.state.myOrdersListenerUnsubscribe) {
+                    this.state.myOrdersListenerUnsubscribe();
+                }
+
+                const setupListener = (uid) => {
+                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+                    const q = query(ordersCollection, orderBy('date', 'desc'));
+                    
+                    this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                        const list = document.getElementById('my-orders-list');
+                        if (!list) return;
+
+                        if (snapshot.empty) {
+                            list.innerHTML = `
+                                <div class="flex flex-col items-center justify-center py-10 text-gray-500">
+                                    <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
+                                    <p>История пуста</p>
+                                    <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
+                                </div>`;
+                            this.state.myOrders = [];
+                            return;
+                        }
+
+                        let docs = [];
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            docs.push({ 
+                                id: doc.id, 
+                                ...data,
+                                // Преобразуем Firestore Timestamp в Date
+                                date: data.date ? 
+                                    (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
+                                    new Date()
+                            });
+                        });
+                        
+                        // Сортируем по дате (на всякий случай)
+                        docs.sort((a, b) => b.date - a.date);
+                        
+                        this.state.myOrders = docs;
+                        
+                        this.updateMyOrdersList(docs);
+                        
+                    }, (error) => {
+                        console.error("My Orders Error:", error);
+                        const list = document.getElementById('my-orders-list');
+                        if(list) list.innerHTML = `
+                            <div class="text-center text-red-500 py-10">
+                                <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                                <p>Не удалось загрузить заказы</p>
+                                <p class="text-xs text-gray-600 mt-2">Попробуйте позже</p>
+                            </div>`;
+                    });
+                };
+
+                const handleAuth = (user) => {
+                    if (user) {
+                        setupListener(user.uid);
+                    } else {
+                        console.log("Auto-authenticating user...");
+                        signInAnonymously(auth)
+                            .then(cred => setupListener(cred.user.uid))
+                            .catch(e => {
+                                const list = document.getElementById('my-orders-list');
+                                if(list) list.innerHTML = `
+                                    <div class="text-center text-red-500 py-10">
+                                        <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                                        <p>Ошибка авторизации</p>
+                                        <p class="text-xs text-gray-600 mt-2">Обновите страницу</p>
+                                    </div>`;
+                            });
+                    }
+                };
+
+                if (auth.currentUser) {
+                    handleAuth(auth.currentUser);
+                } else {
                     const unsub = onAuthStateChanged(auth, user => {
                         unsub();
-                        if (user) {
-                            window.shop.state.firebaseUid = user.uid;
-                            if (!window.shop.state.myOrdersListenerUnsubscribe) {
-                                window.shop.setupMyOrdersListener(user.uid);
-                            }
-                        }
+                        handleAuth(user);
                     });
                 }
             },
 
-            // --- FIX: SEPARATED LIST RENDERING (NO LOADING SPINNER ON SELECTION) ---
-            renderMyOrdersList: () => {
-                const isSelectMode = window.shop.state.myOrdersSelectionMode;
-                const selectedCount = window.shop.state.selectedMyOrders.size;
+            // Обновление списка заказов (без переустановки слушателя)
+            updateMyOrdersList: function(docs) {
                 const list = document.getElementById('my-orders-list');
-                const btnContainer = document.getElementById('my-orders-mode-btn-container');
-                const actionContainer = document.getElementById('my-orders-action-bar');
-                
                 if (!list) return;
 
-                // 1. Update Header Button
-                if (btnContainer && window.shop.state.myOrders.length > 0) {
-                    btnContainer.innerHTML = `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
-                            ${isSelectMode ? '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА' : '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                        </button>
-                    `;
-                } else {
-                    btnContainer.innerHTML = '';
-                }
+                const isSelectMode = this.state.myOrdersSelectionMode;
+                let html = '';
+                
+                docs.forEach(data => {
+                    const date = new Date(data.date).toLocaleString('ru-RU', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute:'2-digit' 
+                    });
+                    
+                    let statusClass = 'status-pending';
+                    let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
+                    let statusIcon = 'clock';
+                    
+                    if (data.status === 'approved') {
+                        statusClass = 'status-approved';
+                        statusText = 'ПОДТВЕРЖДЕН';
+                        statusIcon = 'check-circle';
+                    } else if (data.status === 'rejected') {
+                        statusClass = 'status-rejected';
+                        statusText = 'ОТМЕНЕН';
+                        statusIcon = 'x-circle';
+                    } else if (data.status === 'pending') {
+                        statusClass = 'status-pending';
+                        statusText = 'ОБРАБОТКА';
+                        statusIcon = 'refresh-cw';
+                    }
 
-                // 2. Render List
-                if (window.shop.state.myOrders.length === 0) {
-                    list.innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-10 text-gray-500">
-                            <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
-                            <p>История пуста</p>
-                            <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
-                        </div>`;
-                } else {
-                    let html = '';
-                    window.shop.state.myOrders.forEach(data => {
-                        const date = new Date(data.date).toLocaleString('ru-RU', { 
-                            day: 'numeric', 
-                            month: 'short', 
-                            hour: '2-digit', 
-                            minute:'2-digit' 
-                        });
-                        
-                        let statusClass = 'status-pending';
-                        let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                        let statusIcon = 'clock';
-                        
-                        if (data.status === 'approved') {
-                            statusClass = 'status-approved';
-                            statusText = 'ПОДТВЕРЖДЕН';
-                            statusIcon = 'check-circle';
-                        } else if (data.status === 'rejected') {
-                            statusClass = 'status-rejected';
-                            statusText = 'ОТМЕНЕН';
-                            statusIcon = 'x-circle';
-                        } else if (data.status === 'pending') {
-                            statusClass = 'status-pending';
-                            statusText = 'ОБРАБОТКА';
-                            statusIcon = 'refresh-cw';
-                        }
+                    const isSelected = this.state.selectedMyOrders.has(data.id);
+                    const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
+                    const deliveryInfo = data.delivery || {};
 
-                        const isSelected = window.shop.state.selectedMyOrders.has(data.id);
-                        const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
-                        const deliveryInfo = data.delivery || {};
-
-                        html += `
-                            <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
-                                    onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
-                                <div class="flex items-start gap-3">
-                                    ${isSelectMode ? `
-                                    <div class="pt-1">
-                                        <div class="order-checkbox ${isSelected ? 'checked' : ''}">
-                                            ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+                    html += `
+                        <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
+                             onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
+                            <div class="flex items-start gap-3">
+                                ${isSelectMode ? `
+                                <div class="pt-1">
+                                    <div class="order-checkbox ${isSelected ? 'checked' : ''}">
+                                        ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+                                    </div>
+                                </div>` : ''}
+                                
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex flex-col">
+                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
+                                            <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
                                         </div>
-                                    </div>` : ''}
+                                        <div class="${statusClass} status-badge flex items-center gap-1">
+                                            <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
+                                            ${statusText}
+                                        </div>
+                                    </div>
                                     
-                                    <div class="flex-grow">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <div class="flex flex-col">
-                                                <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
-                                                <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
-                                            </div>
-                                            <div class="${statusClass} status-badge flex items-center gap-1">
-                                                <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
-                                                ${statusText}
-                                            </div>
+                                    <div class="mt-3 pt-3 border-t border-white/5">
+                                        <div class="flex items-center text-xs text-gray-400 mb-1">
+                                            <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
+                                            ${date}
                                         </div>
-                                        
-                                        <div class="mt-3 pt-3 border-t border-white/5">
-                                            <div class="flex items-center text-xs text-gray-400 mb-1">
-                                                <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
-                                                ${date}
-                                            </div>
-                                            ${deliveryInfo.name ? `
-                                            <div class="flex items-center text-xs text-gray-400">
-                                                <i data-lucide="user" class="w-3 h-3 mr-2"></i>
-                                                ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
-                                            </div>
-                                            ` : ''}
-                                        </div>
-                                        
-                                        ${!isSelectMode ? `
-                                        <div class="mt-3 flex justify-end">
-                                            <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
-                                                Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                                            </button>
+                                        ${deliveryInfo.name ? `
+                                        <div class="flex items-center text-xs text-gray-400">
+                                            <i data-lucide="user" class="w-3 h-3 mr-2"></i>
+                                            ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
                                         </div>
                                         ` : ''}
                                     </div>
+                                    
+                                    ${!isSelectMode ? `
+                                    <div class="mt-3 flex justify-end">
+                                        <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
+                                            Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                                        </button>
+                                    </div>
+                                    ` : ''}
                                 </div>
                             </div>
-                        `;
-                    });
-                    list.innerHTML = html;
-                }
-
-                // 3. Render Bottom Action Bar
-                if (actionContainer) {
-                    if (isSelectMode && selectedCount > 0) {
-                        actionContainer.innerHTML = `
-                            <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
-                                <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                    УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
-                                </button>
-                            </div>`;
-                    } else {
-                        actionContainer.innerHTML = '';
-                    }
-                }
-                
-                if(window.lucide) window.lucide.createIcons();
-            },
-
-            // --- FIX: LISTENER LOGIC SEPARATED ---
-            setupMyOrdersListener: (uid) => {
-                const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
-                const q = query(ordersCollection, orderBy('date', 'desc'));
-                
-                window.shop.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                    let docs = [];
-                    snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
-                    
-                    window.shop.state.myOrders = docs;
-                    window.shop.renderMyOrdersList(); // Simply update DOM, no full re-render
-                }, (error) => {
-                    console.error("My Orders Error:", error);
-                    const list = document.getElementById('my-orders-list');
-                    if(list) list.innerHTML = `
-                        <div class="text-center text-red-500 py-10">
-                            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                            <p>Не удалось загрузить заказы</p>
-                        </div>`;
+                        </div>
+                    `;
                 });
+                
+                list.innerHTML = html;
+                if(window.lucide) window.lucide.createIcons();
             },
 
             // --- Управление выбором в Моих заказах ---
@@ -1570,8 +1583,8 @@
                 if (!this.state.myOrdersSelectionMode) {
                     this.state.selectedMyOrders.clear();
                 }
-                // FIX: Call renderMyOrdersList instead of full renderMyOrders to avoid listener teardown
-                this.renderMyOrdersList();
+                // Просто обновляем список без переустановки слушателя
+                this.updateMyOrdersList(this.state.myOrders);
             },
 
             toggleMyOrderSelection: function(orderId) {
@@ -1581,8 +1594,8 @@
                 } else {
                     set.add(orderId);
                 }
-                // FIX: Call renderMyOrdersList instead of full renderMyOrders to avoid listener teardown
-                this.renderMyOrdersList();
+                // Обновляем только список
+                this.updateMyOrdersList(this.state.myOrders);
             },
 
             deleteSelectedMyOrders: function() {
@@ -1601,6 +1614,7 @@
                             
                             const ids = Array.from(this.state.selectedMyOrders);
                             
+                            // Удаляем из Firestore
                             const promises = ids.map(id => {
                                 const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
                                 return deleteDoc(orderRef);
@@ -1608,16 +1622,21 @@
                             
                             await Promise.all(promises);
                             
-                            // FIX: Reset local selection state immediately
+                            // НЕ вызываем renderMyOrders - слушатель onSnapshot автоматически обновит список
+                            // и вызовет updateMyOrdersList через колбэк
+                            
+                            // Очищаем выбранные
                             this.state.selectedMyOrders.clear();
+                            
+                            // Выходим из режима выбора
                             this.state.myOrdersSelectionMode = false;
                             
-                            // FIX: Do NOT manually fetch data. The existing onSnapshot listener 
-                            // will detect the deletion and call renderMyOrdersList automatically.
-                            // We just force a UI update to remove the "Delete" button immediately.
-                            this.renderMyOrdersList();
+                            // Обновляем список в состоянии (он будет обновлен слушателем)
+                            this.state.myOrders = this.state.myOrders.filter(order => !ids.includes(order.id));
                             
+                            // Показываем уведомление
                             this.showToast("Заказы удалены из истории", "Успешно");
+                            
                         } catch (e) {
                             console.error(e);
                             this.showToast("Ошибка удаления", "Сбой");
@@ -2089,14 +2108,8 @@
             },
 
             editProduct: function(id) {
-                if (this.state.editLoading) return;
-                
-                this.state.editLoading = true;
                 const product = this.state.products.find(p => p.id === id);
-                if (!product) {
-                    this.state.editLoading = false;
-                    return;
-                }
+                if (!product) return;
 
                 this.state.editingProductId = id;
 
@@ -2115,29 +2128,19 @@
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
                 } else if (product.image && product.image.includes('http')) {
-                    // Для URL изображений создаем временный объект для предзагрузки
+                    // Загружаем изображение асинхронно
                     const tempImg = new Image();
                     tempImg.onload = () => {
                         preview.style.backgroundImage = `url(${product.image})`;
                         placeholder.classList.add('hidden');
-                        this.state.editLoading = false;
                     };
                     tempImg.onerror = () => {
-                        this.state.editLoading = false;
+                        // Если не загрузилось, оставляем плейсхолдер
                     };
                     tempImg.src = product.image;
-                } else {
-                    this.state.editLoading = false;
                 }
 
                 this.toggleEditModal();
-                
-                // Если не было загрузки изображения, снимаем блокировку
-                if (!product.image || (!product.image.startsWith('data:image') && !product.image.includes('http'))) {
-                    setTimeout(() => {
-                        this.state.editLoading = false;
-                    }, 50);
-                }
             },
 
             toggleEditModal: function() {
@@ -2146,7 +2149,6 @@
                 if (modal.classList.contains('hidden')) {
                     this.state.editingProductId = null;
                     this.state.pendingEditImage = null;
-                    this.state.editLoading = false;
                 }
             },
 
@@ -2206,8 +2208,6 @@
             },
 
             updateProduct: async function() {
-                if (this.state.editLoading) return;
-                
                 const id = this.state.editingProductId;
                 if (!id) return;
 
