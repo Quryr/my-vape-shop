@@ -665,7 +665,8 @@
                 myOrders: [],
                 // Новая переменная для режима выбора в Моих заказах
                 myOrdersSelectionMode: false,
-                selectedMyOrders: new Set()
+                selectedMyOrders: new Set(),
+                firebaseUid: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -861,6 +862,7 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         console.log("Юзер зашел:", user.uid);
+                        window.shop.state.firebaseUid = user.uid;
                         
                         await window.shop.saveUserProfile(tgUser);
                         await window.shop.loadCartFromFirebase();
@@ -1336,10 +1338,12 @@
                     </div>` : ''}
                 `;
 
+                // Отписываемся от предыдущего слушателя
                 if (window.shop.state.myOrdersListenerUnsubscribe) {
                     window.shop.state.myOrdersListenerUnsubscribe();
                 }
 
+                // Устанавливаем новый слушатель
                 const setupListener = (uid) => {
                     const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                     const q = query(ordersCollection, orderBy('date', 'desc'));
@@ -1516,18 +1520,37 @@
                 this.showToast(`Удаление ${count} заказов...`, "Обработка");
                 
                 try {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    const uid = this.state.firebaseUid;
                     if (!uid) throw new Error("Не удалось определить пользователя");
                     
+                    console.log("Удаление заказов:", ids);
+                    console.log("UID:", uid);
+                    
                     const promises = ids.map(id => {
+                        console.log("Удаляем заказ с id:", id);
                         const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
-                        return deleteDoc(orderRef);
+                        return deleteDoc(orderRef).then(() => {
+                            console.log("Заказ удален:", id);
+                        }).catch(e => {
+                            console.error("Ошибка удаления заказа", id, e);
+                        });
                     });
                     
                     await Promise.all(promises);
                     
                     this.state.selectedMyOrders.clear();
+                    
+                    // Обновляем список заказов вручную
+                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+                    const q = query(ordersCollection, orderBy('date', 'desc'));
+                    const snapshot = await getDocs(q);
+                    
+                    let docs = [];
+                    snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                    
+                    this.state.myOrders = docs;
                     this.toggleMyOrdersSelectionMode();
+                    
                     this.showToast("Заказы удалены из истории", "Успешно");
                 } catch (e) {
                     console.error(e);
