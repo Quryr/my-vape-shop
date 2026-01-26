@@ -282,6 +282,18 @@
             color: #ef4444;
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
+        /* Loading overlay for edit */
+        .edit-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 12px;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -327,6 +339,23 @@
         <div>
             <h4 id="toast-title" class="text-sm font-bold text-white">Успешно</h4>
             <p id="toast-msg" class="text-xs text-gray-400">Действие выполнено</p>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.1)]">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-3 border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+                    <i data-lucide="trash-2" class="w-8 h-8 text-red-500"></i>
+                </div>
+                <h2 id="confirm-title" class="text-xl font-black italic text-white">УДАЛИТЬ ЗАКАЗЫ?</h2>
+                <p id="confirm-text" class="text-sm text-gray-400 mt-2">Вы уверены, что хотите удалить выбранные заказы? Это действие нельзя отменить.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="window.shop.hideConfirm()" class="py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">ОТМЕНА</button>
+                <button onclick="window.shop.confirmAction()" class="py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-colors">УДАЛИТЬ</button>
+            </div>
         </div>
     </div>
 
@@ -425,12 +454,12 @@
         <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.1)] max-h-[90vh] overflow-y-auto">
             <button onclick="window.shop.toggleEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
             <h2 class="text-xl font-black italic mb-6 text-white">РЕДАКТИРОВАНИЕ <span class="text-green-500">ТОВАРА</span></h2>
-            <div class="space-y-4">
+            <div class="space-y-4" id="edit-form-container">
                 
                 <!-- Image Upload -->
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Фотография</label>
-                    <div id="edit-img-preview-container" class="image-preview" onclick="document.getElementById('edit-image-input').click()">
+                    <div id="edit-img-preview-container" class="image-preview relative" onclick="document.getElementById('edit-image-input').click()">
                         <div id="edit-img-placeholder" class="flex flex-col items-center gap-2 text-gray-500">
                             <i data-lucide="image-plus" class="w-6 h-6"></i>
                             <span class="text-xs">Нажмите для загрузки</span>
@@ -543,7 +572,7 @@
                 </div>
             </div>
 
-            <button onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
+            <button id="complete-order-btn" onclick="window.shop.completeOrder()" class="w-full bg-gradient-to-r from-green-600 to-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center justify-center gap-2">
                 <span>Я ОПЛАТИЛ</span>
                 <i data-lucide="check-circle" class="w-5 h-5"></i>
             </button>
@@ -666,7 +695,10 @@
                 // Новая переменная для режима выбора в Моих заказах
                 myOrdersSelectionMode: false,
                 selectedMyOrders: new Set(),
-                firebaseUid: null
+                firebaseUid: null,
+                isProcessingOrder: false,
+                confirmCallback: null,
+                editLoading: false
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -941,29 +973,56 @@
 
             seedDatabase: async () => {
                 try {
-                    if (!confirm("Это действие восстановит стандартные товары. Продолжить?")) return;
+                    window.shop.showConfirm(
+                        "Восстановление базы",
+                        "Это действие восстановит стандартные товары. Продолжить?",
+                        async () => {
+                            window.shop.showToast("Восстановление...", "Синхронизация");
 
-                    const batch = writeBatch(db);
-                    const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-                    
-                    const snapshot = await getDocs(colRef);
-                    snapshot.forEach(docSnap => {
-                        batch.delete(docSnap.ref);
-                    });
-                    
-                    MOCK_PRODUCTS.forEach(item => {
-                        const docRef = doc(colRef);
-                        batch.set(docRef, { 
-                            ...item, 
-                            createdAt: serverTimestamp() 
-                        });
-                    });
+                            const batch = writeBatch(db);
+                            const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                            
+                            const snapshot = await getDocs(colRef);
+                            snapshot.forEach(docSnap => {
+                                batch.delete(docSnap.ref);
+                            });
+                            
+                            MOCK_PRODUCTS.forEach(item => {
+                                const docRef = doc(colRef);
+                                batch.set(docRef, { 
+                                    ...item, 
+                                    createdAt: serverTimestamp() 
+                                });
+                            });
 
-                    await batch.commit();
-                    window.shop.showToast("База данных восстановлена", "Успешно");
+                            await batch.commit();
+                            window.shop.showToast("База данных восстановлена", "Успешно");
+                        }
+                    );
                 } catch (e) {
                     console.error("Seeding failed", e);
                     window.shop.showToast("Ошибка восстановления", "Сбой");
+                }
+            },
+
+            // --- Custom Confirm Modal Methods ---
+            showConfirm: function(title, text, callback) {
+                document.getElementById('confirm-title').innerText = title;
+                document.getElementById('confirm-text').innerText = text;
+                document.getElementById('confirm-modal').classList.remove('hidden');
+                this.state.confirmCallback = callback;
+            },
+
+            hideConfirm: function() {
+                document.getElementById('confirm-modal').classList.add('hidden');
+                this.state.confirmCallback = null;
+            },
+
+            confirmAction: function() {
+                if (this.state.confirmCallback) {
+                    const callback = this.state.confirmCallback;
+                    this.hideConfirm();
+                    callback();
                 }
             },
 
@@ -1510,52 +1569,49 @@
                 this.renderMyOrders(main);
             },
 
-            deleteSelectedMyOrders: async function() {
+            deleteSelectedMyOrders: function() {
                 const count = this.state.selectedMyOrders.size;
                 if (count === 0) return;
                 
-                if (!confirm(`Удалить выбранные заказы (${count}) из вашей истории? Это действие нельзя отменить.`)) return;
-
-                const ids = Array.from(this.state.selectedMyOrders);
-                this.showToast(`Удаление ${count} заказов...`, "Обработка");
-                
-                try {
-                    const uid = this.state.firebaseUid;
-                    if (!uid) throw new Error("Не удалось определить пользователя");
-                    
-                    console.log("Удаление заказов:", ids);
-                    console.log("UID:", uid);
-                    
-                    const promises = ids.map(id => {
-                        console.log("Удаляем заказ с id:", id);
-                        const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
-                        return deleteDoc(orderRef).then(() => {
-                            console.log("Заказ удален:", id);
-                        }).catch(e => {
-                            console.error("Ошибка удаления заказа", id, e);
-                        });
-                    });
-                    
-                    await Promise.all(promises);
-                    
-                    this.state.selectedMyOrders.clear();
-                    
-                    // Обновляем список заказов вручную
-                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
-                    const q = query(ordersCollection, orderBy('date', 'desc'));
-                    const snapshot = await getDocs(q);
-                    
-                    let docs = [];
-                    snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
-                    
-                    this.state.myOrders = docs;
-                    this.toggleMyOrdersSelectionMode();
-                    
-                    this.showToast("Заказы удалены из истории", "Успешно");
-                } catch (e) {
-                    console.error(e);
-                    this.showToast("Ошибка удаления", "Сбой");
-                }
+                this.showConfirm(
+                    "УДАЛИТЬ ЗАКАЗЫ",
+                    `Вы уверены, что хотите удалить выбранные заказы (${count}) из вашей истории? Это действие нельзя отменить.`,
+                    async () => {
+                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                        
+                        try {
+                            const uid = this.state.firebaseUid;
+                            if (!uid) throw new Error("Не удалось определить пользователя");
+                            
+                            const ids = Array.from(this.state.selectedMyOrders);
+                            
+                            const promises = ids.map(id => {
+                                const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
+                                return deleteDoc(orderRef);
+                            });
+                            
+                            await Promise.all(promises);
+                            
+                            this.state.selectedMyOrders.clear();
+                            
+                            // Обновляем список заказов вручную
+                            const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+                            const q = query(ordersCollection, orderBy('date', 'desc'));
+                            const snapshot = await getDocs(q);
+                            
+                            let docs = [];
+                            snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+                            
+                            this.state.myOrders = docs;
+                            this.toggleMyOrdersSelectionMode();
+                            
+                            this.showToast("Заказы удалены из истории", "Успешно");
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast("Ошибка удаления", "Сбой");
+                        }
+                    }
+                );
             },
 
             // --- Показать детали заказа пользователю ---
@@ -1786,29 +1842,33 @@
                 window.shop.renderAdminOrders(main);
             },
 
-            deleteSelectedOrders: async () => {
+            deleteSelectedOrders: function() {
                 const count = window.shop.state.selectedAdminOrders.size;
                 if (count === 0) return;
                 
-                if (!confirm(`Удалить выбранные заказы (${count})? Это действие нельзя отменить.`)) return;
-
-                const ids = Array.from(window.shop.state.selectedAdminOrders);
-                window.shop.showToast(`Удаление ${count} заказов...`, "Обработка");
-                
-                try {
-                    const promises = ids.map(id => {
-                        const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
-                        return deleteDoc(orderRef);
-                    });
-                    await Promise.all(promises);
-                    
-                    window.shop.state.selectedAdminOrders.clear();
-                    window.shop.toggleAdminSelectionMode();
-                    window.shop.showToast("Заказы удалены", "Успешно");
-                } catch (e) {
-                    console.error(e);
-                    window.shop.showToast("Ошибка удаления", "Сбой");
-                }
+                this.showConfirm(
+                    "УДАЛИТЬ ЗАКАЗЫ",
+                    `Вы уверены, что хотите удалить выбранные заказы (${count})? Это действие нельзя отменить.`,
+                    async () => {
+                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                        
+                        try {
+                            const promises = Array.from(this.state.selectedAdminOrders).map(id => {
+                                const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
+                                return deleteDoc(orderRef);
+                            });
+                            
+                            await Promise.all(promises);
+                            
+                            this.state.selectedAdminOrders.clear();
+                            this.toggleAdminSelectionMode();
+                            this.showToast("Заказы удалены", "Успешно");
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast("Ошибка удаления", "Сбой");
+                        }
+                    }
+                );
             },
 
             // ФИКС: Обновление статуса заказа с немедленным закрытием модального окна
@@ -2017,8 +2077,14 @@
             },
 
             editProduct: function(id) {
+                if (this.state.editLoading) return;
+                
+                this.state.editLoading = true;
                 const product = this.state.products.find(p => p.id === id);
-                if (!product) return;
+                if (!product) {
+                    this.state.editLoading = false;
+                    return;
+                }
 
                 this.state.editingProductId = id;
 
@@ -2028,18 +2094,38 @@
 
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
+                
+                // Очищаем предыдущее состояние
+                preview.style.backgroundImage = '';
+                placeholder.classList.remove('hidden');
+                
                 if (product.image && product.image.startsWith('data:image')) {
                     preview.style.backgroundImage = `url(${product.image})`;
                     placeholder.classList.add('hidden');
                 } else if (product.image && product.image.includes('http')) {
-                    preview.style.backgroundImage = `url(${product.image})`;
-                    placeholder.classList.add('hidden');
+                    // Для URL изображений создаем временный объект для предзагрузки
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        preview.style.backgroundImage = `url(${product.image})`;
+                        placeholder.classList.add('hidden');
+                        this.state.editLoading = false;
+                    };
+                    tempImg.onerror = () => {
+                        this.state.editLoading = false;
+                    };
+                    tempImg.src = product.image;
                 } else {
-                    preview.style.backgroundImage = '';
-                    placeholder.classList.remove('hidden');
+                    this.state.editLoading = false;
                 }
 
                 this.toggleEditModal();
+                
+                // Если не было загрузки изображения, снимаем блокировку
+                if (!product.image || (!product.image.startsWith('data:image') && !product.image.includes('http'))) {
+                    setTimeout(() => {
+                        this.state.editLoading = false;
+                    }, 50);
+                }
             },
 
             toggleEditModal: function() {
@@ -2048,6 +2134,7 @@
                 if (modal.classList.contains('hidden')) {
                     this.state.editingProductId = null;
                     this.state.pendingEditImage = null;
+                    this.state.editLoading = false;
                 }
             },
 
@@ -2107,6 +2194,8 @@
             },
 
             updateProduct: async function() {
+                if (this.state.editLoading) return;
+                
                 const id = this.state.editingProductId;
                 if (!id) return;
 
@@ -2139,18 +2228,22 @@
             },
 
             deleteProduct: async (id) => {
-                if (!confirm("Удалить этот товар?")) return;
-                
-                window.shop.showToast("Удаление...", "Синхронизация");
+                this.showConfirm(
+                    "УДАЛИТЬ ТОВАР",
+                    "Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.",
+                    async () => {
+                        window.shop.showToast("Удаление...", "Синхронизация");
 
-                try {
-                    const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
-                    await deleteDoc(productRef);
-                    window.shop.showToast("Товар удален", "Успешно");
-                } catch (e) { 
-                    console.error("Delete failed", e); 
-                    window.shop.showToast("Ошибка удаления: " + e.message, "Сбой");
-                }
+                        try {
+                            const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+                            await deleteDoc(productRef);
+                            window.shop.showToast("Товар удален", "Успешно");
+                        } catch (e) { 
+                            console.error("Delete failed", e); 
+                            window.shop.showToast("Ошибка удаления: " + e.message, "Сбой");
+                        }
+                    }
+                );
             },
 
             // --- CHECKOUT LOGIC ---
@@ -2188,6 +2281,15 @@
                 window.shop.state.currentOrderId = orderId;
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
+                
+                // Сбрасываем флаг обработки заказа при открытии модального окна оплаты
+                window.shop.state.isProcessingOrder = false;
+                const completeBtn = document.getElementById('complete-order-btn');
+                if (completeBtn) {
+                    completeBtn.disabled = false;
+                    completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
+                    if(window.lucide) window.lucide.createIcons();
+                }
             },
 
             copyBank: () => {
@@ -2197,6 +2299,16 @@
             },
 
             completeOrder: async () => {
+                if (window.shop.state.isProcessingOrder) return;
+                window.shop.state.isProcessingOrder = true;
+                
+                const completeBtn = document.getElementById('complete-order-btn');
+                if (completeBtn) {
+                    completeBtn.disabled = true;
+                    completeBtn.innerHTML = `<i data-lucide="loader" class="w-5 h-5 animate-spin"></i> ОБРАБОТКА...`;
+                    if(window.lucide) window.lucide.createIcons();
+                }
+
                 const now = new Date();
                 const uid = auth.currentUser ? auth.currentUser.uid : null;
                 
@@ -2244,7 +2356,14 @@
                        
                 } catch(e) { 
                     console.error("DB Error", e); 
+                    window.shop.state.isProcessingOrder = false;
+                    if (completeBtn) {
+                        completeBtn.disabled = false;
+                        completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
+                        if(window.lucide) window.lucide.createIcons();
+                    }
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
+                    return;
                 }
 
                 document.getElementById('checkout-modal').classList.add('hidden');
@@ -2256,6 +2375,8 @@
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
                 
+                window.shop.state.isProcessingOrder = false;
+
                 if (window.shop.state.isCartView) {
                     setTimeout(() => {
                         window.shop.switchView('my-orders');
