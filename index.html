@@ -1971,12 +1971,28 @@
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
                         
                         try {
-                            const promises = Array.from(this.state.selectedAdminOrders).map(id => {
-                                const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
-                                return deleteDoc(orderRef);
-                            });
-                            
-                            await Promise.all(promises);
+                            const ids = Array.from(this.state.selectedAdminOrders);
+                            for (const id of ids) {
+                                try {
+                                    // Получаем данные заказа, чтобы узнать linkedUserUid и linkedUserOrderId
+                                    const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
+                                    const orderSnap = await getDoc(orderRef);
+                                    if (!orderSnap.exists()) continue;
+                                    
+                                    const orderData = orderSnap.data();
+                                    
+                                    // Удаляем публичный заказ
+                                    await deleteDoc(orderRef);
+                                    
+                                    // Если есть привязка, удаляем и личный заказ
+                                    if (orderData.linkedUserUid && orderData.linkedUserOrderId) {
+                                        const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', orderData.linkedUserUid, 'orders', orderData.linkedUserOrderId);
+                                        await deleteDoc(userOrderRef).catch(e => console.error("Ошибка удаления личного заказа:", e));
+                                    }
+                                } catch (e) {
+                                    console.error(`Ошибка при удалении заказа ${id}:`, e);
+                                }
+                            }
                             
                             // Удаляем из локального состояния
                             this.state.adminOrders = this.state.adminOrders.filter(order => 
