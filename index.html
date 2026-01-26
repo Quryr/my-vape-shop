@@ -1367,7 +1367,7 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- USER: RENDER MY ORDERS (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+            // --- USER: RENDER MY ORDERS (FIXED) ---
             renderMyOrders: (container) => {
                 const isSelectMode = window.shop.state.myOrdersSelectionMode;
                 const selectedCount = window.shop.state.selectedMyOrders.size;
@@ -1381,14 +1381,7 @@
                             <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
                         </div>
                         <div id="my-orders-buttons">
-                            <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                    class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                                ${isSelectMode ? 
-                                    (selectedCount > 0 ? 
-                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                        '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                            </button>
+                            <!-- Injected by JS -->
                         </div>
                     </div>
                     <div id="my-orders-list" class="space-y-3 pb-24">
@@ -1397,130 +1390,109 @@
                             <p>Загрузка заказов...</p>
                         </div>
                     </div>
-                    
-                    ${isSelectMode && selectedCount > 0 ? `
-                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
-                        <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                            УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
-                        </button>
-                    </div>` : ''}
+                    <!-- New Container for Floating Action Button -->
+                    <div id="my-orders-fab-container"></div>
                 `;
 
-                // Устанавливаем слушатель для загрузки заказов пользователя
+                // Initial Button Render
+                window.shop.renderMyOrdersFab();
                 window.shop.setupMyOrdersListener();
             },
 
-            // Настройка слушателя для заказов пользователя (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+            // New helper to render the FAB
+            renderMyOrdersFab: function() {
+                const container = document.getElementById('my-orders-fab-container');
+                if (!container) return;
+
+                const isSelectMode = this.state.myOrdersSelectionMode;
+                const selectedCount = this.state.selectedMyOrders.size;
+
+                if (isSelectMode && selectedCount > 0) {
+                    container.innerHTML = `
+                        <div class="fixed bottom-24 left-4 right-4 animate-float-up z-[50]">
+                            <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-500/50 flex items-center justify-center gap-2 transition-all active:scale-95">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '';
+                }
+                if(window.lucide) window.lucide.createIcons();
+            },
+
+            // Setup Listener
             setupMyOrdersListener: function() {
-                // Отписываемся от предыдущего слушателя
                 if (this.state.myOrdersListenerUnsubscribe) {
                     this.state.myOrdersListenerUnsubscribe();
-                    console.log("Отписались от предыдущего слушателя заказов");
                 }
 
-                console.log("Настройка слушателя для заказов пользователя...");
-
-                // Получаем UID пользователя
                 const uid = this.state.firebaseUid;
-                
                 if (!uid) {
-                    console.log("UID пользователя не найден, ждем аутентификации...");
                     const list = document.getElementById('my-orders-list');
-                    if (list) {
-                        list.innerHTML = `
-                            <div class="text-center py-10 text-red-500">
-                                <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                                <p>Ошибка аутентификации</p>
-                                <p class="text-xs text-gray-600 mt-2">Обновите страницу</p>
-                            </div>`;
-                    }
+                    if (list) list.innerHTML = `<div class="text-center py-10 text-red-500">Ошибка аутентификации</div>`;
                     return;
                 }
 
-                console.log("Слушатель заказов для UID:", uid);
-                console.log("Путь к коллекции: artifacts/${APP_ID}/users/${uid}/orders");
-
-                // Создаем запрос к коллекции заказов пользователя
                 const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
                 const q = query(ordersCollection, orderBy('date', 'desc'));
                 
-                // Устанавливаем слушатель в реальном времени
                 this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                    console.log("Получены данные заказов:", snapshot.size, "заказов");
-                    
                     const list = document.getElementById('my-orders-list');
                     const buttonsContainer = document.getElementById('my-orders-buttons');
                     
                     if (!list) return;
 
+                    // Update Header Button
+                    if (buttonsContainer) {
+                        if (snapshot.empty) {
+                            buttonsContainer.innerHTML = '';
+                        } else {
+                            const isSelectMode = this.state.myOrdersSelectionMode;
+                            const selectedCount = this.state.selectedMyOrders.size;
+                            buttonsContainer.innerHTML = `
+                                <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
+                                        class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                                    ${isSelectMode ? 
+                                        (selectedCount > 0 ? 
+                                            '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
+                                            '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
+                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
+                                </button>
+                            `;
+                        }
+                    }
+
                     if (snapshot.empty) {
-                        console.log("Нет заказов для пользователя");
                         list.innerHTML = `
                             <div class="flex flex-col items-center justify-center py-10 text-gray-500">
                                 <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50"></i>
                                 <p>История пуста</p>
                                 <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
                             </div>`;
-                        
-                        // Скрываем кнопку удаления, если нет заказов
-                        if (buttonsContainer) {
-                            buttonsContainer.innerHTML = '';
-                        }
-                        
                         this.state.myOrders = [];
                         return;
-                    }
-
-                    // Показываем кнопку удаления, если есть заказы
-                    if (buttonsContainer) {
-                        const isSelectMode = this.state.myOrdersSelectionMode;
-                        const selectedCount = this.state.selectedMyOrders.size;
-                        buttonsContainer.innerHTML = `
-                            <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                    class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                                ${isSelectMode ? 
-                                    (selectedCount > 0 ? 
-                                        '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ' : 
-                                        '<i data-lucide="x" class="w-4 h-4"></i> ОТМЕНА') : 
-                                    '<i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ'}
-                            </button>
-                        `;
                     }
 
                     let docs = [];
                     snapshot.forEach(doc => {
                         const data = doc.data();
-                        console.log("Заказ:", data.order_key || doc.id, "статус:", data.status);
                         docs.push({ 
                             id: doc.id, 
                             ...data,
-                            // Преобразуем Firestore Timestamp в Date
-                            date: data.date ? 
-                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
-                                new Date()
+                            date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date()
                         });
                     });
                     
-                    // Сортируем по дате (на всякий случай)
                     docs.sort((a, b) => b.date - a.date);
-                    
                     this.state.myOrders = docs;
                     this.updateMyOrdersList(docs);
                     
-                }, (error) => {
-                    console.error("Ошибка при загрузке заказов:", error);
-                    const list = document.getElementById('my-orders-list');
-                    if(list) list.innerHTML = `
-                        <div class="text-center text-red-500 py-10">
-                            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
-                            <p>Не удалось загрузить заказы</p>
-                            <p class="text-xs text-gray-600 mt-2">${error.message}</p>
-                        </div>`;
                 });
             },
 
-            // Обновление списка заказов (без переустановки слушателя)
+            // Update List Helper
             updateMyOrdersList: function(docs) {
                 const list = document.getElementById('my-orders-list');
                 if (!list) return;
@@ -1530,10 +1502,7 @@
                 
                 docs.forEach(data => {
                     const date = new Date(data.date).toLocaleString('ru-RU', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        hour: '2-digit', 
-                        minute:'2-digit' 
+                        day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' 
                     });
                     
                     let statusClass = 'status-pending';
@@ -1556,7 +1525,6 @@
 
                     const isSelected = this.state.selectedMyOrders.has(data.id);
                     const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
-                    const deliveryInfo = data.delivery || {};
 
                     html += `
                         <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
@@ -1586,21 +1554,7 @@
                                             <i data-lucide="calendar" class="w-3 h-3 mr-2"></i>
                                             ${date}
                                         </div>
-                                        ${deliveryInfo.name ? `
-                                        <div class="flex items-center text-xs text-gray-400">
-                                            <i data-lucide="user" class="w-3 h-3 mr-2"></i>
-                                            ${deliveryInfo.name} • ${deliveryInfo.phone || ''}
-                                        </div>
-                                        ` : ''}
                                     </div>
-                                    
-                                    ${!isSelectMode ? `
-                                    <div class="mt-3 flex justify-end">
-                                        <button onclick="event.stopPropagation(); window.shop.showOrderDetails('${data.id}')" class="text-[10px] text-gray-500 hover:text-white uppercase tracking-wider flex items-center gap-1">
-                                            Подробнее <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                                        </button>
-                                    </div>
-                                    ` : ''}
                                 </div>
                             </div>
                         </div>
@@ -1611,13 +1565,17 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // --- Управление выбором в Моих заказах ---
+            // Toggle Selection Mode
             toggleMyOrdersSelectionMode: function() {
                 this.state.myOrdersSelectionMode = !this.state.myOrdersSelectionMode;
                 if (!this.state.myOrdersSelectionMode) {
                     this.state.selectedMyOrders.clear();
                 }
-                // Обновляем кнопку в заголовке
+                
+                // Trigger updates
+                this.renderMyOrdersFab(); // Update the big button
+                
+                // Update header button
                 const buttonsContainer = document.getElementById('my-orders-buttons');
                 if (buttonsContainer) {
                     const selectedCount = this.state.selectedMyOrders.size;
@@ -1632,10 +1590,11 @@
                         </button>
                     `;
                 }
-                // Обновляем список без переустановки слушателя
+                
                 this.updateMyOrdersList(this.state.myOrders);
             },
 
+            // Toggle Individual Item
             toggleMyOrderSelection: function(orderId) {
                 const set = this.state.selectedMyOrders;
                 if (set.has(orderId)) {
@@ -1643,10 +1602,10 @@
                 } else {
                     set.add(orderId);
                 }
-                // Обновляем только список
+                this.renderMyOrdersFab(); // Update big button visibility
                 this.updateMyOrdersList(this.state.myOrders);
                 
-                // Обновляем кнопку
+                // Update header
                 const selectedCount = this.state.selectedMyOrders.size;
                 const buttonsContainer = document.getElementById('my-orders-buttons');
                 if (buttonsContainer) {
@@ -1669,53 +1628,27 @@
                 
                 this.showConfirm(
                     "УДАЛИТЬ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count}) из вашей истории? Это действие нельзя отменить.`,
+                    `Вы уверены, что хотите удалить выбранные заказы (${count})?`,
                     async () => {
                         this.showToast(`Удаление ${count} заказов...`, "Обработка");
-                        
                         try {
                             const uid = this.state.firebaseUid;
-                            if (!uid) throw new Error("Не удалось определить пользователя");
-                            
                             const ids = Array.from(this.state.selectedMyOrders);
-                            console.log("Удаление заказов:", ids);
-                            
-                            // Удаляем из Firestore
                             const promises = ids.map(id => {
                                 const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
                                 return deleteDoc(orderRef);
                             });
-                            
                             await Promise.all(promises);
                             
-                            // Обновляем локальный список
                             this.state.myOrders = this.state.myOrders.filter(order => !ids.includes(order.id));
-                            
-                            // Очищаем выбранные
                             this.state.selectedMyOrders.clear();
-                            
-                            // Выходим из режима выбора
                             this.state.myOrdersSelectionMode = false;
                             
-                            // Обновляем список
+                            this.renderMyOrdersFab(); // Hide button
                             this.updateMyOrdersList(this.state.myOrders);
-                            
-                            // Обновляем кнопку
-                            const buttonsContainer = document.getElementById('my-orders-buttons');
-                            if (buttonsContainer) {
-                                buttonsContainer.innerHTML = `
-                                    <button onclick="window.shop.toggleMyOrdersSelectionMode()" class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i> УДАЛИТЬ
-                                    </button>
-                                `;
-                            }
-                            
-                            // Показываем уведомление
-                            this.showToast("Заказы удалены из истории", "Успешно");
-                            
+                            this.showToast("Заказы удалены", "Успешно");
                         } catch (e) {
-                            console.error("Ошибка удаления заказов:", e);
-                            this.showToast("Ошибка удаления: " + e.message, "Сбой");
+                            this.showToast("Ошибка удаления", "Сбой");
                         }
                     }
                 );
@@ -2115,11 +2048,11 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved'); document.getElementById('order-detail-modal').classList.add('hidden');" 
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" 
                                     class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
                                 ОДОБРИТЬ
                             </button>
-                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected'); document.getElementById('order-detail-modal').classList.add('hidden');" 
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" 
                                     class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                                 ОТКЛОНИТЬ
                             </button>
@@ -2134,33 +2067,46 @@
                 }
             },
 
-            // ФИКС: Упрощенная функция обновления статуса
+            // ФИКС: Упрощенная и исправленная функция обновления статуса
             updateOrderStatus: async (docId, status) => {
+                // Закрываем модалку сразу для UX
+                document.getElementById('order-detail-modal').classList.add('hidden');
+                window.shop.showToast('Обновление статуса...', 'Обработка');
+
                 try {
-                    // 1. Update Public Order
                     const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
+                    
+                    // 1. Сначала получаем документ, чтобы найти связи
+                    const docSnap = await getDoc(orderRef);
+                    if (!docSnap.exists()) {
+                         throw new Error("Заказ не найден");
+                    }
+                    const data = docSnap.data();
+
+                    // 2. Обновляем публичный заказ
                     await updateDoc(orderRef, {
                         status: status,
                         updatedAt: new Date().toISOString()
                     });
 
-                    // 2. Try to update User's Private Order
-                    const docSnap = await getDoc(orderRef);
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data.linkedUserUid && data.linkedUserOrderId) {
+                    // 3. Обновляем приватный заказ пользователя (если связь существует)
+                    if (data.linkedUserUid && data.linkedUserOrderId) {
+                        try {
                             const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId);
                             await updateDoc(userOrderRef, {
                                 status: status,
                                 updatedAt: new Date().toISOString()
                             });
+                            console.log("Приватный статус пользователя обновлен");
+                        } catch (privateErr) {
+                            console.error("Ошибка обновления приватного статуса:", privateErr);
                         }
                     }
 
-                    window.shop.showToast(`Статус изменен: ${status}`, 'Успешно');
+                    window.shop.showToast(`Статус изменен: ${status === 'approved' ? 'Одобрен' : 'Отклонен'}`, 'Успешно');
                 } catch (e) {
                      console.error(e);
-                     window.shop.showToast('Ошибка обновления', 'Сбой');
+                     window.shop.showToast('Ошибка обновления: ' + e.message, 'Сбой');
                 }
             },
 
