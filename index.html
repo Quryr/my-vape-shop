@@ -697,10 +697,11 @@
                     }
                     
                     const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
+                    // FIX: Removed { merge: true } to ensure deleted items are actually removed from Firestore
                     await setDoc(cartRef, {
                         items: window.shop.state.cart,
                         updatedAt: new Date().toISOString()
-                    }, { merge: true });
+                    });
                     
                     console.log("Cart saved to Firebase");
                 } catch (e) {
@@ -2008,7 +2009,7 @@
                         const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
                         await deleteDoc(cartRef);
                     }
-                      
+                       
                 } catch(e) { 
                     console.error("DB Error", e); 
                     window.shop.showToast("Ошибка соединения с базой", "Внимание");
