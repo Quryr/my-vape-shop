@@ -711,8 +711,7 @@
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { 
             getAuth, 
-            signInAnonymously, 
-            signInWithCustomToken,
+            signInAnonymously,
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -750,6 +749,10 @@
         const getUserOrdersRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
         const getUserOrderRef = (uid, orderId) => doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', orderId);
         const getPublicOrderRef = (orderId) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', orderId);
+        
+        // Функции для получения ссылок на документы (ИСПРАВЛЕНИЕ БАГА 1)
+        const getProductDocRef = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+        const getPromoDocRef = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', id);
 
         // ---------------------------------------------------------
         // 3. MOCK DATA
@@ -811,13 +814,12 @@
                 currentOrderId: null,
                 activePromoListener: null,
                 modalInputFixInitialized: false,
-                // Убраны ненужные состояния для "Мои заказы"
                 adminSelectionMode: false,
                 selectedAdminOrders: new Set(),
                 adminFabRendered: false
             },
 
-            // --- Инициализация фикса для полей ввода (ИСПРАВЛЕНА) ---
+            // --- Инициализация фикса для полей ввода ---
             initModalInputFix: function() {
                 if (this.state.modalInputFixInitialized) return;
                 
@@ -827,7 +829,6 @@
                             const target = mutation.target;
                             if (target.id && target.classList.contains('hidden') === false) {
                                 setTimeout(() => {
-                                    // ИСКЛЮЧАЕМ input[type="file"] из автофокуса
                                     const inputs = target.querySelectorAll('input:not([type="file"]), select, textarea');
                                     if (inputs.length > 0) {
                                         inputs[0].focus();
@@ -1611,7 +1612,7 @@
                     this.state.activePromoListener();
                 }
 
-                const promoRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', promoId);
+                const promoRef = getPromoDocRef(promoId);
                 
                 this.state.activePromoListener = onSnapshot(promoRef, (docSnap) => {
                     if (!docSnap.exists()) {
@@ -1727,12 +1728,12 @@
             },
 
             deletePromoCode: async (id) => {
-                this.showConfirm(
+                window.shop.showConfirm(
                     "УДАЛИТЬ ПРОМОКОД",
                     "Вы уверены, что хотите удалить этот промокод? Все активные активации будут отменены.",
                     async () => {
                         try {
-                            const ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', id);
+                            const ref = getPromoDocRef(id);
                             await deleteDoc(ref);
                             window.shop.showToast("Промокод удален", "Успешно");
                             
@@ -1742,13 +1743,14 @@
                                 if (window.shop.state.isCartView) window.shop.updateCartView();
                             }
                         } catch (e) {
-                            window.shop.showToast("Ошибка", "Сбой");
+                            console.error("Error deleting promo:", e);
+                            window.shop.showToast("Ошибка удаления", "Сбой");
                         }
                     }
                 );
             },
 
-            // --- ADMIN: RENDER ORDERS (ИСПРАВЛЕНА) ---
+            // --- ADMIN: RENDER ORDERS ---
             renderAdminOrders: (container) => {
                 const isSelectMode = window.shop.state.adminSelectionMode;
                 const selectedCount = window.shop.state.selectedAdminOrders.size;
@@ -1794,7 +1796,7 @@
                 }, 50);
             },
 
-            // --- RENDER ADMIN ORDERS FAB (ИСПРАВЛЕНА) ---
+            // --- RENDER ADMIN ORDERS FAB ---
             renderAdminOrdersFab: function() {
                 const isSelectMode = this.state.adminSelectionMode;
                 const selectedCount = this.state.selectedAdminOrders.size;
@@ -1923,7 +1925,7 @@
                 this.renderAdminOrdersFab();
             },
 
-            // --- ADMIN SELECTION LOGIC (ИСПРАВЛЕНА) ---
+            // --- ADMIN SELECTION LOGIC ---
             toggleAdminSelectionMode: function() {
                 this.state.adminSelectionMode = !this.state.adminSelectionMode;
                 if (!this.state.adminSelectionMode) {
@@ -2336,7 +2338,7 @@
                 this.showToast("Обновление...", "Синхронизация");
 
                 try {
-                    const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+                    const productRef = getProductDocRef(id);
                     await updateDoc(productRef, updatedProduct);
                     this.state.pendingEditImage = null;
                     this.showToast("Товар обновлен", "Успешно");
@@ -2346,14 +2348,16 @@
                 }
             },
 
-            deleteProduct: async (id) => {
-                this.showConfirm(
+            // ИСПРАВЛЕНИЕ БАГА 1: Правильное удаление товара
+            deleteProduct: function(id) {
+                console.log("Deleting product with ID:", id);
+                window.shop.showConfirm(
                     "УДАЛИТЬ ТОВАР",
                     "Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.",
                     async () => {
                         window.shop.showToast("Удаление...", "Синхронизация");
                         try {
-                            const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+                            const productRef = getProductDocRef(id);
                             await deleteDoc(productRef);
                             window.shop.showToast("Товар удален", "Успешно");
                         } catch (e) { 
