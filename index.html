@@ -741,6 +741,8 @@
         const getUserOrdersRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
         const getUserOrderRef = (uid, orderId) => doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', orderId);
         const getPublicOrderRef = (orderId) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', orderId);
+        const getProductRef = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+        const getPromoRef = (id) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', id);
 
         // ---------------------------------------------------------
         // 3. MOCK DATA
@@ -1603,7 +1605,7 @@
                     this.state.activePromoListener();
                 }
 
-                const promoRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', promoId);
+                const promoRef = getPromoRef(promoId);
                 
                 this.state.activePromoListener = onSnapshot(promoRef, (docSnap) => {
                     if (!docSnap.exists()) {
@@ -1643,48 +1645,56 @@
                     }, 100);
                     
                     // Subscribe to promo list
-                    if (!window.shop.state.adminPromoUnsubscribe) {
-                        const promosRef = getPromocodesRef();
-                        const q = query(promosRef);
-                        
-                        window.shop.state.adminPromoUnsubscribe = onSnapshot(q, (snapshot) => {
-                            const list = document.getElementById('admin-promo-list');
-                            if (!list) return;
-                            
-                            if (snapshot.empty) {
-                                list.innerHTML = '<div class="text-center text-gray-600 text-xs py-2">Нет промокодов</div>';
-                                return;
-                            }
-                            
-                            let docs = [];
-                            snapshot.forEach(doc => {
-                                docs.push({ id: doc.id, ...doc.data() });
-                            });
-                            
-                            // Sort in JS instead of Firestore query
-                            docs.sort((a, b) => {
-                                const getMs = (d) => d?.createdAt?.toMillis ? d.createdAt.toMillis() : (d?.createdAt || 0);
-                                return getMs(b) - getMs(a);
-                            });
+                    window.shop.loadAdminPromoCodes();
+                }
+            },
 
-                            let html = '';
-                            docs.forEach(data => {
-                                html += `
-                                    <div class="bg-black/40 rounded-xl p-3 border border-white/5 flex justify-between items-center">
-                                        <div>
-                                            <p class="text-sm font-bold text-white font-mono">${data.code}</p>
-                                            <p class="text-[10px] text-gray-500">Скидка: ${data.percent}% | Лимит: ${data.activations}/${data.limit}</p>
-                                        </div>
-                                        <button onclick="window.shop.deletePromoCode('${data.id}')" class="text-red-500 hover:text-red-400 p-2">
-                                            <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
-                                        </button>
-                                    </div>
-                                `;
-                            });
-                            list.innerHTML = html;
-                            if(window.lucide) window.lucide.createIcons();
-                        });
+            loadAdminPromoCodes: async function() {
+                try {
+                    const list = document.getElementById('admin-promo-list');
+                    if (!list) return;
+                    
+                    list.innerHTML = '<div class="text-center text-gray-600 text-xs py-2">Загрузка...</div>';
+                    
+                    const promosRef = getPromocodesRef();
+                    const snapshot = await getDocs(promosRef);
+                    
+                    if (snapshot.empty) {
+                        list.innerHTML = '<div class="text-center text-gray-600 text-xs py-4">Нет промокодов</div>';
+                        return;
                     }
+                    
+                    let docs = [];
+                    snapshot.forEach(doc => {
+                        docs.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // Sort in JS instead of Firestore query
+                    docs.sort((a, b) => {
+                        const getMs = (d) => d?.createdAt?.toMillis ? d.createdAt.toMillis() : (d?.createdAt || 0);
+                        return getMs(b) - getMs(a);
+                    });
+
+                    let html = '';
+                    docs.forEach(data => {
+                        html += `
+                            <div class="bg-black/40 rounded-xl p-3 border border-white/5 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm font-bold text-white font-mono">${data.code}</p>
+                                    <p class="text-[10px] text-gray-500">Скидка: ${data.percent}% | Лимит: ${data.activations}/${data.limit}</p>
+                                </div>
+                                <button onclick="window.shop.deletePromoCode('${data.id}')" class="text-red-500 hover:text-red-400 p-2">
+                                    <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+                    list.innerHTML = html;
+                    if(window.lucide) window.lucide.createIcons();
+                } catch (e) {
+                    console.error("Error loading promocodes:", e);
+                    const list = document.getElementById('admin-promo-list');
+                    if (list) list.innerHTML = '<div class="text-center text-red-500 text-xs py-4">Ошибка загрузки</div>';
                 }
             },
 
@@ -1712,21 +1722,27 @@
                     document.getElementById('new-promo-code').value = '';
                     document.getElementById('new-promo-percent').value = '';
                     document.getElementById('new-promo-limit').value = '';
+                    
+                    // Обновляем список
+                    window.shop.loadAdminPromoCodes();
                 } catch (e) {
                     console.error("Promo Create Error:", e);
                     window.shop.showToast("Ошибка создания", "Сбой");
                 }
             },
 
-            deletePromoCode: async (id) => {
+            deletePromoCode: async function(id) {
                 this.showConfirm(
                     "УДАЛИТЬ ПРОМОКОД",
                     "Вы уверены, что хотите удалить этот промокод? Все активные активации будут отменены.",
                     async () => {
                         try {
-                            const ref = doc(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes', id);
+                            const ref = getPromoRef(id);
                             await deleteDoc(ref);
                             window.shop.showToast("Промокод удален", "Успешно");
+                            
+                            // Обновляем список
+                            window.shop.loadAdminPromoCodes();
                             
                             // Сбрасываем активный промокод если он был удален
                             if (window.shop.state.activePromo && window.shop.state.activePromo.id === id) {
@@ -1734,7 +1750,8 @@
                                 if (window.shop.state.isCartView) window.shop.updateCartView();
                             }
                         } catch (e) {
-                            window.shop.showToast("Ошибка", "Сбой");
+                            console.error("Delete promo error:", e);
+                            window.shop.showToast("Ошибка удаления", "Сбой");
                         }
                     }
                 );
@@ -2139,27 +2156,17 @@
                             </button>
                             <h2 class="text-xl font-black italic text-white">ЗАКАЗЫ <span class="text-red-500">ADMIN</span></h2>
                         </div>
-                        <button onclick="window.shop.toggleAdminSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${isSelectMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ'}
-                        </button>
+                        <div id="admin-orders-buttons"></div>
                     </div>
                     <div id="admin-orders-list" class="space-y-3 pb-32">
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
                     </div>
                     
-                    ${isSelectMode ? `
-                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
-                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}">
-                            <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
-                            УДАЛИТЬ (${selectedCount})
-                        </button>
-                    </div>` : ''}
+                    <div id="admin-orders-fab-container"></div>
                 `;
+                
+                this.updateAdminOrdersButtons();
+                this.renderAdminOrdersFab();
                 
                 if (!window.shop.state.ordersListenerUnsubscribe) {
                     const ordersCollection = getOrdersRef();
@@ -2171,6 +2178,47 @@
                 } else {
                     window.shop.updateAdminOrdersList();
                 }
+            },
+
+            updateAdminOrdersButtons: function() {
+                const buttonsContainer = document.getElementById('admin-orders-buttons');
+                if (!buttonsContainer) return;
+                
+                const isSelectMode = this.state.adminSelectionMode;
+                const selectedCount = this.state.selectedAdminOrders.size;
+                
+                buttonsContainer.innerHTML = `
+                    <button onclick="window.shop.toggleAdminSelectionMode()" 
+                            class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                        ${isSelectMode ? 
+                            (selectedCount > 0 ? 
+                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
+                                '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
+                            '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ'}
+                    </button>
+                `;
+                if(window.lucide) window.lucide.createIcons();
+            },
+
+            renderAdminOrdersFab: function() {
+                const container = document.getElementById('admin-orders-fab-container');
+                if (!container) return;
+
+                const isSelectMode = this.state.adminSelectionMode;
+                const selectedCount = this.state.selectedAdminOrders.size;
+
+                if (isSelectMode && selectedCount > 0) {
+                    container.innerHTML = `
+                        <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
+                            <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all">
+                                <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
+                                УДАЛИТЬ (${selectedCount})
+                            </button>
+                        </div>`;
+                } else {
+                    container.innerHTML = '';
+                }
+                if(window.lucide) window.lucide.createIcons();
             },
 
             updateAdminOrdersList: function(snapshot = null) {
@@ -2275,7 +2323,8 @@
                     this.state.selectedAdminOrders.clear();
                 }
                 this.updateAdminOrdersList();
-                this.updateAdminSelectionButton();
+                this.updateAdminOrdersButtons();
+                this.renderAdminOrdersFab();
             },
 
             toggleOrderSelection: function(docId) {
@@ -2286,25 +2335,8 @@
                     set.add(docId);
                 }
                 this.updateAdminOrdersList();
-                this.updateAdminSelectionButton();
-            },
-
-            updateAdminSelectionButton: function() {
-                const selectedCount = this.state.selectedAdminOrders.size;
-                const button = document.querySelector('button[onclick="window.shop.toggleAdminSelectionMode()"]');
-                if (button) {
-                    button.innerHTML = this.state.adminSelectionMode ? 
-                        (selectedCount > 0 ? 
-                            `<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ (${selectedCount})` : 
-                            '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
-                        '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ';
-                    
-                    if (this.state.adminSelectionMode && selectedCount > 0) {
-                        button.classList.add('bg-red-500/20');
-                    } else {
-                        button.classList.remove('bg-red-500/20');
-                    }
-                }
+                this.updateAdminOrdersButtons();
+                this.renderAdminOrdersFab();
             },
 
             deleteSelectedOrders: function() {
@@ -2333,6 +2365,8 @@
                             this.state.adminSelectionMode = false;
                             
                             this.updateAdminOrdersList();
+                            this.updateAdminOrdersButtons();
+                            this.renderAdminOrdersFab();
                             this.showToast("Заказы удалены", "Успешно");
                             
                         } catch (e) {
@@ -2669,7 +2703,7 @@
                 this.showToast("Обновление...", "Синхронизация");
 
                 try {
-                    const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+                    const productRef = getProductRef(id);
                     await updateDoc(productRef, updatedProduct);
                     this.state.pendingEditImage = null;
                     this.showToast("Товар обновлен", "Успешно");
@@ -2679,19 +2713,19 @@
                 }
             },
 
-            deleteProduct: async (id) => {
+            deleteProduct: async function(id) {
                 this.showConfirm(
                     "УДАЛИТЬ ТОВАР",
                     "Вы уверены, что хотите удалить этот товар? Это действие нельзя отменить.",
                     async () => {
-                        window.shop.showToast("Удаление...", "Синхронизация");
+                        this.showToast("Удаление...", "Синхронизация");
                         try {
-                            const productRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'products', id);
+                            const productRef = getProductRef(id);
                             await deleteDoc(productRef);
-                            window.shop.showToast("Товар удален", "Успешно");
+                            this.showToast("Товар удален", "Успешно");
                         } catch (e) { 
                             console.error("Delete failed", e); 
-                            window.shop.showToast("Ошибка удаления", "Сбой");
+                            this.showToast("Ошибка удаления", "Сбой");
                         }
                     }
                 );
