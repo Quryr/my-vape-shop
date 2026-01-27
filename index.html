@@ -687,11 +687,12 @@
         import { 
             getAuth, 
             signInAnonymously, 
+            signInWithCustomToken,
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // Конфигурация Firebase
-        const FIREBASE_CONFIG = {
+        // Конфигурация Firebase - UPDATED TO USE INJECTED CONFIG
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCJ9Uwi9GHAU7LF6t-Wln0NBsIE4uQ6nVw",
             authDomain: "qury-60cce.firebaseapp.com",
             projectId: "qury-60cce",
@@ -705,7 +706,7 @@
         const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'qury-60cce';
 
         // Инициализация Firebase
-        const app = initializeApp(FIREBASE_CONFIG);
+        const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         const ADMIN_ID = "1262669099";
@@ -829,7 +830,8 @@
                     const uid = auth.currentUser ? auth.currentUser.uid : null;
                     if (!uid) return;
                     
-                    const userRef = doc(db, 'artifacts', APP_ID, 'users', uid);
+                    // UPDATED: Use subcollection path to comply with Rule 1 permissions
+                    const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
                     await setDoc(userRef, {
                         telegramId: tgUser.id,
                         firstName: tgUser.first_name,
@@ -988,7 +990,8 @@
                     });
                 }
 
-                // Ждем, пока Firebase опознает пользователя
+                // --- PROPER AUTHENTICATION FLOW FOR CANVAS ---
+                // Listener setup first
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         console.log("Юзер зашел:", user.uid);
@@ -1008,11 +1011,23 @@
                             document.getElementById('app').classList.remove('opacity-0');
                             window.shop.switchView('store');
                         }, 500);
-                    } else {
-                        console.log("No user, signing in anonymously...");
-                        await signInAnonymously(auth);
                     }
                 });
+
+                // Trigger sign-in logic
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    console.error("Auth failed:", e);
+                    // Attempt anonymous fallback if custom token fails
+                    if (!auth.currentUser) {
+                        try { await signInAnonymously(auth); } catch(ex) { console.error("Anonymous auth failed", ex); }
+                    }
+                }
                 
                 setTimeout(() => { 
                     if(window.lucide) {
