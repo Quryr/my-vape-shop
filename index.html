@@ -691,8 +691,8 @@
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // Конфигурация Firebase - UPDATED TO USE INJECTED CONFIG
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+        // Конфигурация Firebase
+        const firebaseConfig = {
             apiKey: "AIzaSyCJ9Uwi9GHAU7LF6t-Wln0NBsIE4uQ6nVw",
             authDomain: "qury-60cce.firebaseapp.com",
             projectId: "qury-60cce",
@@ -702,8 +702,7 @@
             measurementId: "G-2NLYNP5WQZ"
         };
 
-        // Try to get App ID from environment or use fallback
-        // FIXED: Hardcoded APP_ID to match security rules regardless of environment injection
+        // Ключевое исправление: жестко задаем APP_ID
         const APP_ID = 'qury-60cce';
 
         // Инициализация Firebase
@@ -713,10 +712,24 @@
         const ADMIN_ID = "1262669099";
 
         // ---------------------------------------------------------
-        // 2. GLOBAL CONFIGURATION & SAFETY
+        // 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПУТЕЙ
         // ---------------------------------------------------------
         
-        // Russian Data (Used if Firestore fails or is empty)
+        // Функции для правильных путей
+        const getProductsRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+        const getPromocodesRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+        const getOrdersRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
+        
+        const getUserProfileRef = (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
+        const getUserCartRef = (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
+        const getUserOrdersRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+        const getUserOrderRef = (uid, orderId) => doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', orderId);
+        const getPublicOrderRef = (orderId) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', orderId);
+
+        // ---------------------------------------------------------
+        // 3. MOCK DATA
+        // ---------------------------------------------------------
+        
         const MOCK_PRODUCTS = [
             { name: "Neon Pod X", price: 2500, category: "Pod-устройства", image: "zap", createdAt: 1700000000000 },
             { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", createdAt: 1700000000001 },
@@ -742,7 +755,7 @@
         }, 3500);
 
         // ---------------------------------------------------------
-        // 3. CORE APPLICATION LOGIC
+        // 4. CORE APPLICATION LOGIC
         // ---------------------------------------------------------
 
         window.shop = {
@@ -772,9 +785,11 @@
                 isProcessingOrder: false,
                 confirmCallback: null,
                 adminOrders: [],
-                // Promo Codes Logic
-                activePromo: null, // { code: "ABC", percent: 10 }
-                adminPromoUnsubscribe: null
+                activePromo: null,
+                adminPromoUnsubscribe: null,
+                deliveryInfo: null,
+                currentTotal: 0,
+                currentOrderId: null
             },
 
             // --- HELPER: Parse User Data from ANYWHERE ---
@@ -828,11 +843,13 @@
             // --- Save User Profile to Firebase ---
             saveUserProfile: async (tgUser) => {
                 try {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
-                    if (!uid) return;
+                    const uid = window.shop.state.firebaseUid;
+                    if (!uid) {
+                        console.log("No UID for profile save");
+                        return;
+                    }
                     
-                    // UPDATED: Use subcollection path to comply with Rule 1 permissions
-                    const userRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
+                    const userRef = getUserProfileRef(uid);
                     await setDoc(userRef, {
                         telegramId: tgUser.id,
                         firstName: tgUser.first_name,
@@ -842,58 +859,55 @@
                         lastSeen: new Date().toISOString()
                     }, { merge: true });
                     
-                    console.log("User profile saved to Firebase");
+                    console.log("✅ User profile saved");
                 } catch (e) {
-                    console.error("Failed to save user profile:", e);
+                    console.error("❌ Failed to save user profile:", e);
                 }
             },
 
-            // --- Save Cart to Firebase for user (V10 MODULAR VERSION) ---
+            // --- Save Cart to Firebase for user ---
             saveCartToFirebase: async () => {
                 try {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    const uid = window.shop.state.firebaseUid;
                     if (!uid) {
                         console.log("No UID for cart save");
                         return;
                     }
                     
-                    const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
+                    const cartRef = getUserCartRef(uid);
                     await setDoc(cartRef, {
                         items: window.shop.state.cart,
                         updatedAt: new Date().toISOString()
                     });
                     
-                    console.log("Cart saved to Firebase");
+                    console.log("✅ Cart saved to Firebase");
                 } catch (e) {
-                    console.error("Failed to save cart to Firebase:", e);
+                    console.error("❌ Failed to save cart:", e);
                 }
             },
 
-            // --- Load Cart from Firebase for user (V10 MODULAR VERSION) ---
+            // --- Load Cart from Firebase for user ---
             loadCartFromFirebase: async () => {
                 try {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
+                    const uid = window.shop.state.firebaseUid;
                     if (!uid) {
                         console.log("No UID for cart load");
                         return;
                     }
                     
-                    const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
+                    const cartRef = getUserCartRef(uid);
                     const cartDoc = await getDoc(cartRef);
                     
                     if (cartDoc.exists()) {
                         const cartData = cartDoc.data();
-                        console.log("Cart data loaded:", cartData);
                         if (cartData.items) {
                             window.shop.state.cart = cartData.items;
                             window.shop.updateCartBadge();
-                            console.log("Cart loaded from Firebase");
+                            console.log("✅ Cart loaded from Firebase");
                         }
-                    } else {
-                        console.log("No cart document found");
                     }
                 } catch (e) {
-                    console.error("Failed to load cart from Firebase:", e);
+                    console.error("❌ Failed to load cart:", e);
                 }
             },
 
@@ -903,29 +917,27 @@
                     window.shop.state.cartListenerUnsubscribe();
                 }
                 
-                const uid = auth.currentUser ? auth.currentUser.uid : null;
+                const uid = window.shop.state.firebaseUid;
                 if (!uid) return;
                 
-                const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
+                const cartRef = getUserCartRef(uid);
                 
                 window.shop.state.cartListenerUnsubscribe = onSnapshot(cartRef, (doc) => {
                     if (doc.exists()) {
                         const cartData = doc.data();
                         if (cartData.items) {
-                            if (JSON.stringify(cartData.items) !== JSON.stringify(window.shop.state.cart)) {
-                                window.shop.state.cart = cartData.items;
-                                window.shop.updateCartBadge();
-                                
-                                if (window.shop.state.isCartView && !window.shop.state.cartRendering) {
-                                    setTimeout(() => {
-                                        window.shop.updateCartView();
-                                    }, 50);
-                                }
+                            window.shop.state.cart = cartData.items;
+                            window.shop.updateCartBadge();
+                            
+                            if (window.shop.state.isCartView && !window.shop.state.cartRendering) {
+                                setTimeout(() => {
+                                    window.shop.updateCartView();
+                                }, 50);
                             }
                         }
                     }
                 }, (error) => {
-                    console.error("Cart listener error:", error);
+                    console.error("❌ Cart listener error:", error);
                 });
             },
 
@@ -942,15 +954,7 @@
                 const parsed = window.shop.parseUser();
                 let tgUser = parsed.user;
                 
-                window.shop.debugInfo = {
-                    parsedSource: parsed.source,
-                    rawData: tgUser,
-                    initData: tg.initData,
-                    hash: window.location.hash
-                };
-
                 window.shop.state.user = tgUser;
-                
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
                 console.log("Is admin?", window.shop.state.isAdmin);
 
@@ -969,7 +973,7 @@
                 const phoneInput = document.getElementById('del-phone');
                 if (phoneInput) {
                     phoneInput.addEventListener('input', (e) => {
-                        let val = e.target.value.replace(/\D/g, ''); // keep only numbers
+                        let val = e.target.value.replace(/\D/g, '');
                         
                         // Force start with 7
                         if (val.length > 0 && val[0] !== '7') {
@@ -991,11 +995,10 @@
                     });
                 }
 
-                // --- PROPER AUTHENTICATION FLOW FOR CANVAS ---
-                // Listener setup first
+                // --- PROPER AUTHENTICATION FLOW ---
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        console.log("Юзер зашел:", user.uid);
+                        console.log("✅ Firebase user authenticated:", user.uid);
                         window.shop.state.firebaseUid = user.uid;
                         
                         await window.shop.saveUserProfile(tgUser);
@@ -1012,22 +1015,29 @@
                             document.getElementById('app').classList.remove('opacity-0');
                             window.shop.switchView('store');
                         }, 500);
+                    } else {
+                        console.log("⚠️ No Firebase user, signing in anonymously...");
+                        try {
+                            await signInAnonymously(auth);
+                        } catch (e) {
+                            console.error("❌ Anonymous auth failed:", e);
+                            // Все равно показываем интерфейс
+                            const loader = document.getElementById('loader');
+                            loader.style.opacity = '0';
+                            setTimeout(() => {
+                                loader.style.display = 'none';
+                                document.getElementById('app').classList.remove('opacity-0');
+                                window.shop.switchView('store');
+                            }, 500);
+                        }
                     }
                 });
-
-                // Trigger sign-in logic
+                
+                // Инициируем аутентификацию
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    await signInAnonymously(auth);
                 } catch (e) {
-                    console.error("Auth failed:", e);
-                    // Attempt anonymous fallback if custom token fails
-                    if (!auth.currentUser) {
-                        try { await signInAnonymously(auth); } catch(ex) { console.error("Anonymous auth failed", ex); }
-                    }
+                    console.error("Initial auth failed:", e);
                 }
                 
                 setTimeout(() => { 
@@ -1043,13 +1053,11 @@
                     window.shop.state.listenerUnsubscribe();
                 }
 
-                const productsCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-                // Remove orderBy from query to fix permission/index issues
-                const q = query(productsCollection);
+                const q = query(getProductsRef());
                 
                 window.shop.state.listenerUnsubscribe = onSnapshot(q, async (snapshot) => {
                     if (snapshot.empty) {
-                        console.log("DB Empty.");
+                        console.log("📭 DB Empty - no products");
                         window.shop.state.products = [];
                         window.shop.renderStore();
                         return; 
@@ -1074,7 +1082,7 @@
                          return tB - tA; // Descending
                     });
                     
-                    console.log("Realtime Update Received:", dbProducts.length);
+                    console.log("🔄 Realtime Update Received:", dbProducts.length);
                     window.shop.state.products = dbProducts;
                     
                     if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
@@ -1088,7 +1096,7 @@
                     if(window.lucide) window.lucide.createIcons();
                     
                 }, (error) => {
-                    console.error("Realtime listener error:", error);
+                    console.error("❌ Products listener error:", error);
                     window.shop.showToast("Ошибка синхронизации", "Внимание");
                 });
             },
@@ -1102,7 +1110,7 @@
                             window.shop.showToast("Восстановление...", "Синхронизация");
 
                             const batch = writeBatch(db);
-                            const colRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                            const colRef = getProductsRef();
                             
                             const snapshot = await getDocs(colRef);
                             snapshot.forEach(docSnap => {
@@ -1159,6 +1167,7 @@
                         "DETECTED_USER_ID": window.shop.state.user?.id,
                         "IS_ADMIN_BOOL": window.shop.state.isAdmin,
                         "FIREBASE_AUTH": auth.currentUser ? auth.currentUser.uid : 'Not authenticated',
+                        "FIREBASE_UID": window.shop.state.firebaseUid,
                         "PRODUCTS_COUNT": window.shop.state.products.length,
                         "CART_ITEMS": window.shop.state.cart
                     };
@@ -1459,8 +1468,6 @@
                             <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
                          </div>
                     </div>
-                    
-                    <!-- Кнопка очистки кэша удалена -->
                 `;
                 
                 if(window.lucide) window.lucide.createIcons();
@@ -1478,8 +1485,7 @@
                 window.shop.showToast("Проверка промокода...", "Загрузка");
 
                 try {
-                    // Используем getDocs без where, чтобы избежать ошибок индексации, и фильтруем в JS
-                    const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+                    const promosRef = getPromocodesRef();
                     const snapshot = await getDocs(promosRef);
 
                     if (snapshot.empty) {
@@ -1522,7 +1528,7 @@
 
                 } catch (e) {
                     console.error("Promo Error:", e);
-                    window.shop.showToast("Ошибка проверки: " + e.message, "Сбой");
+                    window.shop.showToast("Ошибка проверки", "Сбой");
                 }
             },
 
@@ -1534,8 +1540,7 @@
                 if (!modal.classList.contains('hidden')) {
                     // Subscribe to promo list
                     if (!window.shop.state.adminPromoUnsubscribe) {
-                        const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
-                        // Remove orderBy to fix permission errors
+                        const promosRef = getPromocodesRef();
                         const q = query(promosRef);
                         
                         window.shop.state.adminPromoUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -1590,7 +1595,7 @@
                 }
 
                 try {
-                    const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
+                    const promosRef = getPromocodesRef();
                     await addDoc(promosRef, {
                         code,
                         percent,
@@ -1605,7 +1610,7 @@
                     document.getElementById('new-promo-limit').value = '';
                 } catch (e) {
                     console.error("Promo Create Error:", e);
-                    window.shop.showToast("Ошибка создания: " + e.message, "Сбой");
+                    window.shop.showToast("Ошибка создания", "Сбой");
                 }
             },
 
@@ -1683,8 +1688,7 @@
                     return;
                 }
 
-                const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
-                // Remove orderBy to fix permission errors
+                const ordersCollection = getUserOrdersRef(uid);
                 const q = query(ordersCollection);
                 
                 this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -1888,11 +1892,11 @@
                         if (buttonsContainer) buttonsContainer.innerHTML = '';
                         
                         try {
-                            const uid = this.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
+                            const uid = this.state.firebaseUid;
                             if (!uid) return;
 
                             const promises = idsToDelete.map(id => {
-                                const orderRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', id);
+                                const orderRef = getUserOrderRef(uid, id);
                                 return deleteDoc(orderRef);
                             });
                             await Promise.all(promises);
@@ -2044,8 +2048,7 @@
                 `;
                 
                 if (!window.shop.state.ordersListenerUnsubscribe) {
-                    const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
-                    // Remove orderBy to fix permission errors
+                    const ordersCollection = getOrdersRef();
                     const q = query(ordersCollection);
                     
                     window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -2202,7 +2205,7 @@
                         
                         try {
                             const promises = Array.from(this.state.selectedAdminOrders).map(id => {
-                                const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', id);
+                                const orderRef = getPublicOrderRef(id);
                                 return deleteDoc(orderRef);
                             });
                             
@@ -2228,7 +2231,7 @@
 
             openOrderDetails: async (docId) => {
                 try {
-                    const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
+                    const orderRef = getPublicOrderRef(docId);
                     const docSnap = await getDoc(orderRef);
                     if (!docSnap.exists()) return;
                     
@@ -2295,7 +2298,7 @@
                 window.shop.showToast('Обновление статуса...', 'Обработка');
 
                 try {
-                    const orderRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', docId);
+                    const orderRef = getPublicOrderRef(docId);
                     
                     const docSnap = await getDoc(orderRef);
                     if (!docSnap.exists()) {
@@ -2310,7 +2313,7 @@
 
                     if (data.linkedUserUid && data.linkedUserOrderId) {
                         try {
-                            const userOrderRef = doc(db, 'artifacts', APP_ID, 'users', data.linkedUserUid, 'orders', data.linkedUserOrderId);
+                            const userOrderRef = getUserOrderRef(data.linkedUserUid, data.linkedUserOrderId);
                             await updateDoc(userOrderRef, {
                                 status: status,
                                 updatedAt: new Date().toISOString()
@@ -2512,12 +2515,12 @@
                 window.shop.showToast("Сохранение...", "Синхронизация");
 
                 try {
-                    const productsCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
+                    const productsCollection = getProductsRef();
                     await addDoc(productsCollection, newProduct);
                     window.shop.showToast("Товар добавлен", "Успешно");
                 } catch (e) {
                     console.error("Save failed", e);
-                    window.shop.showToast("Ошибка сохранения: " + e.message, "Сбой");
+                    window.shop.showToast("Ошибка сохранения", "Сбой");
                 }
             },
 
@@ -2549,7 +2552,7 @@
                     this.showToast("Товар обновлен", "Успешно");
                 } catch (e) {
                     console.error("Update failed", e);
-                    this.showToast("Ошибка обновления: " + e.message, "Сбой");
+                    this.showToast("Ошибка обновления", "Сбой");
                 }
             },
 
@@ -2565,7 +2568,7 @@
                             window.shop.showToast("Товар удален", "Успешно");
                         } catch (e) { 
                             console.error("Delete failed", e); 
-                            window.shop.showToast("Ошибка удаления: " + e.message, "Сбой");
+                            window.shop.showToast("Ошибка удаления", "Сбой");
                         }
                     }
                 );
@@ -2647,7 +2650,7 @@
                 }
 
                 const now = new Date();
-                const uid = window.shop.state.firebaseUid || (auth.currentUser ? auth.currentUser.uid : null);
+                const uid = window.shop.state.firebaseUid;
                 
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
@@ -2663,18 +2666,20 @@
                 };
 
                 try {
+                    // Сохраняем в историю пользователя
                     let userOrderDocId = null;
-
                     if (uid) {
                         try {
-                            const userOrdersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+                            const userOrdersCollection = getUserOrdersRef(uid);
                             const userOrderRef = await addDoc(userOrdersCollection, orderBase);
                             userOrderDocId = userOrderRef.id;
+                            console.log("✅ Order saved to user history");
                         } catch(innerE) {
-                            console.error("Ошибка сохранения в историю пользователя:", innerE);
+                            console.error("❌ Error saving to user history:", innerE);
                         }
                     }
 
+                    // Сохраняем в публичные заказы
                     const publicOrder = {
                         ...orderBase,
                         linkedUserUid: uid,
@@ -2683,44 +2688,57 @@
                         userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
                     };
                     
-                    const publicOrdersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
+                    const publicOrdersCollection = getOrdersRef();
                     await addDoc(publicOrdersCollection, publicOrder);
+                    console.log("✅ Order saved to public collection");
                     
-                    // Increment promo activation count
+                    // Обновляем счетчик промокода
                     if (window.shop.state.activePromo) {
-                         const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
-                         const q = query(promosRef, where("code", "==", window.shop.state.activePromo.code));
-                         const snap = await getDocs(q);
-                         snap.forEach(async (d) => {
-                             await updateDoc(d.ref, { activations: d.data().activations + 1 });
-                         });
+                        try {
+                            const promosRef = getPromocodesRef();
+                            const q = query(promosRef, where("code", "==", window.shop.state.activePromo.code));
+                            const snap = await getDocs(q);
+                            snap.forEach(async (d) => {
+                                await updateDoc(d.ref, { 
+                                    activations: (d.data().activations || 0) + 1 
+                                });
+                                console.log("✅ Promo activation counter updated");
+                            });
+                        } catch (promoError) {
+                            console.error("❌ Error updating promo:", promoError);
+                        }
                     }
 
+                    // Очищаем корзину
                     if (uid) {
-                        const cartRef = doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
-                        await deleteDoc(cartRef);
+                        try {
+                            const cartRef = getUserCartRef(uid);
+                            await deleteDoc(cartRef);
+                            console.log("✅ Cart cleared after order");
+                        } catch (cartError) {
+                            console.error("❌ Error clearing cart:", cartError);
+                        }
                     }
                         
                 } catch(e) { 
-                    console.error("Ошибка базы данных при создании заказа:", e); 
+                    console.error("❌ Database error creating order:", e); 
                     window.shop.state.isProcessingOrder = false;
                     if (completeBtn) {
                         completeBtn.disabled = false;
                         completeBtn.innerHTML = `<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5"></i>`;
                         if(window.lucide) window.lucide.createIcons();
                     }
-                    window.shop.showToast("Ошибка соединения с базой: " + e.message, "Внимание");
+                    window.shop.showToast("Ошибка соединения с базой", "Внимание");
                     return;
                 }
 
+                // Успешное завершение
                 document.getElementById('checkout-modal').classList.add('hidden');
                 window.shop.state.cart = {};
-                window.shop.state.activePromo = null; // Reset promo
-
+                window.shop.state.activePromo = null;
                 window.shop.updateCartBadge();
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
-                
                 window.shop.state.isProcessingOrder = false;
 
                 if (window.shop.state.isCartView) {
