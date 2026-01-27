@@ -703,7 +703,8 @@
         };
 
         // Try to get App ID from environment or use fallback
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'qury-60cce';
+        // FIXED: Hardcoded APP_ID to match security rules regardless of environment injection
+        const APP_ID = 'qury-60cce';
 
         // Инициализация Firebase
         const app = initializeApp(firebaseConfig);
@@ -1043,7 +1044,8 @@
                 }
 
                 const productsCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'products');
-                const q = query(productsCollection, orderBy('createdAt', 'desc'));
+                // Remove orderBy from query to fix permission/index issues
+                const q = query(productsCollection);
                 
                 window.shop.state.listenerUnsubscribe = onSnapshot(q, async (snapshot) => {
                     if (snapshot.empty) {
@@ -1063,6 +1065,13 @@
                                 (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
                                 0
                         });
+                    });
+                    
+                    // Sort in JS instead of Firestore query
+                    dbProducts.sort((a, b) => {
+                         const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                         const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                         return tB - tA; // Descending
                     });
                     
                     console.log("Realtime Update Received:", dbProducts.length);
@@ -1526,7 +1535,8 @@
                     // Subscribe to promo list
                     if (!window.shop.state.adminPromoUnsubscribe) {
                         const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
-                        const q = query(promosRef, orderBy('createdAt', 'desc'));
+                        // Remove orderBy to fix permission errors
+                        const q = query(promosRef);
                         
                         window.shop.state.adminPromoUnsubscribe = onSnapshot(q, (snapshot) => {
                             const list = document.getElementById('admin-promo-list');
@@ -1537,16 +1547,26 @@
                                 return;
                             }
                             
-                            let html = '';
+                            let docs = [];
                             snapshot.forEach(doc => {
-                                const data = doc.data();
+                                docs.push({ id: doc.id, ...doc.data() });
+                            });
+                            
+                            // Sort in JS instead of Firestore query
+                            docs.sort((a, b) => {
+                                const getMs = (d) => d?.createdAt?.toMillis ? d.createdAt.toMillis() : (d?.createdAt || 0);
+                                return getMs(b) - getMs(a);
+                            });
+
+                            let html = '';
+                            docs.forEach(data => {
                                 html += `
                                     <div class="bg-black/40 rounded-xl p-3 border border-white/5 flex justify-between items-center">
                                         <div>
                                             <p class="text-sm font-bold text-white font-mono">${data.code}</p>
                                             <p class="text-[10px] text-gray-500">Скидка: ${data.percent}% | Лимит: ${data.activations}/${data.limit}</p>
                                         </div>
-                                        <button onclick="window.shop.deletePromoCode('${doc.id}')" class="text-red-500 hover:text-red-400 p-2">
+                                        <button onclick="window.shop.deletePromoCode('${data.id}')" class="text-red-500 hover:text-red-400 p-2">
                                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                                         </button>
                                     </div>
@@ -1664,7 +1684,8 @@
                 }
 
                 const ordersCollection = collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
-                const q = query(ordersCollection, orderBy('date', 'desc'));
+                // Remove orderBy to fix permission errors
+                const q = query(ordersCollection);
                 
                 this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
                     const list = document.getElementById('my-orders-list');
@@ -1712,7 +1733,9 @@
                         });
                     });
                     
+                    // Sort in JS instead of Firestore query
                     docs.sort((a, b) => b.date - a.date);
+                    
                     this.state.myOrders = docs;
                     this.updateMyOrdersList(docs);
                     
@@ -2022,7 +2045,8 @@
                 
                 if (!window.shop.state.ordersListenerUnsubscribe) {
                     const ordersCollection = collection(db, 'artifacts', APP_ID, 'public', 'data', 'orders');
-                    const q = query(ordersCollection, orderBy('date', 'desc'));
+                    // Remove orderBy to fix permission errors
+                    const q = query(ordersCollection);
                     
                     window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
                         window.shop.updateAdminOrdersList(snapshot);
@@ -2054,6 +2078,9 @@
                                 new Date()
                         });
                     });
+                    
+                    // Sort in JS instead of Firestore query
+                    docs.sort((a, b) => b.date - a.date);
                     
                     this.state.adminOrders = docs;
                 }
