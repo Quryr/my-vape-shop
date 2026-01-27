@@ -365,7 +365,8 @@
         
         <!-- Header -->
         <header class="flex justify-between items-center mb-6 pt-2">
-            <div onclick="window.shop.switchView('store')" class="cursor-pointer">
+            <!-- Клик по логотипу убран, как и просили -->
+            <div class="select-none">
                 <h1 class="text-2xl font-black italic tracking-tighter text-white">VΛPOR <span class="text-green-500 neon-text-green">CLOUD</span></h1>
                 <p class="text-[10px] text-gray-500 tracking-[0.2em] uppercase font-semibold">Premium Store</p>
             </div>
@@ -561,18 +562,24 @@
 
             <div class="space-y-4">
                 <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Имя</label>
-                    <input type="text" id="del-name" placeholder="Как к вам обращаться" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше Имя (без цифр)</label>
+                    <input type="text" id="del-name" placeholder="Как к вам обращаться" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700" oninput="this.value = this.value.replace(/[0-9]/g, '')">
                 </div>
                 
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Тел</label>
-                    <input type="tel" id="del-phone" placeholder="+7..." class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="col-span-2">
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Номер телефона</label>
+                        <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Возраст</label>
+                        <input type="number" id="del-age" placeholder="18+" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center">
+                    </div>
                 </div>
 
                 <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Контакт</label>
-                    <input type="text" id="del-contact" placeholder="@username или ссылка" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
+                    <input type="text" id="del-contact" placeholder="Например: @username" class="w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
                 </div>
 
                 <div>
@@ -694,7 +701,8 @@
             measurementId: "G-2NLYNP5WQZ"
         };
 
-        const APP_ID = 'qury-60cce';
+        // Try to get App ID from environment or use fallback
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'qury-60cce';
 
         // Инициализация Firebase
         const app = initializeApp(FIREBASE_CONFIG);
@@ -952,6 +960,32 @@
                     document.getElementById('admin-add-btn').classList.remove('hidden');
                 } else {
                     document.getElementById('admin-add-btn').classList.add('hidden');
+                }
+                
+                // Phone Input Masking Listener
+                const phoneInput = document.getElementById('del-phone');
+                if (phoneInput) {
+                    phoneInput.addEventListener('input', (e) => {
+                        let val = e.target.value.replace(/\D/g, ''); // keep only numbers
+                        
+                        // Force start with 7
+                        if (val.length > 0 && val[0] !== '7') {
+                             val = '7' + val;
+                        }
+                        // Limit length (7 + 10 digits = 11 digits total)
+                        if (val.length > 11) val = val.substring(0, 11);
+
+                        // Format output
+                        if (val.length > 0) {
+                            e.target.value = '+' + val;
+                        } else {
+                            e.target.value = '';
+                        }
+                    });
+                    
+                    phoneInput.addEventListener('focus', (e) => {
+                        if(!e.target.value) e.target.value = '+7';
+                    });
                 }
 
                 // Ждем, пока Firebase опознает пользователя
@@ -1402,9 +1436,7 @@
                          </div>
                     </div>
                     
-                    <button onclick="window.shop.clearCache()" class="mt-6 w-full py-3 bg-white/5 hover:bg-red-500/20 text-gray-500 hover:text-red-400 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
-                         <i data-lucide="trash" class="w-4 h-4"></i> СБРОСИТЬ КЭШ ПРИЛОЖЕНИЯ
-                    </button>
+                    <!-- Кнопка очистки кэша удалена -->
                 `;
                 
                 if(window.lucide) window.lucide.createIcons();
@@ -1422,9 +1454,9 @@
                 window.shop.showToast("Проверка промокода...", "Загрузка");
 
                 try {
+                    // Используем getDocs без where, чтобы избежать ошибок индексации, и фильтруем в JS
                     const promosRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'promocodes');
-                    const q = query(promosRef, where("code", "==", code));
-                    const snapshot = await getDocs(q);
+                    const snapshot = await getDocs(promosRef);
 
                     if (snapshot.empty) {
                         window.shop.showToast("Промокод не найден", "Ошибка");
@@ -1432,7 +1464,20 @@
                     }
 
                     let promoData = null;
-                    snapshot.forEach(doc => { promoData = doc.data(); });
+                    let promoDocId = null;
+
+                    snapshot.forEach(doc => { 
+                        const d = doc.data();
+                        if (d.code === code) {
+                            promoData = d;
+                            promoDocId = doc.id;
+                        }
+                    });
+
+                    if (!promoData) {
+                         window.shop.showToast("Промокод не найден", "Ошибка");
+                         return;
+                    }
 
                     if (promoData.activations >= promoData.limit) {
                         window.shop.showToast("Лимит активаций исчерпан", "Ошибка");
@@ -1452,8 +1497,8 @@
                     if (window.shop.state.isCartView) window.shop.updateCartView();
 
                 } catch (e) {
-                    console.error(e);
-                    window.shop.showToast("Ошибка проверки", "Сбой");
+                    console.error("Promo Error:", e);
+                    window.shop.showToast("Ошибка проверки: " + e.message, "Сбой");
                 }
             },
 
@@ -1524,8 +1569,8 @@
                     document.getElementById('new-promo-percent').value = '';
                     document.getElementById('new-promo-limit').value = '';
                 } catch (e) {
-                    console.error(e);
-                    window.shop.showToast("Ошибка создания", "Сбой");
+                    console.error("Promo Create Error:", e);
+                    window.shop.showToast("Ошибка создания: " + e.message, "Сбой");
                 }
             },
 
@@ -1539,14 +1584,6 @@
                         window.shop.showToast("Ошибка", "Сбой");
                     }
                 }
-            },
-
-            clearCache: () => {
-                 window.shop.showConfirm("Очистка кэша", "Это сбросит локальные данные корзины и настроек. Продолжить?", () => {
-                      localStorage.clear();
-                      window.shop.showToast("Кэш очищен. Перезагрузка...", "Система");
-                      setTimeout(() => location.reload(), 1500);
-                 });
             },
 
             // --- USER: RENDER MY ORDERS ---
@@ -1902,6 +1939,7 @@
                             <div class="space-y-2">
                                 ${delivery.name ? `<p class="text-sm text-white"><span class="text-gray-500">Имя:</span> ${delivery.name}</p>` : ''}
                                 ${delivery.phone ? `<p class="text-sm text-white"><span class="text-gray-500">Телефон:</span> ${delivery.phone}</p>` : ''}
+                                ${delivery.age ? `<p class="text-sm text-white"><span class="text-gray-500">Возраст:</span> ${delivery.age}</p>` : ''}
                                 ${delivery.contact ? `<p class="text-sm text-white"><span class="text-gray-500">Контакт:</span> ${delivery.contact}</p>` : ''}
                                 ${delivery.place ? `<p class="text-sm text-white"><span class="text-gray-500">Место:</span> ${delivery.place}</p>` : ''}
                                 ${delivery.time ? `<p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${delivery.time}</p>` : ''}
@@ -2175,6 +2213,7 @@
                             <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Клиент</p>
                             <p class="text-sm text-white mb-1"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
                             <p class="text-sm text-white mb-1"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p>
+                            <p class="text-sm text-white mb-1"><span class="text-gray-500">Возраст:</span> ${data.delivery?.age || '-'}</p>
                             <p class="text-sm text-white mb-1"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
                             <p class="text-sm text-white mb-1"><span class="text-gray-500">Где:</span> ${data.delivery?.place}</p>
                             <p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${data.delivery?.time}</p>
@@ -2508,14 +2547,20 @@
                 const phone = document.getElementById('del-phone').value;
                 const contact = document.getElementById('del-contact').value;
                 const place = document.getElementById('del-place').value;
+                const age = document.getElementById('del-age').value;
                 const time = window.shop.state.deliveryTime;
 
-                if (!name || !phone || !contact || !place || !time) {
-                    window.shop.showToast("Заполните все поля и выберите время", "Ошибка");
+                if (!name || !phone || !contact || !place || !time || !age) {
+                    window.shop.showToast("Заполните все поля", "Ошибка");
                     return;
                 }
 
-                window.shop.state.deliveryInfo = { name, phone, contact, place, time };
+                if (phone.length < 12) {
+                    window.shop.showToast("Некорректный номер телефона", "Ошибка");
+                    return;
+                }
+
+                window.shop.state.deliveryInfo = { name, phone, contact, place, time, age };
 
                 document.getElementById('delivery-modal').classList.add('hidden');
                 
