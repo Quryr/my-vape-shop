@@ -311,6 +311,15 @@
             display: inline-block;
             vertical-align: middle;
         }
+        
+        /* FIX для автоматического открытия файлового инпута */
+        .no-auto-focus {
+            pointer-events: none;
+        }
+        
+        .no-auto-focus input {
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -787,16 +796,10 @@
                 listenerUnsubscribe: null,
                 deliveryTime: null,
                 ordersListenerUnsubscribe: null,
-                myOrdersListenerUnsubscribe: null,
-                adminSelectionMode: false,
-                selectedAdminOrders: new Set(),
                 editingProductId: null,
                 cartListenerUnsubscribe: null,
                 isCartView: false,
                 cartRendering: false,
-                myOrders: [],
-                myOrdersSelectionMode: false,
-                selectedMyOrders: new Set(),
                 firebaseUid: null,
                 isProcessingOrder: false,
                 confirmCallback: null,
@@ -807,25 +810,27 @@
                 currentTotal: 0,
                 currentOrderId: null,
                 activePromoListener: null,
-                modalInputFixInitialized: false
+                modalInputFixInitialized: false,
+                // Убраны ненужные состояния для "Мои заказы"
+                adminSelectionMode: false,
+                selectedAdminOrders: new Set(),
+                adminFabRendered: false
             },
 
-            // --- Инициализация фикса для полей ввода ---
+            // --- Инициализация фикса для полей ввода (ИСПРАВЛЕНА) ---
             initModalInputFix: function() {
                 if (this.state.modalInputFixInitialized) return;
                 
-                // Фокус на поля ввода при открытии модальных окон
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach((mutation) => {
                         if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                             const target = mutation.target;
                             if (target.id && target.classList.contains('hidden') === false) {
-                                // Даем время на анимацию
                                 setTimeout(() => {
-                                    const inputs = target.querySelectorAll('input, select, textarea');
+                                    // ИСКЛЮЧАЕМ input[type="file"] из автофокуса
+                                    const inputs = target.querySelectorAll('input:not([type="file"]), select, textarea');
                                     if (inputs.length > 0) {
                                         inputs[0].focus();
-                                        inputs[0].click();
                                     }
                                 }, 100);
                             }
@@ -833,7 +838,6 @@
                     });
                 });
 
-                // Наблюдаем за всеми модальными окнами
                 const modals = document.querySelectorAll('[id$="-modal"]');
                 modals.forEach(modal => {
                     observer.observe(modal, { attributes: true });
@@ -1258,7 +1262,6 @@
                     else if (viewName === 'cart') window.shop.renderCart(main);
                     else if (viewName === 'profile') window.shop.renderProfile(main);
                     else if (viewName === 'admin-orders') window.shop.renderAdminOrders(main);
-                    else if (viewName === 'my-orders') window.shop.renderMyOrders(main);
                     
                     main.style.opacity = '1';
                     
@@ -1466,7 +1469,7 @@
                 const roleBg = window.shop.state.isAdmin ? 'bg-red-500' : 'bg-green-500';
                 const roleName = window.shop.state.isAdmin ? 'АДМИНИСТРАТОР' : 'КЛИЕНТ';
 
-                container.innerHTML = `
+                let profileHtml = `
                     <div class="glass-panel rounded-3xl p-8 mb-6 flex flex-col items-center text-center relative overflow-hidden border border-white/10">
                         <div class="absolute inset-0 bg-gradient-to-b from-green-500/5 to-transparent"></div>
                         
@@ -1482,15 +1485,18 @@
                             <div class="w-2 h-2 rounded-full ${roleBg} animate-pulse"></div>
                             <span class="text-[10px] font-black tracking-[0.2em] ${roleColor}">${roleName}</span>
                         </div>
-                    </div>
+                    </div>`;
 
-                    ${window.shop.state.isAdmin ? `
+                if (window.shop.state.isAdmin) {
+                    profileHtml += `
                         <button onclick="window.shop.switchView('admin-orders')" class="w-full mb-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-3 animate-pulse border border-red-400/50">
                             <i data-lucide="package-search" class="w-5 h-5 icon-fix"></i>
                             УПРАВЛЕНИЕ ЗАКАЗАМИ
                         </button>
-                    ` : ''}
-                    
+                    `;
+                }
+
+                profileHtml += `
                     <div class="glass-panel rounded-2xl p-1 space-y-1">
                          <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.toggleUserPromoModal()">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="ticket" class="w-5 h-5 icon-fix"></i></div>
@@ -1512,15 +1518,6 @@
                              </div>
                          ` : ''}
 
-                         <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.shop.switchView('my-orders')">
-                            <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="package" class="w-5 h-5 icon-fix"></i></div>
-                            <div class="flex-grow">
-                                <h4 class="text-sm font-bold text-white">Мои заказы</h4>
-                                <p class="text-xs text-gray-600">История покупок</p>
-                            </div>
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600 icon-fix"></i>
-                         </div>
-
                          <div class="p-4 flex items-center gap-4 hover:bg-white/5 rounded-xl transition-colors cursor-pointer" onclick="window.open('https://t.me/Tru5tNoBody', '_blank')">
                             <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400"><i data-lucide="shield" class="w-5 h-5 icon-fix"></i></div>
                             <div class="flex-grow">
@@ -1531,6 +1528,8 @@
                          </div>
                     </div>
                 `;
+
+                container.innerHTML = profileHtml;
                 
                 if(window.lucide) window.lucide.createIcons();
             },
@@ -1749,406 +1748,7 @@
                 );
             },
 
-            // --- USER: RENDER MY ORDERS ---
-            renderMyOrders: (container) => {
-                const isSelectMode = window.shop.state.myOrdersSelectionMode;
-                const selectedCount = window.shop.state.selectedMyOrders.size;
-                
-                container.innerHTML = `
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-3">
-                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white">
-                                <i data-lucide="arrow-left" class="w-5 h-5 icon-fix"></i>
-                            </button>
-                            <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
-                        </div>
-                        <div id="my-orders-buttons"></div>
-                    </div>
-                    <div id="my-orders-list" class="space-y-3 pb-24">
-                        <div class="text-center py-10 text-gray-500 animate-pulse">
-                            <i data-lucide="loader" class="w-8 h-8 mx-auto mb-2 animate-spin icon-fix"></i>
-                            <p>Загрузка заказов...</p>
-                        </div>
-                    </div>
-                    <div id="my-orders-fab-container"></div>
-                `;
-
-                window.shop.renderMyOrdersFab();
-                window.shop.setupMyOrdersListener();
-            },
-
-            renderMyOrdersFab: function() {
-                const container = document.getElementById('my-orders-fab-container');
-                if (!container) return;
-
-                const isSelectMode = this.state.myOrdersSelectionMode;
-                const selectedCount = this.state.selectedMyOrders.size;
-
-                if (isSelectMode && selectedCount > 0) {
-                    container.innerHTML = `
-                        <div class="fixed bottom-24 left-4 right-4 animate-float-up z-[50]">
-                            <button onclick="window.shop.deleteSelectedMyOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-500/50 flex items-center justify-center gap-2 transition-all active:scale-95">
-                                <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
-                                УДАЛИТЬ ВЫБРАННЫЕ (${selectedCount})
-                            </button>
-                        </div>
-                    `;
-                } else {
-                    container.innerHTML = '';
-                }
-                if(window.lucide) window.lucide.createIcons();
-            },
-
-            setupMyOrdersListener: function() {
-                if (this.state.myOrdersListenerUnsubscribe) {
-                    this.state.myOrdersListenerUnsubscribe();
-                }
-
-                const uid = this.state.firebaseUid;
-                if (!uid) {
-                    const list = document.getElementById('my-orders-list');
-                    if (list) list.innerHTML = `<div class="text-center py-10 text-red-500">Ошибка аутентификации</div>`;
-                    return;
-                }
-
-                const ordersCollection = getUserOrdersRef(uid);
-                const q = query(ordersCollection);
-                
-                this.state.myOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                    const list = document.getElementById('my-orders-list');
-                    const buttonsContainer = document.getElementById('my-orders-buttons');
-                    
-                    if (!list) return;
-
-                    if (buttonsContainer) {
-                        if (snapshot.empty) {
-                            buttonsContainer.innerHTML = '';
-                        } else {
-                            const isSelectMode = this.state.myOrdersSelectionMode;
-                            const selectedCount = this.state.selectedMyOrders.size;
-                            buttonsContainer.innerHTML = `
-                                <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                        class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                                    ${isSelectMode ? 
-                                        (selectedCount > 0 ? 
-                                            '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
-                                            '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
-                                        '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ'}
-                                </button>
-                            `;
-                        }
-                    }
-
-                    if (snapshot.empty) {
-                        list.innerHTML = `
-                            <div class="flex flex-col items-center justify-center py-10 text-gray-500">
-                                <i data-lucide="package-open" class="w-12 h-12 mb-2 opacity-50 icon-fix"></i>
-                                <p>История пуста</p>
-                                <p class="text-xs text-gray-600 mt-2">Вы еще не совершали заказов</p>
-                            </div>`;
-                        this.state.myOrders = [];
-                        return;
-                    }
-
-                    let docs = [];
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        docs.push({ 
-                            id: doc.id, 
-                            ...data,
-                            date: data.date ? (data.date.toDate ? data.date.toDate() : new Date(data.date)) : new Date()
-                        });
-                    });
-                    
-                    // Sort in JS instead of Firestore query
-                    docs.sort((a, b) => b.date - a.date);
-                    
-                    this.state.myOrders = docs;
-                    this.updateMyOrdersList(docs);
-                    
-                });
-            },
-
-            updateMyOrdersList: function(docs) {
-                const list = document.getElementById('my-orders-list');
-                if (!list) return;
-
-                const isSelectMode = this.state.myOrdersSelectionMode;
-                let html = '';
-                
-                docs.forEach(data => {
-                    const date = new Date(data.date).toLocaleString('ru-RU', { 
-                        day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' 
-                    });
-                    
-                    let statusClass = 'status-pending';
-                    let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                    let statusIcon = 'clock';
-                    
-                    if (data.status === 'approved') {
-                        statusClass = 'status-approved';
-                        statusText = 'ПОДТВЕРЖДЕН';
-                        statusIcon = 'check-circle';
-                    } else if (data.status === 'rejected') {
-                        statusClass = 'status-rejected';
-                        statusText = 'ОТМЕНЕН';
-                        statusIcon = 'x-circle';
-                    } else if (data.status === 'pending') {
-                        statusClass = 'status-pending';
-                        statusText = 'ОБРАБОТКА';
-                        statusIcon = 'refresh-cw';
-                    }
-
-                    const isSelected = this.state.selectedMyOrders.has(data.id);
-                    const itemsCount = Object.values(data.items || {}).reduce((a,b)=>a+b, 0);
-
-                    html += `
-                        <div class="glass-panel rounded-xl p-4 mb-2 cursor-pointer hover:bg-white/5 transition-all ${isSelectMode && isSelected ? 'border-2 border-red-500 bg-red-500/10' : ''}" 
-                             onclick="${isSelectMode ? `window.shop.toggleMyOrderSelection('${data.id}')` : `window.shop.showOrderDetails('${data.id}')`}">
-                            <div class="flex items-start gap-3">
-                                ${isSelectMode ? `
-                                <div class="pt-1">
-                                    <div class="order-checkbox ${isSelected ? 'checked' : ''}">
-                                        ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white icon-fix"></i>' : ''}
-                                    </div>
-                                </div>` : ''}
-                                
-                                <div class="flex-grow">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <div class="flex flex-col">
-                                            <span class="text-[10px] text-gray-500 font-mono tracking-widest">ЗАКАЗ #${data.order_key || data.id.substring(0,8)}</span>
-                                            <span class="text-sm font-bold text-white mt-1">${itemsCount} товара • ${data.total} ₽</span>
-                                        </div>
-                                        <div class="${statusClass} status-badge flex items-center gap-1">
-                                            <i data-lucide="${statusIcon}" class="w-3 h-3 icon-fix"></i>
-                                            ${statusText}
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mt-3 pt-3 border-t border-white/5">
-                                        <div class="flex items-center text-xs text-gray-400 mb-1">
-                                            <i data-lucide="calendar" class="w-3 h-3 mr-2 icon-fix"></i>
-                                            ${date}
-                                        </div>
-                                        ${data.promo ? `
-                                        <div class="flex items-center text-xs text-green-400">
-                                            <i data-lucide="ticket" class="w-3 h-3 mr-2 icon-fix"></i>
-                                            Промокод: ${data.promo}
-                                        </div>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                list.innerHTML = html;
-                if(window.lucide) window.lucide.createIcons();
-            },
-
-            toggleMyOrdersSelectionMode: function() {
-                this.state.myOrdersSelectionMode = !this.state.myOrdersSelectionMode;
-                if (!this.state.myOrdersSelectionMode) {
-                    this.state.selectedMyOrders.clear();
-                }
-                this.renderMyOrdersFab(); 
-                
-                const buttonsContainer = document.getElementById('my-orders-buttons');
-                if (buttonsContainer) {
-                    const selectedCount = this.state.selectedMyOrders.size;
-                    buttonsContainer.innerHTML = `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${this.state.myOrdersSelectionMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${this.state.myOrdersSelectionMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ'}
-                        </button>
-                    `;
-                }
-                
-                this.updateMyOrdersList(this.state.myOrders);
-            },
-
-            toggleMyOrderSelection: function(orderId) {
-                const set = this.state.selectedMyOrders;
-                if (set.has(orderId)) {
-                    set.delete(orderId);
-                } else {
-                    set.add(orderId);
-                }
-                this.renderMyOrdersFab();
-                this.updateMyOrdersList(this.state.myOrders);
-                
-                const selectedCount = this.state.selectedMyOrders.size;
-                const buttonsContainer = document.getElementById('my-orders-buttons');
-                if (buttonsContainer) {
-                    buttonsContainer.innerHTML = `
-                        <button onclick="window.shop.toggleMyOrdersSelectionMode()" 
-                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${selectedCount > 0 ? 'bg-red-500/20' : ''}">
-                            ${this.state.myOrdersSelectionMode ? 
-                                (selectedCount > 0 ? 
-                                    '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
-                                    '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
-                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ'}
-                        </button>
-                    `;
-                }
-            },
-
-            deleteSelectedMyOrders: function() {
-                const count = this.state.selectedMyOrders.size;
-                if (count === 0) return;
-                
-                this.showConfirm(
-                    "УДАЛИТЬ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count})?`,
-                    async () => {
-                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
-                        
-                        const idsToDelete = Array.from(this.state.selectedMyOrders);
-                        
-                        this.state.myOrders = this.state.myOrders.filter(order => !idsToDelete.includes(order.id));
-                        this.state.selectedMyOrders.clear();
-                        this.state.myOrdersSelectionMode = false;
-                        
-                        this.updateMyOrdersList(this.state.myOrders); 
-                        this.renderMyOrdersFab();
-                        
-                        const buttonsContainer = document.getElementById('my-orders-buttons');
-                        if (buttonsContainer) buttonsContainer.innerHTML = '';
-                        
-                        try {
-                            const uid = this.state.firebaseUid;
-                            if (!uid) return;
-
-                            const promises = idsToDelete.map(id => {
-                                const orderRef = getUserOrderRef(uid, id);
-                                return deleteDoc(orderRef);
-                            });
-                            await Promise.all(promises);
-                            
-                            this.showToast("Заказы удалены", "Успешно");
-                        } catch (e) {
-                            console.error(e);
-                            this.showToast("Ошибка удаления: " + e.message, "Сбой");
-                        }
-                    }
-                );
-            },
-
-            showOrderDetails: function(orderId) {
-                const order = this.state.myOrders.find(o => o.id === orderId);
-                if (!order) {
-                    this.showToast("Заказ не найден", "Ошибка");
-                    return;
-                }
-
-                const date = new Date(order.date).toLocaleString('ru-RU', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric',
-                    hour: '2-digit', 
-                    minute:'2-digit' 
-                });
-                
-                let statusClass = 'status-pending';
-                let statusText = 'ОЖИДАЕТ ОПЛАТЫ';
-                
-                if (order.status === 'approved') {
-                    statusClass = 'status-approved';
-                    statusText = 'ПОДТВЕРЖДЕН';
-                } else if (order.status === 'rejected') {
-                    statusClass = 'status-rejected';
-                    statusText = 'ОТМЕНЕН';
-                } else if (order.status === 'pending') {
-                    statusClass = 'status-pending';
-                    statusText = 'В ОБРАБОТКЕ';
-                }
-
-                let itemsHtml = '';
-                if (order.items) {
-                    for (const [productId, qty] of Object.entries(order.items)) {
-                        const product = this.state.products.find(p => p.id === productId);
-                        const name = product ? product.name : `Товар #${productId.substring(0,6)}`;
-                        const price = product ? product.price : 0;
-                        const total = price * qty;
-                        
-                        itemsHtml += `
-                            <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-                                <div>
-                                    <p class="text-sm text-white">${name}</p>
-                                    <p class="text-xs text-gray-500">${price} ₽ × ${qty} шт</p>
-                                </div>
-                                <p class="text-sm font-bold text-white">${total} ₽</p>
-                            </div>
-                        `;
-                    }
-                }
-
-                const delivery = order.delivery || {};
-
-                const modal = document.getElementById('order-detail-modal');
-                const content = document.getElementById('order-detail-content');
-                
-                content.innerHTML = `
-                    <div class="mb-6">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-lg font-black italic text-white">ЗАКАЗ #${order.order_key || order.id.substring(0,8)}</h3>
-                                <p class="text-xs text-gray-500 mt-1">${date}</p>
-                            </div>
-                            <div class="${statusClass} status-badge">
-                                ${statusText}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-black/40 rounded-xl p-4 mb-4 border border-white/10">
-                            <h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">ДАННЫЕ ДОСТАВКИ</h4>
-                            <div class="space-y-2">
-                                ${delivery.name ? `<p class="text-sm text-white"><span class="text-gray-500">Имя:</span> ${delivery.name}</p>` : ''}
-                                ${delivery.phone ? `<p class="text-sm text-white"><span class="text-gray-500">Телефон:</span> ${delivery.phone}</p>` : ''}
-                                ${delivery.age ? `<p class="text-sm text-white"><span class="text-gray-500">Возраст:</span> ${delivery.age}</p>` : ''}
-                                ${delivery.contact ? `<p class="text-sm text-white"><span class="text-gray-500">Контакт:</span> ${delivery.contact}</p>` : ''}
-                                ${delivery.place ? `<p class="text-sm text-white"><span class="text-gray-500">Место:</span> ${delivery.place}</p>` : ''}
-                                ${delivery.time ? `<p class="text-sm text-white"><span class="text-gray-500">Время:</span> ${delivery.time}</p>` : ''}
-                            </div>
-                        </div>
-
-                        ${order.promo ? `
-                        <div class="bg-black/40 rounded-xl p-4 mb-4 border border-white/10">
-                            <h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">ПРОМОКОД</h4>
-                            <p class="text-sm text-white font-mono">${order.promo}</p>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="bg-black/40 rounded-xl p-4 mb-6 border border-white/10">
-                            <h4 class="text-[10px] text-gray-500 uppercase tracking-widest mb-3">СОСТАВ ЗАКАЗА</h4>
-                            ${itemsHtml}
-                            <div class="flex justify-between items-center pt-3 mt-3 border-t border-white/10">
-                                <span class="text-white font-bold">ИТОГО</span>
-                                <span class="text-green-400 font-bold text-lg">${order.total} ₽</span>
-                            </div>
-                        </div>
-                        
-                        <div class="text-center text-xs text-gray-500">
-                            <p>Заказ создан через VΛPOR CLOUD PREMIUM</p>
-                            <p class="mt-1">Статус заказа обновляется администратором</p>
-                        </div>
-                    </div>
-                    
-                    <button onclick="document.getElementById('order-detail-modal').classList.add('hidden')" class="w-full py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">
-                        ЗАКРЫТЬ
-                    </button>
-                `;
-                
-                modal.classList.remove('hidden');
-                if(window.lucide) window.lucide.createIcons();
-            },
-
-            // --- ADMIN: RENDER ORDERS ---
+            // --- ADMIN: RENDER ORDERS (ИСПРАВЛЕНА) ---
             renderAdminOrders: (container) => {
                 const isSelectMode = window.shop.state.adminSelectionMode;
                 const selectedCount = window.shop.state.selectedAdminOrders.size;
@@ -2173,26 +1773,54 @@
                     <div id="admin-orders-list" class="space-y-3 pb-32">
                         <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
                     </div>
-                    
-                    ${isSelectMode ? `
-                    <div class="fixed bottom-24 left-4 right-4 animate-float-up z-30">
-                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all ${selectedCount === 0 ? 'opacity-50 pointer-events-none' : ''}">
+                `;
+                
+                // Отписываемся от старого слушателя и создаем новый
+                if (window.shop.state.ordersListenerUnsubscribe) {
+                    window.shop.state.ordersListenerUnsubscribe();
+                    window.shop.state.ordersListenerUnsubscribe = null;
+                }
+
+                const ordersCollection = getOrdersRef();
+                const q = query(ordersCollection);
+                
+                window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    window.shop.updateAdminOrdersList(snapshot);
+                });
+
+                // Сразу рендерим FAB
+                setTimeout(() => {
+                    window.shop.renderAdminOrdersFab();
+                }, 50);
+            },
+
+            // --- RENDER ADMIN ORDERS FAB (ИСПРАВЛЕНА) ---
+            renderAdminOrdersFab: function() {
+                const isSelectMode = this.state.adminSelectionMode;
+                const selectedCount = this.state.selectedAdminOrders.size;
+                
+                let fabContainer = document.getElementById('admin-orders-fab');
+                if (!fabContainer) {
+                    fabContainer = document.createElement('div');
+                    fabContainer.id = 'admin-orders-fab';
+                    fabContainer.className = 'fixed bottom-24 left-4 right-4 z-30';
+                    document.getElementById('main-content').appendChild(fabContainer);
+                }
+                
+                if (isSelectMode && selectedCount > 0) {
+                    fabContainer.innerHTML = `
+                        <button onclick="window.shop.deleteSelectedOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all active:scale-95 animate-float-up">
                             <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
                             УДАЛИТЬ (${selectedCount})
                         </button>
-                    </div>` : ''}
-                `;
-                
-                if (!window.shop.state.ordersListenerUnsubscribe) {
-                    const ordersCollection = getOrdersRef();
-                    const q = query(ordersCollection);
-                    
-                    window.shop.state.ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
-                        window.shop.updateAdminOrdersList(snapshot);
-                    });
+                    `;
+                    fabContainer.classList.remove('hidden');
                 } else {
-                    window.shop.updateAdminOrdersList();
+                    fabContainer.innerHTML = '';
+                    fabContainer.classList.add('hidden');
                 }
+                
+                if(window.lucide) window.lucide.createIcons();
             },
 
             updateAdminOrdersList: function(snapshot = null) {
@@ -2203,6 +1831,7 @@
                     if (snapshot.empty) {
                         list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
                         this.state.adminOrders = [];
+                        this.renderAdminOrdersFab();
                         return;
                     }
 
@@ -2289,9 +1918,12 @@
                 
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
+                
+                // Обновляем FAB после обновления списка
+                this.renderAdminOrdersFab();
             },
 
-            // --- ADMIN SELECTION LOGIC ---
+            // --- ADMIN SELECTION LOGIC (ИСПРАВЛЕНА) ---
             toggleAdminSelectionMode: function() {
                 this.state.adminSelectionMode = !this.state.adminSelectionMode;
                 if (!this.state.adminSelectionMode) {
@@ -2299,6 +1931,8 @@
                 }
                 this.updateAdminOrdersList();
                 this.updateAdminSelectionButton();
+                // Сразу рендерим FAB при переключении режима
+                this.renderAdminOrdersFab();
             },
 
             toggleOrderSelection: function(docId) {
@@ -2310,6 +1944,8 @@
                 }
                 this.updateAdminOrdersList();
                 this.updateAdminSelectionButton();
+                // Сразу рендерим FAB при выборе элементов
+                this.renderAdminOrdersFab();
             },
 
             updateAdminSelectionButton: function() {
@@ -2318,7 +1954,7 @@
                 if (button) {
                     button.innerHTML = this.state.adminSelectionMode ? 
                         (selectedCount > 0 ? 
-                            `<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ (${selectedCount})` : 
+                            `<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ` : 
                             '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
                         '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ';
                     
@@ -2356,6 +1992,7 @@
                             this.state.adminSelectionMode = false;
                             
                             this.updateAdminOrdersList();
+                            this.renderAdminOrdersFab();
                             this.showToast("Заказы удалены", "Успешно");
                             
                         } catch (e) {
@@ -2822,24 +2459,10 @@
                 };
 
                 try {
-                    // Сохраняем в историю пользователя
-                    let userOrderDocId = null;
-                    if (uid) {
-                        try {
-                            const userOrdersCollection = getUserOrdersRef(uid);
-                            const userOrderRef = await addDoc(userOrdersCollection, orderBase);
-                            userOrderDocId = userOrderRef.id;
-                            console.log("✅ Order saved to user history");
-                        } catch(innerE) {
-                            console.error("❌ Error saving to user history:", innerE);
-                        }
-                    }
-
                     // Сохраняем в публичные заказы
                     const publicOrder = {
                         ...orderBase,
                         linkedUserUid: uid,
-                        linkedUserOrderId: userOrderDocId,
                         userTelegramId: window.shop.state.user.id,
                         userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
                     };
@@ -2896,12 +2519,6 @@
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен!", "Успешно");
                 window.shop.state.isProcessingOrder = false;
-
-                if (window.shop.state.isCartView) {
-                    setTimeout(() => {
-                        window.shop.switchView('my-orders');
-                    }, 1000);
-                }
             },
 
             testCart: async () => {
