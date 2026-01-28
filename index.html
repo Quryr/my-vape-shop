@@ -12,7 +12,7 @@ Sold Out Store
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VΛPOR CLOUD PREMIUM</title>
+    <title>Sold Out Store</title>>
     
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -399,15 +399,19 @@ Sold Out Store
     </div>
 
     <!-- Safety Loader -->
-    <div id="loader">
+<div id="loader" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black transition-opacity duration-500">
         <div class="relative w-24 h-24 mb-6">
             <div class="absolute inset-0 border-t-2 border-green-500 rounded-full animate-spin"></div>
             <div class="absolute inset-2 border-t-2 border-green-500/50 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 2s;"></div>
+            
             <div class="absolute inset-0 flex items-center justify-center">
-                 <i data-lucide="cloud" class="w-8 h-8 text-green-500 animate-pulse"></i>
+                 <i data-lucide="shopping-bag" class="w-8 h-8 text-green-500 animate-pulse"></i>
             </div>
         </div>
-        <div class="text-green-500 font-bold tracking-[0.3em] text-xs animate-pulse">ПОДКЛЮЧЕНИЕ К БАЗЕ...</div>
+
+        <div class="text-white font-black italic tracking-wider text-sm animate-pulse">
+            SOLD<span class="text-green-500">OUT</span> <span class="text-[10px] text-gray-500 not-italic font-normal ml-2">LOADING...</span>
+        </div>
     </div>
 
     <!-- Debug Panel (Hidden by default) -->
@@ -460,8 +464,13 @@ Sold Out Store
         <header class="flex justify-between items-center mb-6 pt-2">
             <!-- Клик по логотипу убран, как и просили -->
             <div class="select-none">
-                <h1 class="text-2xl font-black italic tracking-tighter text-white">VΛPOR <span class="text-green-500 neon-text-green">CLOUD</span></h1>
-                <p class="text-[10px] text-gray-500 tracking-[0.2em] uppercase font-semibold">Premium Store</p>
+                <h1 class="text-3xl font-black italic tracking-tighter text-white uppercase leading-none" style="text-shadow: 0 0 20px rgba(0,0,0,0.8);">
+                    SOLD<span class="text-green-500 neon-text-green">OUT</span>
+                </h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <div class="h-[2px] w-4 bg-green-500"></div>
+                    <p class="text-[9px] text-gray-500 tracking-[0.3em] uppercase font-bold">Premium Store</p>
+                </div>
             </div>
             <div class="flex gap-3">
                 <!-- Admin Add Button (Hidden by default) -->
@@ -3204,4 +3213,5 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
