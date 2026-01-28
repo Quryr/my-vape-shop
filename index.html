@@ -711,8 +711,11 @@ Sold Out Store
 
             <div class="space-y-4">
                 <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше Имя (без цифр)</label>
-                    <input type="text" id="del-name" placeholder="Как к вам обращаться" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700" oninput="this.value = this.value.replace(/[0-9]/g, '')">
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше ФИО</label>
+                    <input type="text" id="del-name" placeholder="Фамилия Имя Отчество" 
+                           class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700" 
+                           oninput="this.value = this.value.replace(/[0-9]/g, '')"
+                           onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
                 </div>
                 
                 <div class="grid grid-cols-3 gap-3">
@@ -1218,6 +1221,16 @@ Sold Out Store
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
                 console.log("Is admin?", window.shop.state.isAdmin);
 
+                // Внутри метода init, после настройки аватара:
+                const nameInput = document.getElementById('del-name');
+                if (nameInput) {
+                    nameInput.addEventListener('focus', () => {
+                        // Даем клавиатуре время открыться, затем центрируем поле
+                        setTimeout(() => {
+                            nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    });
+                }
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
                 document.getElementById('user-avatar').src = avatarUrl;
@@ -3261,6 +3274,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
