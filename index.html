@@ -2626,14 +2626,28 @@ Sold Out Store
             },
 
             updateCartBadge: () => {
-                const count = Object.values(window.shop.state.cart).reduce((a, b) => a + b, 0);
-                const badge = document.getElementById('cart-badge');
-                if (badge) {
-                    badge.innerText = count;
-                    badge.style.opacity = count > 0 ? '1' : '0';
-                    badge.style.transform = count > 0 ? 'scale(1)' : 'scale(0.5)';
-                }
-            },
+                            // 1. Получаем список ID существующих товаров
+                            const validProductIds = window.shop.state.products.map(p => p.id);
+                            
+                            // 2. Считаем сумму ТОЛЬКО для тех товаров, которые реально есть в магазине
+                            let count = 0;
+                            Object.entries(window.shop.state.cart).forEach(([id, qty]) => {
+                                // Проверяем, существует ли такой товар в базе
+                                if (validProductIds.includes(id)) {
+                                    count += qty;
+                                } else {
+                                    // (Опционально) Можно удалить мусор из памяти, чтобы не копился
+                                    // delete window.shop.state.cart[id]; 
+                                }
+                            });
+            
+                            const badge = document.getElementById('cart-badge');
+                            if (badge) {
+                                badge.innerText = count;
+                                badge.style.opacity = count > 0 ? '1' : '0';
+                                badge.style.transform = count > 0 ? 'scale(1)' : 'scale(0.5)';
+                            }
+                        },
 
             toggleAddModal: () => {
                 const modal = document.getElementById('add-modal');
@@ -3242,6 +3256,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
