@@ -675,7 +675,8 @@
                     <i data-lucide="credit-card" class="w-8 h-8 text-green-500"></i>
                 </div>
                 <h2 class="text-2xl font-black italic text-white">ОПЛАТА</h2>
-                <p id="order-id-display" class="text-xs text-gray-500 font-mono mt-1 tracking-widest">ORDER ID: GENERATING...</p>
+                <!-- ИСПРАВЛЕНО: Заменен текст ORDER ID на пояснение для комментария -->
+                <p id="order-id-display" class="text-xs text-green-400 font-mono mt-1 tracking-widest">Код для комментария: GENERATING...</p>
             </div>
 
             <div class="bg-black/40 rounded-xl p-5 border border-white/5 mb-6 relative overflow-hidden">
@@ -711,6 +712,8 @@
                         <div class="flex-grow">
                             <p class="text-sm text-white font-mono tracking-wider font-bold">2204 3209 2444 1944</p>
                             <p class="text-[10px] text-gray-500 uppercase tracking-widest">Иван Владимирович Р.</p>
+                            <!-- ИСПРАВЛЕНО: Добавлено пояснение для покупателя -->
+                            <p class="text-[10px] text-green-400 mt-1">📌 В комментарии к переводу укажите код заказа</p>
                         </div>
                         <button onclick="window.shop.copyBank()" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all">
                             <i data-lucide="copy" class="w-4 h-4"></i>
@@ -2568,7 +2571,8 @@
                 }
 
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
-                document.getElementById('order-id-display').innerText = "ORDER ID: " + orderId;
+                // ИСПРАВЛЕНО: Заменен текст на "Код для комментария"
+                document.getElementById('order-id-display').innerText = "Код для комментария: " + orderId;
                 window.shop.state.currentOrderId = orderId;
                 
                 // Сброс выбора способа оплаты
@@ -2579,9 +2583,10 @@
                 document.getElementById('bank-details-section').classList.add('hidden');
                 document.getElementById('payment-action-btn').innerHTML = '<span>ВЫБЕРИТЕ СПОСОБ ОПЛАТЫ</span>';
                 
-                document.getElementById('checkout-modal').classList.remove('hidden');
-                
+                // ИСПРАВЛЕНО: Сбрасываем флаг обработки заказа при открытии модалки
                 window.shop.state.isProcessingOrder = false;
+                
+                document.getElementById('checkout-modal').classList.remove('hidden');
             },
 
             copyBank: () => {
@@ -2594,6 +2599,11 @@
             handlePaymentAction: function() {
                 if (!this.state.paymentMethod) {
                     this.showToast("Выберите способ оплаты", "Ошибка");
+                    return;
+                }
+
+                if (this.state.isProcessingOrder) {
+                    this.showToast("Подождите, идет обработка...", "Внимание");
                     return;
                 }
 
