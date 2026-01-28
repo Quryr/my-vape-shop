@@ -84,6 +84,15 @@ Sold Out Store
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <style>
+        
+        /* Фикс для мобильной клавиатуры в модальных окнах */
+        #delivery-modal .glass-panel {
+            max-height: 90vh; /* Ограничиваем высоту */
+            overflow-y: auto; /* Разрешаем внутренний скролл */
+            padding-bottom: 300px !important; /* Огромный отступ снизу, чтобы можно было заскроллить поле наверх */
+            transition: all 0.3s ease;
+        }
+        
         /* Base Styles */
         body {
             background-color: #050505;
@@ -3285,6 +3294,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
