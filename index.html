@@ -1376,6 +1376,8 @@ Sold Out Store
                     console.log("🔄 Realtime Update Received:", dbProducts.length);
                     window.shop.state.products = dbProducts;
                     
+                    window.shop.updateCartBadge();
+                    
                     if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
                         window.shop.renderStore();
                     }
@@ -3256,6 +3258,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
