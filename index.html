@@ -2939,11 +2939,6 @@ Sold Out Store
                 window.shop.resetCheckoutState();
                 
                 // Сброс активного промокода при начале нового заказа
-                window.shop.state.activePromo = null;
-                if (window.shop.state.activePromoListener) {
-                    window.shop.state.activePromoListener();
-                    window.shop.state.activePromoListener = null;
-                }
                 
                 window.shop.state.currentTotal = total;
                 document.getElementById('delivery-modal').classList.remove('hidden');
@@ -3128,23 +3123,21 @@ Sold Out Store
                 }
             },
 
+// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Оплата при получении ---
             createOrderOnDelivery: async function() {
                 if (window.shop.state.isProcessingOrder) return;
                 window.shop.state.isProcessingOrder = true;
                 
                 const paymentBtn = document.getElementById('payment-action-btn');
-                if (paymentBtn) {
-                    paymentBtn.disabled = true;
-                    paymentBtn.innerHTML = `<i data-lucide="loader" class="w-5 h-5 animate-spin icon-fix"></i> ОБРАБОТКА...`;
-                    if(window.lucide) window.lucide.createIcons();
-                }
-
                 const now = new Date();
                 const uid = window.shop.state.firebaseUid;
                 
+                // Сохраняем промокод в локальную переменную, чтобы он не потерялся
+                const promoToSave = window.shop.state.activePromo ? window.shop.state.activePromo.code : null;
+                const promoIdToUpdate = window.shop.state.activePromo ? window.shop.state.activePromo.id : null;
+
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
-                    id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: now,
@@ -3152,101 +3145,59 @@ Sold Out Store
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending',
                     createdAt: now,
-                    promo: window.shop.state.activePromo ? window.shop.state.activePromo.code : null, // Используем .code
+                    promo: promoToSave, // Используем сохраненную переменную
                     payment_method: 'on_delivery',
                     payment_status: 'waiting'
                 };
 
                 try {
-                    // Сохраняем в публичные заказы
-                    const publicOrder = {
-                        ...orderBase,
-                        linkedUserUid: uid,
-                        userTelegramId: window.shop.state.user.id,
-                        userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
-                    };
-                    
                     const publicOrdersCollection = getOrdersRef();
-                    await addDoc(publicOrdersCollection, publicOrder);
-                    console.log("✅ Order saved to public collection (on delivery)");
-                    
-                    // Обновляем счетчик промокода
-                    if (window.shop.state.activePromo) {
-                        try {
-                            const promosRef = getPromocodesRef();
-                            const q = query(promosRef, where("code", "==", window.shop.state.activePromo.code));
-                            const snap = await getDocs(q);
-                            snap.forEach(async (d) => {
-                                await updateDoc(d.ref, { 
-                                    activations: (d.data().activations || 0) + 1 
-                                });
-                                console.log("✅ Promo activation counter updated");
+                    await addDoc(publicOrdersCollection, {
+                        ...orderBase,
+                        linkedUserUid: uid
+                    });
+
+                    // ОБНОВЛЕНИЕ СЧЕТЧИКА ПО ID (Надежный способ)
+                    if (promoIdToUpdate) {
+                        const promoRef = getPromoDocRef(promoIdToUpdate);
+                        const pSnap = await getDoc(promoRef);
+                        if (pSnap.exists()) {
+                            await updateDoc(promoRef, { 
+                                activations: (pSnap.data().activations || 0) + 1 
                             });
-                        } catch (promoError) {
-                            console.error("❌ Error updating promo:", promoError);
                         }
                     }
 
-                    // Очищаем корзину
+                    // Только теперь очищаем всё
                     window.shop.state.cart = {};
+                    window.shop.state.activePromo = null; 
                     window.shop.updateCartBadge();
                     
-                    if (uid) {
-                        try {
-                            const cartRef = getUserCartRef(uid);
-                            await deleteDoc(cartRef);
-                            console.log("✅ Cart cleared after order");
-                        } catch (cartError) {
-                            console.error("❌ Error clearing cart:", cartError);
-                        }
-                    }
+                    this.closeCheckoutModal();
+                    window.shop.switchView('store');
+                    window.shop.showToast("Заказ создан!", "Успешно");
                         
                 } catch(e) { 
-                    console.error("❌ Database error creating order:", e); 
+                    console.error(e); 
                     window.shop.state.isProcessingOrder = false;
-                    if (paymentBtn) {
-                        paymentBtn.disabled = false;
-                        this.selectPaymentMethod('on_delivery');
-                    }
-                    window.shop.showToast("Ошибка соединения с базой", "Внимание");
-                    return;
+                    window.shop.showToast("Ошибка базы", "Внимание");
                 }
-
-                // Успешное завершение
-                document.getElementById('checkout-modal').classList.add('hidden');
-                
-                // ИСПРАВЛЕНО: Полностью сбрасываем состояние модального окна
-                this.closeCheckoutModal();
-                
-                // Сбрасываем промокод
-                window.shop.state.activePromo = null;
-                if (window.shop.state.activePromoListener) {
-                    window.shop.state.activePromoListener();
-                    window.shop.state.activePromoListener = null;
-                }
-                
-                window.shop.state.isProcessingOrder = false;
-                window.shop.switchView('store');
-                window.shop.showToast("Заказ создан! Оплата при получении", "Успешно");
             },
 
-            completeOrder: async () => {
+            // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Оплата сейчас ---
+            completeOrder: async function() {
                 if (window.shop.state.isProcessingOrder) return;
                 window.shop.state.isProcessingOrder = true;
                 
-                const completeBtn = document.getElementById('payment-action-btn');
-                if (completeBtn) {
-                    completeBtn.disabled = true;
-                    completeBtn.innerHTML = `<i data-lucide="loader" class="w-5 h-5 animate-spin icon-fix"></i> ОБРАБОТКА...`;
-                    if(window.lucide) window.lucide.createIcons();
-                }
-
                 const now = new Date();
                 const uid = window.shop.state.firebaseUid;
                 
+                // Сохраняем данные промокода заранее
+                const promoToSave = window.shop.state.activePromo ? window.shop.state.activePromo.code : null;
+                const promoIdToUpdate = window.shop.state.activePromo ? window.shop.state.activePromo.id : null;
+
                 const orderBase = {
                     order_key: window.shop.state.currentOrderId,
-                    id: window.shop.state.currentOrderId,
                     total: window.shop.state.currentTotal,
                     items: window.shop.state.cart,
                     date: now,
@@ -3254,82 +3205,38 @@ Sold Out Store
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending',
                     createdAt: now,
-                    promo: window.shop.state.activePromo ? window.shop.state.activePromo.code : null,
+                    promo: promoToSave,
                     payment_method: 'now',
                     payment_status: 'pending'
                 };
 
                 try {
-                    // Сохраняем в публичные заказы
-                    const publicOrder = {
-                        ...orderBase,
-                        linkedUserUid: uid,
-                        userTelegramId: window.shop.state.user.id,
-                        userName: window.shop.state.user.first_name + ' ' + (window.shop.state.user.last_name || '')
-                    };
-                    
                     const publicOrdersCollection = getOrdersRef();
-                    await addDoc(publicOrdersCollection, publicOrder);
-                    console.log("✅ Order saved to public collection");
-                    
-                    // Обновляем счетчик промокода
-                    if (window.shop.state.activePromo) {
-                        try {
-                            const promosRef = getPromocodesRef();
-                            const q = query(promosRef, where("code", "==", window.shop.state.activePromo.code));
-                            const snap = await getDocs(q);
-                            snap.forEach(async (d) => {
-                                await updateDoc(d.ref, { 
-                                    activations: (d.data().activations || 0) + 1 
-                                });
-                                console.log("✅ Promo activation counter updated");
+                    await addDoc(publicOrdersCollection, { ...orderBase, linkedUserUid: uid });
+
+                    // ОБНОВЛЕНИЕ СЧЕТЧИКА ПО ID
+                    if (promoIdToUpdate) {
+                        const promoRef = getPromoDocRef(promoIdToUpdate);
+                        const pSnap = await getDoc(promoRef);
+                        if (pSnap.exists()) {
+                            await updateDoc(promoRef, { 
+                                activations: (pSnap.data().activations || 0) + 1 
                             });
-                        } catch (promoError) {
-                            console.error("❌ Error updating promo:", promoError);
                         }
                     }
 
-                    // Очищаем корзину
                     window.shop.state.cart = {};
+                    window.shop.state.activePromo = null;
                     window.shop.updateCartBadge();
                     
-                    if (uid) {
-                        try {
-                            const cartRef = getUserCartRef(uid);
-                            await deleteDoc(cartRef);
-                            console.log("✅ Cart cleared after order");
-                        } catch (cartError) {
-                            console.error("❌ Error clearing cart:", cartError);
-                        }
-                    }
+                    this.closeCheckoutModal();
+                    window.shop.switchView('store');
+                    window.shop.showToast("Заказ отправлен!", "Успешно");
                         
                 } catch(e) { 
-                    console.error("❌ Database error creating order:", e); 
+                    console.error(e); 
                     window.shop.state.isProcessingOrder = false;
-                    if (completeBtn) {
-                        completeBtn.disabled = false;
-                        this.selectPaymentMethod('now');
-                    }
-                    window.shop.showToast("Ошибка соединения с базой", "Внимание");
-                    return;
                 }
-
-                // Успешное завершение
-                document.getElementById('checkout-modal').classList.add('hidden');
-                
-                // ИСПРАВЛЕНО: Полностью сбрасываем состояние модального окна
-                this.closeCheckoutModal();
-                
-                // Сбрасываем промокод
-                window.shop.state.activePromo = null;
-                if (window.shop.state.activePromoListener) {
-                    window.shop.state.activePromoListener();
-                    window.shop.state.activePromoListener = null;
-                }
-                
-                window.shop.state.isProcessingOrder = false;
-                window.shop.switchView('store');
-                window.shop.showToast("Заказ отправлен! Подтвердите оплату", "Успешно");
             },
 
             testCart: async () => {
@@ -3354,6 +3261,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
