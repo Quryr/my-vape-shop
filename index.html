@@ -84,7 +84,14 @@ Sold Out Store
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        
+
+        #delivery-modal.keyboard-open { 
+            align-items: flex-start !important; 
+            padding-top: 20px; 
+        }
+        #delivery-modal.keyboard-open .glass-panel { 
+            margin-bottom: 200px; 
+        }
         /* Base Styles */
         body {
             background-color: #050505;
@@ -1204,7 +1211,21 @@ Sold Out Store
                     console.error("❌ Cart listener error:", error);
                 });
             },
-
+            setupSmartKeyboardHandler: function() {
+    const modal = document.getElementById('delivery-modal');
+    window.visualViewport?.addEventListener('resize', () => {
+        const isKeyboard = window.visualViewport.height < window.innerHeight * 0.85;
+        modal.classList.toggle('keyboard-open', isKeyboard);
+        if (isKeyboard) {
+            modal.style.height = `${window.visualViewport.height}px`;
+            setTimeout(() => {
+                document.activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        } else { 
+            modal.style.height = '100%'; 
+        }
+    });
+},
             init: async () => {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
@@ -1227,56 +1248,6 @@ Sold Out Store
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
                 document.getElementById('user-avatar').src = avatarUrl;
 
-                // Расширенный обработчик для всех полей ввода в модалке
-                const deliveryInputs = document.querySelectorAll('#delivery-modal input');
-                const deliveryModalPanel = document.querySelector('#delivery-modal .glass-panel');
-                
-                if (deliveryInputs.length > 0 && deliveryModalPanel) {
-                    deliveryInputs.forEach(input => {
-                        input.addEventListener('focus', (e) => {
-                            const target = e.target;
-                            
-                            // Ждем немного перед прокруткой
-                            setTimeout(() => {
-                                // Рассчитываем позицию
-                                const inputRect = target.getBoundingClientRect();
-                                const modalRect = deliveryModalPanel.getBoundingClientRect();
-                                
-                                // Если поле слишком низко
-                                if (inputRect.bottom > window.innerHeight - 200) {
-                                    // Прокручиваем модалку так, чтобы поле было видно
-                                    const scrollTop = target.offsetTop - 50;
-                                    deliveryModalPanel.scrollTo({
-                                        top: scrollTop,
-                                        behavior: 'smooth'
-                                    });
-                                }
-                                
-                                // Дополнительно прокручиваем весь документ
-                                target.scrollIntoView({
-                                    behavior: 'smooth',
-                                    block: 'center',
-                                    inline: 'nearest'
-                                });
-                            }, 150);
-                        });
-                    });
-                }
-                
-                // Также обрабатываем появление клавиатуры
-                if ('visualViewport' in window) {
-                    window.visualViewport.addEventListener('resize', () => {
-                        const activeElement = document.activeElement;
-                        if (activeElement && activeElement.id === 'del-name') {
-                            setTimeout(() => {
-                                activeElement.scrollIntoView({
-                                    block: 'center',
-                                    behavior: 'smooth'
-                                });
-                            }, 500);
-                        }
-                    });
-                }
                 
                 // Admin Button Visibility
                 if (window.shop.state.isAdmin) {
@@ -1377,6 +1348,7 @@ Sold Out Store
                         window.lucide.createIcons();
                     }
                 }, 100);
+                window.shop.setupSmartKeyboardHandler();
             },
 
             // --- REALTIME SYNC ---
@@ -3317,6 +3289,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
