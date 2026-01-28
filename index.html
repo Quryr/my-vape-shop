@@ -1202,130 +1202,112 @@ Sold Out Store
             },
 
             init: async () => {
-                            const tg = window.Telegram.WebApp;
-                            tg.ready();
-                            tg.expand();
-                            tg.setHeaderColor('#050505');
-                            tg.setBackgroundColor('#050505');
-            
-                            console.log("Telegram WebApp initialized");
-            
-                            // 1. Получаем данные пользователя Telegram
-                            const parsed = window.shop.parseUser();
-                            let tgUser = parsed.user;
-            
-                            // --- 🛡️ БЛОК ЗАЩИТЫ ОТ ЧУЖИХ КОРЗИН 🛡️ ---
-                            const storedTgId = localStorage.getItem('last_telegram_id');
-            
-                            // Если ID в памяти есть, но он НЕ совпадает с текущим (смена аккаунта)
-                            if (storedTgId && String(storedTgId) !== String(tgUser.id)) {
-                                console.log(`🚨 Смена пользователя! Был: ${storedTgId}, Стал: ${tgUser.id}`);
-                                
-                                // Удаляем "личность" и локальные данные
-                                localStorage.removeItem('vape_user_identity');
-                                
-                                // Разлогиниваем Firebase, чтобы получить новый чистый UID
-                                await auth.signOut();
-                                
-                                // Записываем нового владельца
-                                localStorage.setItem('last_telegram_id', tgUser.id);
-                                
-                                // Перезагружаем страницу, чтобы начать с чистого листа
-                                window.location.reload();
-                                return; 
-                            }
-                            
-                            // Если всё ок — подтверждаем владение
-                            localStorage.setItem('last_telegram_id', tgUser.id);
-                            // ------------------------------------------
-            
-                            window.shop.state.user = tgUser;
-                            window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
-                            
-                            // Установка аватара
-                            const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
-                            const avatarEl = document.getElementById('user-avatar');
-                            if(avatarEl) avatarEl.src = avatarUrl;
-                            
-                            // Кнопка админа
-                            const adminBtn = document.getElementById('admin-add-btn');
-                            if(adminBtn) {
-                                if (window.shop.state.isAdmin) adminBtn.classList.remove('hidden');
-                                else adminBtn.classList.add('hidden');
-                            }
-                            
-                            // Инициализация фиксов UI
-                            window.shop.initModalInputFix();
-                            
-                            // Маска телефона
-                            const phoneInput = document.getElementById('del-phone');
-                            if (phoneInput) {
-                                phoneInput.addEventListener('input', (e) => {
-                                    let val = e.target.value.replace(/\D/g, '');
-                                    if (val.length > 0 && val[0] !== '7') val = '7' + val;
-                                    if (val.length > 11) val = val.substring(0,11);
-                                    if (val.length > 0) e.target.value = '+' + val;
-                                    else e.target.value = '';
-                                });
-                                phoneInput.addEventListener('focus', (e) => {
-                                    if(!e.target.value) e.target.value = '+7';
-                                });
-                            }
-            
-                            // Валидация возраста
-                            const ageInput = document.getElementById('del-age');
-                            if (ageInput) {
-                                ageInput.addEventListener('input', (e) => {
-                                    const age = parseInt(e.target.value);
-                                    if (age < 18) ageInput.classList.add('border-red-500');
-                                    else ageInput.classList.remove('border-red-500');
-                                });
-                            }
-            
-                            // --- ЛОГИКА АВТОРИЗАЦИИ FIREBASE ---
-                            onAuthStateChanged(auth, async (user) => {
-                                if (user) {
-                                    // Пользователь вошел (или восстановлена сессия)
-                                    console.log("✅ Auth Success:", user.uid);
-                                    window.shop.state.firebaseUid = user.uid;
-                                    
-                                    // 1. Сохраняем профиль
-                                    await window.shop.saveUserProfile(tgUser);
-                                    
-                                    // 2. 🔥 ЗАГРУЖАЕМ КОРЗИНУ ИЗ БАЗЫ 🔥
-                                    await window.shop.loadCartFromFirebase();
-                                    
-                                    // 3. Запускаем слушателей изменений
-                                    window.shop.setupCartListener();
-                                    window.shop.initRealtimeListener();
-                                    
-                                    // 4. Убираем экран загрузки
-                                    window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
-                                    const loader = document.getElementById('loader');
-                                    if(loader) {
-                                        loader.style.opacity = '0';
-                                        setTimeout(() => {
-                                            loader.style.display = 'none';
-                                            document.getElementById('app').classList.remove('opacity-0');
-                                            window.shop.switchView('store');
-                                        }, 500);
-                                    }
-                                } else {
-                                    // Если авторизации нет — входим анонимно
-                                    console.log("⚠️ Logging in anonymously...");
-                                    try {
-                                        await signInAnonymously(auth);
-                                    } catch (e) {
-                                        console.error("Auth failed:", e);
-                                    }
-                                }
-                            });
-                            
-                            // Иконки
-                            setTimeout(() => { 
-                                if(window.lucide) window.lucide.createIcons();
-                            }, 100);
-                        },
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+                tg.setHeaderColor('#050505');
+                tg.setBackgroundColor('#050505');
+
+                console.log("Telegram WebApp initialized");
+
+                // --- ROBUST USER PARSING ---
+                const parsed = window.shop.parseUser();
+                let tgUser = parsed.user;
+                
+                window.shop.state.user = tgUser;
+                window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
+                console.log("Is admin?", window.shop.state.isAdmin);
+
+                // Setup Avatar
+                const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
+                document.getElementById('user-avatar').src = avatarUrl;
+                
+                // Admin Button Visibility
+                if (window.shop.state.isAdmin) {
+                    document.getElementById('admin-add-btn').classList.remove('hidden');
+                } else {
+                    document.getElementById('admin-add-btn').classList.add('hidden');
+                }
+                
+                // Инициализация фикса для полей ввода
+                window.shop.initModalInputFix();
+                
+                // Phone Input Masking Listener
+                const phoneInput = document.getElementById('del-phone');
+                if (phoneInput) {
+                    phoneInput.addEventListener('input', (e) => {
+                        let val = e.target.value.replace(/\D/g, '');
+                        
+                        // Force start with 7
+                        if (val.length > 0 && val[0] !== '7') {
+                             val = '7' + val;
+                        }
+                        // Limit length (7 + 10 digits = 11 digits total)
+                        if (val.length > 11) val = val.substring(0,11);
+
+                        // Format output
+                        if (val.length > 0) {
+                            e.target.value = '+' + val;
+                        } else {
+                            e.target.value = '';
+                        }
+                    });
+                    
+                    phoneInput.addEventListener('focus', (e) => {
+                        if(!e.target.value) e.target.value = '+7';
+                    });
+                }
+
+                // Age validation listener
+                const ageInput = document.getElementById('del-age');
+                if (ageInput) {
+                    ageInput.addEventListener('input', (e) => {
+                        const age = parseInt(e.target.value);
+                        if (age < 18) {
+                            ageInput.classList.add('border-red-500');
+                        } else {
+                            ageInput.classList.remove('border-red-500');
+                        }
+                    });
+                }
+
+                // --- PROPER AUTHENTICATION FLOW ---
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        console.log("✅ Firebase user authenticated:", user.uid);
+                        window.shop.state.firebaseUid = user.uid;
+                        
+                        await window.shop.saveUserProfile(tgUser);
+                        await window.shop.loadCartFromFirebase();
+                        window.shop.setupCartListener();
+                        window.shop.initRealtimeListener();
+                        
+                        window.shop.showToast(`Вход: ${tgUser.first_name}`, "Система");
+                        
+                        const loader = document.getElementById('loader');
+                        loader.style.opacity = '0';
+                        setTimeout(() => {
+                            loader.style.display = 'none';
+                            document.getElementById('app').classList.remove('opacity-0');
+                            window.shop.switchView('store');
+                        }, 500);
+                    } else {
+                        console.log("⚠️ No Firebase user, signing in anonymously...");
+                        try {
+                            await signInAnonymously(auth);
+                        } catch (e) {
+                            console.error("❌ Anonymous auth failed:", e);
+                            // Все равно показываем интерфейс
+                            const loader = document.getElementById('loader');
+                            loader.style.opacity = '0';
+                            setTimeout(() => {
+                                loader.style.display = 'none';
+                                document.getElementById('app').classList.remove('opacity-0');
+                                window.shop.switchView('store');
+                            }, 500);
+                        }
+                    }
+                });
                 
                 // Инициируем аутентификацию
                 try {
@@ -1343,54 +1325,72 @@ Sold Out Store
 
             // --- REALTIME SYNC ---
             initRealtimeListener: () => {
-                            if (window.shop.state.listenerUnsubscribe) {
-                                window.shop.state.listenerUnsubscribe();
-                            }
-            
-                            const q = query(getProductsRef());
-                            
-                            window.shop.state.listenerUnsubscribe = onSnapshot(q, async (snapshot) => {
-                                let dbProducts = [];
-                                snapshot.forEach(docSnap => {
-                                    const data = docSnap.data();
-                                    dbProducts.push({ 
-                                        id: docSnap.id, 
-                                        ...data,
-                                        createdAt: data.createdAt ? (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 0
-                                    });
-                                });
-                                
-                                // Сортировка
-                                const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
-                                dbProducts.sort((a, b) => {
-                                    let indexA = catOrder.indexOf(a.category);
-                                    let indexB = catOrder.indexOf(b.category);
-                                    if (indexA === -1) indexA = 999;
-                                    if (indexB === -1) indexB = 999;
-                                    if (indexA !== indexB) return indexA - indexB;
-                                    const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
-                                    const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
-                                    return tB - tA;
-                                });
-                                
-                                console.log("🔄 Товары обновлены:", dbProducts.length);
-                                window.shop.state.products = dbProducts;
-                                
-                                // 🔥 ВАЖНО: Обновляем бейджик сразу после загрузки товаров
-                                window.shop.updateCartBadge();
-                                
-                                if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
-                                    window.shop.renderStore();
-                                }
-                                if (window.shop.state.isCartView) {
-                                    window.shop.updateCartView();
-                                }
-                                if(window.lucide) window.lucide.createIcons();
-                                
-                            }, (error) => {
-                                console.error("Listener error:", error);
-                            });
-                        },
+                if (window.shop.state.listenerUnsubscribe) {
+                    window.shop.state.listenerUnsubscribe();
+                }
+
+                const q = query(getProductsRef());
+                
+                window.shop.state.listenerUnsubscribe = onSnapshot(q, async (snapshot) => {
+                    if (snapshot.empty) {
+                        console.log("📭 DB Empty - no products");
+                        window.shop.state.products = [];
+                        window.shop.renderStore();
+                        return; 
+                    }
+
+                    let dbProducts = [];
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        dbProducts.push({ 
+                            id: docSnap.id, 
+                            ...data,
+                            createdAt: data.createdAt ? 
+                                (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
+                                0
+                        });
+                    });
+                    
+                    // Sort by Category Order, then by Date
+                    const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                    
+                    dbProducts.sort((a, b) => {
+                        // 1. Сортировка по категориям
+                        let indexA = catOrder.indexOf(a.category);
+                        let indexB = catOrder.indexOf(b.category);
+                    
+                        // Если категории нет в списке, кидаем её в конец
+                        if (indexA === -1) indexA = 999;
+                        if (indexB === -1) indexB = 999;
+                    
+                        if (indexA !== indexB) {
+                            return indexA - indexB; // Сначала по порядку в массиве
+                        }
+                    
+                        // 2. Внутри одной категории сортируем по новизне (свежие сверху)
+                        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                        return tB - tA;
+                    });
+                    
+                    console.log("🔄 Realtime Update Received:", dbProducts.length);
+                    window.shop.state.products = dbProducts;
+                    
+                    if (document.querySelector('.nav-btn.text-green-400[data-view="store"]')) {
+                        window.shop.renderStore();
+                    }
+                    
+                    if (window.shop.state.isCartView) {
+                        window.shop.updateCartView();
+                    }
+                    
+                    if(window.lucide) window.lucide.createIcons();
+                    
+                }, (error) => {
+                    console.error("❌ Products listener error:", error);
+                    window.shop.showToast("Ошибка синхронизации", "Внимание");
+                });
+            },
 
             seedDatabase: async () => {
                 try {
@@ -3256,10 +3256,6 @@ Sold Out Store
     </script>
 </body>
 </html>
-
-
-
-
 
 
 
