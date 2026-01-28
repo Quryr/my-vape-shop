@@ -3149,7 +3149,7 @@ Sold Out Store
                     delivery: window.shop.state.deliveryInfo,
                     status: 'pending',
                     createdAt: now,
-                    promo: window.shop.state.activePromo ? window.shop.state.activePromo.code : null,
+                    promo: window.shop.state.activePromo ? window.shop.state.activePromo.code : null, // Используем .code
                     payment_method: 'on_delivery',
                     payment_status: 'waiting'
                 };
@@ -3351,6 +3351,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
