@@ -34,6 +34,7 @@
                         'float-up': 'slideUp 0.4s ease-out forwards',
                         'fade-in': 'fadeIn 0.3s ease-out forwards',
                         'slide-out': 'slideOut 0.3s ease-out forwards',
+                        'shake': 'shake 0.5s ease-in-out',
                     },
                     keyframes: {
                         float: {
@@ -55,6 +56,11 @@
                         slideOut: {
                             '0%': { transform: 'translateX(0)', opacity: '1', height: 'auto' },
                             '100%': { transform: 'translateX(-100%)', opacity: '0', height: '0', margin: '0', padding: '0' }
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' }
                         }
                     }
                 }
@@ -373,6 +379,62 @@
             color: #22c55e;
             box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
         }
+
+        /* Stock badge */
+        .stock-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: bold;
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .stock-low {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .stock-out {
+            background: rgba(100, 100, 100, 0.15);
+            color: #999;
+            border: 1px solid rgba(100, 100, 100, 0.3);
+        }
+
+        /* Sorting buttons */
+        .sort-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sort-btn.active {
+            background-color: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+            color: #22c55e;
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Out of stock overlay */
+        .out-of-stock {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 5;
+            font-size: 12px;
+            font-weight: bold;
+            color: #ef4444;
+            backdrop-filter: blur(2px);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -542,10 +604,10 @@
                 
                 <!-- Поля для фиксированной скидки (скрыты по умолчанию) -->
                 <div id="promo-fixed-fields" class="hidden">
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-3">
                         <div>
-                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Скидка на товар (руб)</label>
-                            <input type="number" id="new-promo-fixed-discount" placeholder="100" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
+                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Скидка на товар (%)</label>
+                            <input type="number" id="new-promo-fixed-discount" placeholder="20" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
                         </div>
                         <div>
                             <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Количество товаров</label>
@@ -602,6 +664,10 @@
                     <input type="number" id="new-price" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
                 </div>
                 <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Количество в наличии</label>
+                    <input type="number" id="new-stock" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Категория</label>
                     <select id="new-cat" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none text-gray-300 appearance-none">
                         <option value="Одноразки">Одноразки</option>
@@ -644,6 +710,10 @@
                 <div>
                      <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Цена (RUB)</label>
                     <input type="number" id="edit-price" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Количество в наличии</label>
+                    <input type="number" id="edit-stock" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600">
                 </div>
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Категория</label>
@@ -863,16 +933,16 @@
         // ---------------------------------------------------------
         
         const MOCK_PRODUCTS = [
-            { name: "Neon Pod X", price: 2500, category: "Pod-устройства", image: "zap", createdAt: 1700000000000 },
-            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", createdAt: 1700000000001 },
-            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet", createdAt: 1700000000002 },
-            { name: "Mech Mod Pro", price: 5000, category: "Pod-устройства", image: "cpu", createdAt: 1700000000003 },
-            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake", createdAt: 1700000000004 },
-            { name: "Magma Core Coil", price: 300, category: "Комплектующие", image: "circle-dot", createdAt: 1700000000005 },
-            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet", createdAt: 1700000000006 },
-            { name: "Vapor Storm Kit", price: 3200, category: "Pod-устройства", image: "wind", createdAt: 1700000000007 },
-            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb", createdAt: 1700000000008 },
-            { name: "Cotton Wick Premium", price: 150, category: "Комплектующие", image: "scroll", createdAt: 1700000000009 },
+            { name: "Neon Pod X", price: 2500, category: "Pod-устройства", image: "zap", stock: 10, createdAt: 1700000000000 },
+            { name: "Cyber Bar 9000", price: 1200, category: "Одноразки", image: "battery-charging", stock: 25, createdAt: 1700000000001 },
+            { name: "Toxic Sludge 30ml", price: 600, category: "Жидкости", image: "droplet", stock: 50, createdAt: 1700000000002 },
+            { name: "Mech Mod Pro", price: 5000, category: "Pod-устройства", image: "cpu", stock: 5, createdAt: 1700000000003 },
+            { name: "Frost Berry Ice", price: 1300, category: "Одноразки", image: "snowflake", stock: 15, createdAt: 1700000000004 },
+            { name: "Magma Core Coil", price: 300, category: "Комплектующие", image: "circle-dot", stock: 100, createdAt: 1700000000005 },
+            { name: "Blue Raz 50mg", price: 650, category: "Жидкости", image: "droplet", stock: 40, createdAt: 1700000000006 },
+            { name: "Vapor Storm Kit", price: 3200, category: "Pod-устройства", image: "wind", stock: 8, createdAt: 1700000000007 },
+            { name: "Mango Bomb", price: 1250, category: "Одноразки", image: "bomb", stock: 20, createdAt: 1700000000008 },
+            { name: "Cotton Wick Premium", price: 150, category: "Комплектующие", image: "scroll", stock: 200, createdAt: 1700000000009 },
         ];
 
         // Safety Loader Timeout
@@ -923,7 +993,10 @@
                 adminFabRendered: false,
                 paymentMethod: null,
                 paymentStatus: 'pending',
-                promoType: 'percent' // 'percent' или 'fixed'
+                promoType: 'percent', // 'percent' или 'fixed'
+                sortBy: 'default', // 'default', 'price_asc', 'price_desc', 'category'
+                sortDirection: 'desc',
+                categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника']
             },
 
             // --- Инициализация фикса для полей ввода ---
@@ -1308,11 +1381,12 @@
                             ...data,
                             createdAt: data.createdAt ? 
                                 (data.createdAt.toMillis ? data.createdAt.toMillis() : data.createdAt) : 
-                                0
+                                0,
+                            stock: data.stock || 0
                         });
                     });
                     
-                    // Sort in JS instead of Firestore query
+                    // Sort by creation date by default
                     dbProducts.sort((a, b) => {
                          const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
                          const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
@@ -1414,6 +1488,55 @@
                 }
             },
 
+            // --- Сортировка товаров ---
+            sortProducts: function(products) {
+                let sorted = [...products];
+                
+                switch(this.state.sortBy) {
+                    case 'price_asc':
+                        sorted.sort((a, b) => a.price - b.price);
+                        break;
+                    case 'price_desc':
+                        sorted.sort((a, b) => b.price - a.price);
+                        break;
+                    case 'category':
+                        sorted.sort((a, b) => {
+                            const indexA = this.state.categoryOrder.indexOf(a.category);
+                            const indexB = this.state.categoryOrder.indexOf(b.category);
+                            if (indexA === -1 && indexB === -1) return 0;
+                            if (indexA === -1) return 1;
+                            if (indexB === -1) return -1;
+                            return indexA - indexB;
+                        });
+                        break;
+                    case 'default':
+                    default:
+                        sorted.sort((a, b) => {
+                            const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                            const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                            return tB - tA;
+                        });
+                        break;
+                }
+                
+                return sorted;
+            },
+
+            setSort: function(sortType) {
+                this.state.sortBy = sortType;
+                this.renderStore();
+                this.showToast(`Сортировка: ${this.getSortName(sortType)}`, "Настройки");
+            },
+
+            getSortName: function(sortType) {
+                switch(sortType) {
+                    case 'price_asc': return 'Цена по возрастанию';
+                    case 'price_desc': return 'Цена по убыванию';
+                    case 'category': return 'По категориям';
+                    default: return 'По умолчанию';
+                }
+            },
+
             // --- UI Rendering ---
             switchView: (viewName) => {
                 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1463,7 +1586,7 @@
                 if (!container) return;
                 
                 const categories = ['Все', 'Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
-                let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-6 pb-2">`;
+                let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-4 pb-2">`;
                 categories.forEach(cat => {
                     const isActive = window.shop.state.currentCategory === cat;
                     const activeClass = isActive 
@@ -1477,20 +1600,45 @@
                 });
                 catHTML += `</div>`;
 
+                // Sorting buttons
+                catHTML += `
+                    <div class="flex gap-2 mb-4 px-1 overflow-x-auto">
+                        <button onclick="window.shop.setSort('default')" 
+                                class="sort-btn ${window.shop.state.sortBy === 'default' ? 'active' : ''}">
+                            По умолчанию
+                        </button>
+                        <button onclick="window.shop.setSort('price_asc')" 
+                                class="sort-btn ${window.shop.state.sortBy === 'price_asc' ? 'active' : ''}">
+                            Цена ↑
+                        </button>
+                        <button onclick="window.shop.setSort('price_desc')" 
+                                class="sort-btn ${window.shop.state.sortBy === 'price_desc' ? 'active' : ''}">
+                            Цена ↓
+                        </button>
+                        <button onclick="window.shop.setSort('category')" 
+                                class="sort-btn ${window.shop.state.sortBy === 'category' ? 'active' : ''}">
+                            По категориям
+                        </button>
+                    </div>
+                `;
+
                 let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
                 
                 const filtered = window.shop.state.products.filter(p => 
                     window.shop.state.currentCategory === 'Все' || p.category === window.shop.state.currentCategory
                 );
 
-                if (filtered.length === 0) {
+                // Sort products
+                const sortedProducts = window.shop.sortProducts(filtered);
+
+                if (sortedProducts.length === 0) {
                      gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
                         <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50 icon-fix"></i>
                         <p>Товаров пока нет</p>
                         ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте товар в меню админа (+)</p>' : ''}
                       </div>`;
                 } else {
-                    filtered.forEach((p, index) => {
+                    sortedProducts.forEach((p, index) => {
                         let imageContent;
                         if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
                             imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
@@ -1498,8 +1646,27 @@
                             imageContent = `<i data-lucide="${p.image || 'box'}" class="w-16 h-16 text-gray-600 group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 icon-fix"></i>`;
                         }
 
+                        // Stock badge
+                        let stockBadge = '';
+                        let stockClass = 'stock-badge';
+                        if (p.stock <= 0) {
+                            stockClass = 'stock-out';
+                            stockBadge = 'Нет в наличии';
+                        } else if (p.stock <= 5) {
+                            stockClass = 'stock-low';
+                            stockBadge = `${p.stock} шт`;
+                        } else {
+                            stockBadge = `${p.stock} шт`;
+                        }
+
+                        // Check if product is in cart and if stock is available
+                        const cartQty = window.shop.state.cart[p.id] || 0;
+                        const availableStock = p.stock - cartQty;
+                        const isOutOfStock = p.stock <= 0;
+                        const canAddMore = availableStock > 0;
+
                         gridHTML += `
-                        <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto">
+                        <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto ${isOutOfStock ? 'opacity-70' : ''}">
                             ${window.shop.state.isAdmin ? `
                                 <div class="absolute top-2 right-2 z-20 flex gap-1">
                                     <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
@@ -1512,8 +1679,12 @@
                             ` : ''}
                             
                             <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
-                                 <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
-                                 ${imageContent}
+                                ${isOutOfStock ? '<div class="out-of-stock">НЕТ В НАЛИЧИИ</div>' : ''}
+                                <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
+                                ${imageContent}
+                                <div class="absolute top-2 left-2 z-10">
+                                    <div class="${stockClass}">${stockBadge}</div>
+                                </div>
                             </div>
                             
                             <div class="flex-grow flex flex-col justify-between">
@@ -1527,8 +1698,10 @@
                                         <span class="text-[9px] text-gray-500">Цена</span>
                                         <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
                                     </div>
-                                    <button onclick="window.shop.addToCart('${p.id}')" class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110">
-                                        <i data-lucide="plus" class="w-5 h-5 icon-fix"></i>
+                                    <button onclick="window.shop.addToCart('${p.id}')" 
+                                            class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110 ${!canAddMore || isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}"
+                                            ${!canAddMore || isOutOfStock ? 'disabled' : ''}>
+                                        <i data-lucide="${isOutOfStock ? 'x' : 'plus'}" class="w-5 h-5 icon-fix"></i>
                                     </button>
                                 </div>
                             </div>
@@ -1570,6 +1743,9 @@
                 
                 products.forEach((p, idx) => {
                     const qty = window.shop.state.cart[p.id];
+                    const availableStock = p.stock || 0;
+                    const maxQty = availableStock;
+                    
                     total += p.price * qty;
                     
                     let imageContent;
@@ -1586,14 +1762,19 @@
                             </div>
                             <div class="flex-grow">
                                 <h3 class="text-sm font-bold text-white">${p.name}</h3>
-                                <p class="text-xs text-green-400 font-mono mt-1">${p.price} ₽</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <p class="text-xs text-green-400 font-mono">${p.price} ₽</p>
+                                    <div class="text-[10px] ${availableStock <= 5 ? 'text-red-400' : 'text-gray-500'}">
+                                        ${availableStock <= 0 ? 'Нет в наличии' : `Осталось: ${availableStock} шт`}
+                                    </div>
+                                </div>
                             </div>
                             <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5">
-                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
                                     <i data-lucide="minus" class="w-3 h-3 icon-fix"></i>
                                 </button>
                                 <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
-                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty >= maxQty ? 'opacity-30 cursor-not-allowed' : ''}" ${qty >= maxQty ? 'disabled' : ''}>
                                     <i data-lucide="plus" class="w-3 h-3 icon-fix"></i>
                                 </button>
                             </div>
@@ -1611,7 +1792,7 @@
                         // Процент от всей корзины
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
-                        // Фиксированная скидка на количество товаров
+                        // Процентная скидка на количество товаров
                         const cartItems = Object.entries(window.shop.state.cart);
                         let itemsProcessed = 0;
                         
@@ -1620,7 +1801,7 @@
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
                                     if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
-                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        discountAmount += (product.price * window.shop.state.activePromo.fixed_discount) / 100;
                                         itemsProcessed++;
                                     } else {
                                         break;
@@ -1895,8 +2076,8 @@
                                 let discountText = `${data.percent}%`;
                                 
                                 if (data.type === 'fixed') {
-                                    typeText = 'Фикс. скидка';
-                                    discountText = `${data.fixed_discount}₽ на ${data.fixed_quantity} товара(ов)`;
+                                    typeText = 'Скидка на кол-во';
+                                    discountText = `${data.fixed_discount}% на ${data.fixed_quantity} товара(ов)`;
                                 }
                                 
                                 html += `
@@ -1948,7 +2129,7 @@
                     const fixedQuantity = Number(document.getElementById('new-promo-fixed-quantity').value);
                     
                     if (!fixedDiscount || !fixedQuantity) {
-                        window.shop.showToast("Заполните все поля для фиксированной скидки", "Ошибка");
+                        window.shop.showToast("Заполните все поля для скидки на количество", "Ошибка");
                         return;
                     }
                     promoData.fixed_discount = fixedDiscount;
@@ -2466,6 +2647,23 @@
             },
 
             addToCart: async (productId) => {
+                const product = window.shop.state.products.find(p => p.id === productId);
+                if (!product) return;
+                
+                // Проверка наличия товара
+                const currentQty = window.shop.state.cart[productId] || 0;
+                const availableStock = product.stock || 0;
+                
+                if (availableStock <= 0) {
+                    window.shop.showToast("Товара нет в наличии", "Ошибка");
+                    return;
+                }
+                
+                if (currentQty >= availableStock) {
+                    window.shop.showToast(`Максимальное количество: ${availableStock} шт`, "Ошибка");
+                    return;
+                }
+                
                 if (!window.shop.state.cart[productId]) {
                     window.shop.state.cart[productId] = 0;
                 }
@@ -2483,6 +2681,17 @@
 
             updateQty: async (productId, change) => {
                 if (!window.shop.state.cart[productId]) return;
+                
+                const product = window.shop.state.products.find(p => p.id === productId);
+                if (!product) return;
+                
+                const currentQty = window.shop.state.cart[productId];
+                const availableStock = product.stock || 0;
+                
+                if (change > 0 && currentQty >= availableStock) {
+                    window.shop.showToast(`Максимальное количество: ${availableStock} шт`, "Ошибка");
+                    return;
+                }
                 
                 window.shop.state.cart[productId] += change;
                 
@@ -2542,7 +2751,7 @@
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
                                     if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
-                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        discountAmount += (product.price * window.shop.state.activePromo.fixed_discount) / 100;
                                         itemsProcessed++;
                                     } else {
                                         break;
@@ -2578,6 +2787,7 @@
                 if (!modal.classList.contains('hidden')) {
                     document.getElementById('new-name').value = '';
                     document.getElementById('new-price').value = '';
+                    document.getElementById('new-stock').value = '';
                     document.getElementById('new-image-input').value = '';
                     window.shop.state.pendingImage = null;
                     document.getElementById('img-preview-container').style.backgroundImage = 'none';
@@ -2596,6 +2806,7 @@
 
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
+                document.getElementById('edit-stock').value = product.stock || 0;
                 document.getElementById('edit-cat').value = product.category;
 
                 const preview = document.getElementById('edit-img-preview-container');
@@ -2674,17 +2885,19 @@
             addProduct: async () => {
                 const name = document.getElementById('new-name').value;
                 const price = Number(document.getElementById('new-price').value);
+                const stock = Number(document.getElementById('new-stock').value) || 0;
                 const cat = document.getElementById('new-cat').value;
                 const image = window.shop.state.pendingImage || 'box';
 
                 if (!name || !price) {
-                    window.shop.showToast("Заполните все поля", "Ошибка");
+                    window.shop.showToast("Заполните все обязательные поля", "Ошибка");
                     return;
                 }
 
                 const newProduct = { 
                     name, 
                     price, 
+                    stock,
                     category: cat, 
                     image, 
                     createdAt: serverTimestamp()
@@ -2709,17 +2922,19 @@
 
                 const name = document.getElementById('edit-name').value;
                 const price = Number(document.getElementById('edit-price').value);
+                const stock = Number(document.getElementById('edit-stock').value) || 0;
                 const cat = document.getElementById('edit-cat').value;
                 const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
 
                 if (!name || !price) {
-                    this.showToast("Заполните все поля", "Ошибка");
+                    this.showToast("Заполните все обязательные поля", "Ошибка");
                     return;
                 }
 
                 const updatedProduct = {
                     name,
                     price,
+                    stock,
                     category: cat,
                     image,
                 };
@@ -2762,6 +2977,13 @@
             initCheckout: (total) => {
                 // Сброс состояния перед открытием
                 window.shop.resetCheckoutState();
+                
+                // Сброс активного промокода при начале нового заказа
+                window.shop.state.activePromo = null;
+                if (window.shop.state.activePromoListener) {
+                    window.shop.state.activePromoListener();
+                    window.shop.state.activePromoListener = null;
+                }
                 
                 window.shop.state.currentTotal = total;
                 document.getElementById('delivery-modal').classList.remove('hidden');
@@ -2870,7 +3092,7 @@
                 
                 document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
                 
-                // Show Discount in Checkout
+                // Show Discount in Checkout (только если есть активный промокод)
                 if (window.shop.state.activePromo) {
                     let discountAmount = 0;
                     
@@ -2885,7 +3107,7 @@
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
                                     if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
-                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        discountAmount += (product.price * window.shop.state.activePromo.fixed_discount) / 100;
                                         itemsProcessed++;
                                     } else {
                                         break;
@@ -2898,6 +3120,8 @@
                     
                     document.getElementById('checkout-discount-row').classList.remove('hidden');
                     document.getElementById('checkout-discount-val').innerText = `-${discountAmount} ₽`;
+                } else {
+                    document.getElementById('checkout-discount-row').classList.add('hidden');
                 }
 
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
