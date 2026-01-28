@@ -461,24 +461,31 @@
             box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
         }
 
-        /* SOLD OUT overlay - UGLY version */
+        /* SOLD OUT overlay - STYLISH version */
         .sold-out-overlay {
             position: absolute;
             inset: 0;
-            background: rgba(0,0,0,0.95);
+            background: rgba(0,0,0,0.8); /* Сильное затемнение фона */
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 12px;
-            z-index: 5;
-            font-size: 16px;
+            z-index: 20;
+        }
+
+        .sold-out-overlay span {
+            background-color: #000;      /* Черный фон стикера */
+            color: #fff;                 /* Белый текст */
+            border: 2px solid #fff;      /* Белая рамка */
+            padding: 8px 16px;           /* Отступы внутри стикера */
+            font-family: 'Inter', sans-serif;
             font-weight: 900;
-            color: #ef4444;
+            font-style: italic;          /* Наклон шрифта */
+            font-size: 14px;
             text-transform: uppercase;
-            letter-spacing: 3px;
-            border: 3px solid #ef4444;
-            text-shadow: 0 0 10px rgba(239,68,68,0.5);
-            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            transform: rotate(-8deg);    /* Поворот стикера */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
 
         /* Category filter buttons */
@@ -3534,3 +3541,4 @@
     </script>
 </body>
 </html>
+
