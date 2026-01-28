@@ -1351,11 +1351,26 @@ Sold Out Store
                         });
                     });
                     
-                    // Sort by creation date
+                    // Sort by Category Order, then by Date
+                    const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                    
                     dbProducts.sort((a, b) => {
-                         const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
-                         const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
-                         return tB - tA; // Descending
+                        // 1. Сортировка по категориям
+                        let indexA = catOrder.indexOf(a.category);
+                        let indexB = catOrder.indexOf(b.category);
+                    
+                        // Если категории нет в списке, кидаем её в конец
+                        if (indexA === -1) indexA = 999;
+                        if (indexB === -1) indexB = 999;
+                    
+                        if (indexA !== indexB) {
+                            return indexA - indexB; // Сначала по порядку в массиве
+                        }
+                    
+                        // 2. Внутри одной категории сортируем по новизне (свежие сверху)
+                        const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                        const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                        return tB - tA;
                     });
                     
                     console.log("🔄 Realtime Update Received:", dbProducts.length);
@@ -3227,6 +3242,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
