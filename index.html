@@ -1202,21 +1202,47 @@ Sold Out Store
             },
 
             init: async () => {
-                const tg = window.Telegram.WebApp;
-                tg.ready();
-                tg.expand();
-                tg.setHeaderColor('#050505');
-                tg.setBackgroundColor('#050505');
-
-                console.log("Telegram WebApp initialized");
-
-                // --- ROBUST USER PARSING ---
-                const parsed = window.shop.parseUser();
-                let tgUser = parsed.user;
-                
-                window.shop.state.user = tgUser;
-                window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
-                console.log("Is admin?", window.shop.state.isAdmin);
+                            const tg = window.Telegram.WebApp;
+                            tg.ready();
+                            tg.expand();
+                            tg.setHeaderColor('#050505');
+                            tg.setBackgroundColor('#050505');
+            
+                            console.log("Telegram WebApp initialized");
+            
+                            // --- ROBUST USER PARSING ---
+                            const parsed = window.shop.parseUser();
+                            let tgUser = parsed.user;
+            
+                            // 🔥🔥🔥 НАЧАЛО БЛОКА ЗАЩИТЫ ОТ СМЕШИВАНИЯ АККАУНТОВ 🔥🔥🔥
+                            // Получаем ID, который был в прошлый раз
+                            const storedTgId = localStorage.getItem('last_telegram_id');
+            
+                            // Если ID был сохранен ранее И он отличается от текущего (зашел другой аккаунт)
+                            if (storedTgId && String(storedTgId) !== String(tgUser.id)) {
+                                console.log(`🚨 Смена аккаунта: был ${storedTgId}, стал ${tgUser.id}. Полный сброс.`);
+                                
+                                // 1. Очищаем LocalStorage (удаляем "чужую" корзину и личность гостя)
+                                localStorage.clear();
+                                
+                                // 2. Принудительно разлогиниваем Firebase, чтобы сбросить UID
+                                await auth.signOut();
+                                
+                                // 3. Записываем ID нового пользователя
+                                localStorage.setItem('last_telegram_id', tgUser.id);
+                                
+                                // 4. Перезагружаем страницу
+                                window.location.reload();
+                                return; 
+                            }
+                            
+                            // Если пользователь тот же самый — обновляем запись
+                            localStorage.setItem('last_telegram_id', tgUser.id);
+                            // 🔥🔥🔥 КОНЕЦ БЛОКА ЗАЩИТЫ 🔥🔥🔥
+                            
+                            window.shop.state.user = tgUser;
+                            window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
+                            console.log("Is admin?", window.shop.state.isAdmin);
 
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
@@ -3256,6 +3282,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
