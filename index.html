@@ -85,12 +85,21 @@ Sold Out Store
 
     <style>
 
-        #delivery-modal.keyboard-open { 
-            align-items: flex-start !important; 
-            padding-top: 20px; 
+        #delivery-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(12px);
+            overflow-y: auto; /* Позволяет прокручивать форму */
         }
-        #delivery-modal.keyboard-open .glass-panel { 
-            margin-bottom: 200px; 
+        
+        #delivery-modal .glass-panel {
+            margin: 40px auto; /* Центрируем форму */
+            width: 95%;
+            max-width: 400px;
+            transition: padding-bottom 0.3s ease; /* Плавное появление отступа */
         }
         /* Base Styles */
         body {
@@ -1212,20 +1221,27 @@ Sold Out Store
                 });
             },
             setupSmartKeyboardHandler: function() {
-    const modal = document.getElementById('delivery-modal');
-    window.visualViewport?.addEventListener('resize', () => {
-        const isKeyboard = window.visualViewport.height < window.innerHeight * 0.85;
-        modal.classList.toggle('keyboard-open', isKeyboard);
-        if (isKeyboard) {
-            modal.style.height = `${window.visualViewport.height}px`;
-            setTimeout(() => {
-                document.activeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
-        } else { 
-            modal.style.height = '100%'; 
-        }
-    });
-},
+                const modal = document.getElementById('delivery-modal');
+                const form = modal.querySelector('.glass-panel');
+                const inputs = modal.querySelectorAll('input');
+            
+                inputs.forEach(input => {
+                    input.addEventListener('focus', () => {
+                        // Добавляем временный отступ снизу (примерно 50% высоты экрана)
+                        form.style.paddingBottom = '50vh';
+                        
+                        // Центрируем поле через небольшую паузу
+                        setTimeout(() => {
+                            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    });
+            
+                    input.addEventListener('blur', () => {
+                        // Убираем отступ, когда ввод закончен
+                        form.style.paddingBottom = '0px';
+                    });
+                });
+            }
             init: async () => {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
@@ -3289,6 +3305,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
