@@ -1223,11 +1223,22 @@ Sold Out Store
 
                 // Внутри метода init, после настройки аватара:
                 const nameInput = document.getElementById('del-name');
-                if (nameInput) {
+                const deliveryModal = document.querySelector('#delivery-modal .glass-panel');
+
+                if (nameInput && deliveryModal) {
                     nameInput.addEventListener('focus', () => {
-                        // Даем клавиатуре время открыться, затем центрируем поле
+                        // 1. Сразу прокручиваем
                         setTimeout(() => {
-                            nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            nameInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 100);
+
+                        // 2. Повторно через 300мс (когда клавиатура точно выехала)
+                        setTimeout(() => {
+                            // Прокручиваем именно контейнер модалки
+                            deliveryModal.scrollTo({
+                                top: nameInput.offsetTop - 20,
+                                behavior: 'smooth'
+                            });
                         }, 300);
                     });
                 }
@@ -3274,6 +3285,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
