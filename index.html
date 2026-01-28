@@ -400,30 +400,34 @@ Sold Out Store
 
     <!-- Safety Loader -->
 <div id="loader" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#050505] transition-opacity duration-500">
+    
+    <div class="relative w-32 h-32 mb-8">
+        <div class="absolute inset-0 border-4 border-white/5 rounded-full"></div>
+        <div class="absolute inset-0 border-t-4 border-green-500 rounded-full animate-spin"></div>
+        <div class="absolute inset-3 border-b-4 border-green-500/30 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 2s;"></div>
         
-        <div class="relative w-20 h-20 mb-8">
-            <div class="absolute inset-0 border-2 border-white/5 rounded-full"></div>
-            <div class="absolute inset-0 border-t-2 border-green-500 rounded-full animate-spin"></div>
-            <div class="absolute inset-2 border-b-2 border-green-500/30 rounded-full animate-spin" style="animation-direction: reverse; animation-duration: 2s;"></div>
-            
-            <div class="absolute inset-0 flex items-center justify-center">
-                 <i data-lucide="shopping-bag" class="w-8 h-8 text-green-500 animate-pulse"></i>
-            </div>
-        </div>
-
-        <div class="flex flex-col items-center gap-4">
-            <h1 class="text-4xl font-black italic tracking-tighter text-white uppercase leading-none drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
-                SOLD<span class="text-green-500">OUT</span>
-            </h1>
-            
-            <div class="w-12 h-[2px] bg-white/10 rounded-full"></div>
-
-            <div class="flex items-center gap-2">
-                <div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                <span class="text-[10px] font-mono text-gray-500 uppercase tracking-[0.3em]">System Loading...</span>
-            </div>
+        <div class="absolute inset-0 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-green-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
+                <path d="M3 6h18"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
         </div>
     </div>
+
+    <div class="flex flex-col items-center gap-4">
+        <h1 class="text-4xl font-black italic tracking-tighter text-white uppercase leading-none drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+            SOLD<span class="text-green-500">OUT</span>
+        </h1>
+        
+        <div class="w-16 h-[2px] bg-white/10 rounded-full"></div>
+
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span class="text-xs font-mono text-gray-500 uppercase tracking-[0.3em]">System Loading...</span>
+        </div>
+    </div>
+</div>
     <!-- Debug Panel (Hidden by default) -->
     <div id="debug-panel" class="fixed inset-0 z-[100] bg-black/95 hidden flex-col p-4 overflow-auto font-mono text-[10px] text-green-400">
         <button onclick="document.getElementById('debug-panel').classList.add('hidden')" class="mb-4 bg-red-500 text-white p-2 rounded">CLOSE DEBUG</button>
@@ -3223,6 +3227,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
