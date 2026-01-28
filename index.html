@@ -84,41 +84,7 @@ Sold Out Store
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        /* ФИКС ДЛЯ МОДАЛКИ С КЛАВИАТУРОЙ */
-        #delivery-modal {
-            position: fixed !important;
-            inset: 0 !important;
-            z-index: 50 !important;
-            background: rgba(0, 0, 0, 0.9) !important;
-            backdrop-filter: blur(12px) !important;
-            overflow-y: auto !important;
-            align-items: flex-start !important; /* Важно: сверху, не по центру */
-            padding-top: 20px !important;
-        }
         
-        #delivery-modal .glass-panel {
-            margin: 20px auto !important;
-            width: 95% !important;
-            max-width: 400px !important;
-            max-height: calc(100vh - 100px) !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            overscroll-behavior-y: contain !important;
-            margin-bottom: 100px !important; /* Место для клавиатуры */
-            transition: padding-bottom 0.3s ease !important;
-        }
-        
-        /* Фикс для iOS */
-        @supports (-webkit-touch-callout: none) {
-            #delivery-modal .glass-panel {
-                max-height: calc(100vh - 120px) !important;
-            }
-        }
-        
-        /* Все поля ввода в модалке */
-        #delivery-modal input {
-            scroll-margin-top: 80px !important;
-        }
         /* Base Styles */
         body {
             background-color: #050505;
@@ -1238,28 +1204,7 @@ Sold Out Store
                     console.error("❌ Cart listener error:", error);
                 });
             },
-            setupSmartKeyboardHandler: function() {
-                const modal = document.getElementById('delivery-modal');
-                const form = modal.querySelector('.glass-panel');
-                const inputs = modal.querySelectorAll('input');
-            
-                inputs.forEach(input => {
-                    input.addEventListener('focus', () => {
-                        // Добавляем временный отступ снизу (примерно 50% высоты экрана)
-                        form.style.paddingBottom = '50vh';
-                        
-                        // Центрируем поле через небольшую паузу
-                        setTimeout(() => {
-                            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 300);
-                    });
-            
-                    input.addEventListener('blur', () => {
-                        // Убираем отступ, когда ввод закончен
-                        form.style.paddingBottom = '0px';
-                    });
-                });
-            },
+
             init: async () => {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
@@ -1277,11 +1222,30 @@ Sold Out Store
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
                 console.log("Is admin?", window.shop.state.isAdmin);
 
-                
+                // Внутри метода init, после настройки аватара:
+                const nameInput = document.getElementById('del-name');
+                const deliveryModal = document.querySelector('#delivery-modal .glass-panel');
+
+                if (nameInput && deliveryModal) {
+                    nameInput.addEventListener('focus', () => {
+                        // 1. Сразу прокручиваем
+                        setTimeout(() => {
+                            nameInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 100);
+
+                        // 2. Повторно через 300мс (когда клавиатура точно выехала)
+                        setTimeout(() => {
+                            // Прокручиваем именно контейнер модалки
+                            deliveryModal.scrollTo({
+                                top: nameInput.offsetTop - 20,
+                                behavior: 'smooth'
+                            });
+                        }, 300);
+                    });
+                }
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
                 document.getElementById('user-avatar').src = avatarUrl;
-
                 
                 // Admin Button Visibility
                 if (window.shop.state.isAdmin) {
@@ -1382,7 +1346,6 @@ Sold Out Store
                         window.lucide.createIcons();
                     }
                 }, 100);
-                window.shop.setupSmartKeyboardHandler();
             },
 
             // --- REALTIME SYNC ---
@@ -3323,13 +3286,6 @@ Sold Out Store
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
 
 
 
