@@ -356,6 +356,23 @@
         .payment-method-btn:hover:not(.active) {
             background-color: rgba(255,255,255,0.05);
         }
+        
+        /* Promo type buttons */
+        .promo-type-btn {
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .promo-type-btn.active {
+            background-color: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+            color: #22c55e;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen relative pb-24">
@@ -495,20 +512,53 @@
             
             <div class="space-y-4 mb-8">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Создать новый</h3>
+                
+                <!-- Поля для ввода промокода -->
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Код</label>
                     <input type="text" id="new-promo-code" placeholder="SALE50" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm font-mono focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600 uppercase">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                
+                <!-- Выбор типа промокода -->
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Тип скидки</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" id="promo-type-percent" onclick="window.shop.selectPromoType('percent')" class="promo-type-btn active bg-green-500/20 border-green-500 text-green-500">
+                            Процент от всей корзины
+                        </button>
+                        <button type="button" id="promo-type-fixed" onclick="window.shop.selectPromoType('fixed')" class="promo-type-btn bg-white/5 border border-white/10 text-gray-400">
+                            На количество товаров
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Поля для процента (по умолчанию видимы) -->
+                <div id="promo-percent-fields">
                     <div>
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Скидка %</label>
                         <input type="number" id="new-promo-percent" placeholder="10" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
                     </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Лимит (шт)</label>
-                        <input type="number" id="new-promo-limit" placeholder="100" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                
+                <!-- Поля для фиксированной скидки (скрыты по умолчанию) -->
+                <div id="promo-fixed-fields" class="hidden">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Скидка на товар (руб)</label>
+                            <input type="number" id="new-promo-fixed-discount" placeholder="100" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Количество товаров</label>
+                            <input type="number" id="new-promo-fixed-quantity" placeholder="5" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
+                        </div>
                     </div>
                 </div>
+                
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Лимит использований</label>
+                    <input type="number" id="new-promo-limit" placeholder="100" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-blue-500 outline-none transition-all text-white placeholder-gray-600">
+                </div>
+                
                 <button onclick="window.shop.createPromoCode()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black italic uppercase tracking-wider py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
                     СОЗДАТЬ ПРОМОКОД
                 </button>
@@ -871,8 +921,9 @@
                 adminSelectionMode: false,
                 selectedAdminOrders: new Set(),
                 adminFabRendered: false,
-                paymentMethod: null, // 'now' or 'on_delivery'
-                paymentStatus: 'pending' // 'pending', 'paid', 'waiting'
+                paymentMethod: null,
+                paymentStatus: 'pending',
+                promoType: 'percent' // 'percent' или 'fixed'
             },
 
             // --- Инициализация фикса для полей ввода ---
@@ -901,6 +952,65 @@
                 });
 
                 this.state.modalInputFixInitialized = true;
+            },
+
+            // --- Функция для сжатия изображений ---
+            compressImage: function(file, maxWidth = 800, quality = 0.7) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.src = event.target.result;
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let width = img.width;
+                            let height = img.height;
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            canvas.toBlob((blob) => {
+                                const newReader = new FileReader();
+                                newReader.readAsDataURL(blob);
+                                newReader.onload = (e) => {
+                                    resolve(e.target.result);
+                                };
+                            }, 'image/jpeg', quality);
+                        };
+                        img.onerror = reject;
+                    };
+                    reader.onerror = reject;
+                });
+            },
+
+            // --- Выбор типа промокода ---
+            selectPromoType: function(type) {
+                this.state.promoType = type;
+                const percentBtn = document.getElementById('promo-type-percent');
+                const fixedBtn = document.getElementById('promo-type-fixed');
+                const percentFields = document.getElementById('promo-percent-fields');
+                const fixedFields = document.getElementById('promo-fixed-fields');
+                
+                if (type === 'percent') {
+                    percentBtn.classList.add('active', 'bg-green-500/20', 'border-green-500', 'text-green-500');
+                    percentBtn.classList.remove('bg-white/5', 'text-gray-400');
+                    fixedBtn.classList.remove('active', 'bg-green-500/20', 'border-green-500', 'text-green-500');
+                    fixedBtn.classList.add('bg-white/5', 'text-gray-400');
+                    percentFields.classList.remove('hidden');
+                    fixedFields.classList.add('hidden');
+                } else {
+                    fixedBtn.classList.add('active', 'bg-green-500/20', 'border-green-500', 'text-green-500');
+                    fixedBtn.classList.remove('bg-white/5', 'text-gray-400');
+                    percentBtn.classList.remove('active', 'bg-green-500/20', 'border-green-500', 'text-green-500');
+                    percentBtn.classList.add('bg-white/5', 'text-gray-400');
+                    fixedFields.classList.remove('hidden');
+                    percentFields.classList.add('hidden');
+                }
             },
 
             // --- Parse User Data from ANYWHERE ---
@@ -1495,7 +1605,32 @@
                 let finalTotal = total;
                 let discountHtml = '';
                 if (window.shop.state.activePromo) {
-                    const discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
+                    let discountAmount = 0;
+                    
+                    if (window.shop.state.activePromo.type === 'percent') {
+                        // Процент от всей корзины
+                        discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
+                    } else if (window.shop.state.activePromo.type === 'fixed') {
+                        // Фиксированная скидка на количество товаров
+                        const cartItems = Object.entries(window.shop.state.cart);
+                        let itemsProcessed = 0;
+                        
+                        for (const [productId, quantity] of cartItems) {
+                            const product = window.shop.state.products.find(p => p.id === productId);
+                            if (product) {
+                                for (let i = 0; i < quantity; i++) {
+                                    if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
+                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        itemsProcessed++;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            if (itemsProcessed >= window.shop.state.activePromo.fixed_quantity) break;
+                        }
+                    }
+                    
                     finalTotal = total - discountAmount;
                     discountHtml = `
                         <div class="flex justify-between items-center text-green-400 text-xs mt-1">
@@ -1657,13 +1792,16 @@
                     window.shop.state.activePromo = {
                         id: promoDocId,
                         code: promoData.code,
-                        percent: promoData.percent
+                        type: promoData.type || 'percent',
+                        percent: promoData.percent || 0,
+                        fixed_discount: promoData.fixed_discount || 0,
+                        fixed_quantity: promoData.fixed_quantity || 0
                     };
 
                     // Подписываемся на изменения промокода
                     window.shop.subscribeToActivePromo(promoDocId);
 
-                    window.shop.showToast(`Скидка ${promoData.percent}% активирована!`, "Успешно");
+                    window.shop.showToast(`Скидка активирована!`, "Успешно");
                     window.shop.toggleUserPromoModal();
                     
                     // Update Cart View to show discount
@@ -1714,7 +1852,13 @@
                     // Сброс полей при открытии
                     document.getElementById('new-promo-code').value = '';
                     document.getElementById('new-promo-percent').value = '';
+                    document.getElementById('new-promo-fixed-discount').value = '';
+                    document.getElementById('new-promo-fixed-quantity').value = '';
                     document.getElementById('new-promo-limit').value = '';
+                    
+                    // Сброс типа промокода к значению по умолчанию
+                    window.shop.state.promoType = 'percent';
+                    window.shop.selectPromoType('percent');
                     
                     setTimeout(() => {
                         document.getElementById('new-promo-code').focus();
@@ -1747,11 +1891,19 @@
 
                             let html = '';
                             docs.forEach(data => {
+                                let typeText = 'Процент';
+                                let discountText = `${data.percent}%`;
+                                
+                                if (data.type === 'fixed') {
+                                    typeText = 'Фикс. скидка';
+                                    discountText = `${data.fixed_discount}₽ на ${data.fixed_quantity} товара(ов)`;
+                                }
+                                
                                 html += `
                                     <div class="bg-black/40 rounded-xl p-3 border border-white/5 flex justify-between items-center">
                                         <div>
                                             <p class="text-sm font-bold text-white font-mono">${data.code}</p>
-                                            <p class="text-[10px] text-gray-500">Скидка: ${data.percent}% | Лимит: ${data.activations}/${data.limit}</p>
+                                            <p class="text-[10px] text-gray-500">${typeText}: ${discountText} | Лимит: ${data.activations}/${data.limit}</p>
                                         </div>
                                         <button onclick="window.shop.deletePromoCode('${data.id}')" class="text-red-500 hover:text-red-400 p-2">
                                             <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
@@ -1768,27 +1920,52 @@
 
             createPromoCode: async () => {
                 const code = document.getElementById('new-promo-code').value.trim().toUpperCase();
-                const percent = Number(document.getElementById('new-promo-percent').value);
                 const limit = Number(document.getElementById('new-promo-limit').value);
+                const type = window.shop.state.promoType;
 
-                if (!code || !percent || !limit) {
-                    window.shop.showToast("Заполните все поля", "Ошибка");
+                if (!code || !limit) {
+                    window.shop.showToast("Заполните обязательные поля", "Ошибка");
                     return;
+                }
+
+                let promoData = {
+                    code,
+                    limit,
+                    activations: 0,
+                    type: type,
+                    createdAt: serverTimestamp()
+                };
+
+                if (type === 'percent') {
+                    const percent = Number(document.getElementById('new-promo-percent').value);
+                    if (!percent) {
+                        window.shop.showToast("Введите процент скидки", "Ошибка");
+                        return;
+                    }
+                    promoData.percent = percent;
+                } else if (type === 'fixed') {
+                    const fixedDiscount = Number(document.getElementById('new-promo-fixed-discount').value);
+                    const fixedQuantity = Number(document.getElementById('new-promo-fixed-quantity').value);
+                    
+                    if (!fixedDiscount || !fixedQuantity) {
+                        window.shop.showToast("Заполните все поля для фиксированной скидки", "Ошибка");
+                        return;
+                    }
+                    promoData.fixed_discount = fixedDiscount;
+                    promoData.fixed_quantity = fixedQuantity;
                 }
 
                 try {
                     const promosRef = getPromocodesRef();
-                    await addDoc(promosRef, {
-                        code,
-                        percent,
-                        limit,
-                        activations: 0,
-                        createdAt: serverTimestamp()
-                    });
+                    await addDoc(promosRef, promoData);
                     
                     window.shop.showToast("Промокод создан", "Успешно");
+                    
+                    // Сброс полей формы
                     document.getElementById('new-promo-code').value = '';
                     document.getElementById('new-promo-percent').value = '';
+                    document.getElementById('new-promo-fixed-discount').value = '';
+                    document.getElementById('new-promo-fixed-quantity').value = '';
                     document.getElementById('new-promo-limit').value = '';
                 } catch (e) {
                     console.error("Promo Create Error:", e);
@@ -2352,8 +2529,31 @@
                 });
 
                 if (window.shop.state.activePromo) {
-                     const discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
-                     total = total - discountAmount;
+                    let discountAmount = 0;
+                    
+                    if (window.shop.state.activePromo.type === 'percent') {
+                        discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
+                    } else if (window.shop.state.activePromo.type === 'fixed') {
+                        const cartItems = Object.entries(window.shop.state.cart);
+                        let itemsProcessed = 0;
+                        
+                        for (const [productId, quantity] of cartItems) {
+                            const product = window.shop.state.products.find(p => p.id === productId);
+                            if (product) {
+                                for (let i = 0; i < quantity; i++) {
+                                    if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
+                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        itemsProcessed++;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            if (itemsProcessed >= window.shop.state.activePromo.fixed_quantity) break;
+                        }
+                    }
+                    
+                    total = total - discountAmount;
                 }
                 
                 const totalElement = document.getElementById('cart-total');
@@ -2429,29 +2629,45 @@
                 }
             },
 
-            handleImageSelect: (input) => {
+            handleImageSelect: async function(input) {
                 if (input.files && input.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        window.shop.state.pendingImage = e.target.result;
+                    try {
+                        window.shop.showToast("Сжатие изображения...", "Обработка");
+                        
+                        // Сжимаем изображение
+                        const compressedImage = await this.compressImage(input.files[0]);
+                        
+                        window.shop.state.pendingImage = compressedImage;
                         const preview = document.getElementById('img-preview-container');
-                        preview.style.backgroundImage = `url(${e.target.result})`;
+                        preview.style.backgroundImage = `url(${compressedImage})`;
                         document.getElementById('img-placeholder').classList.add('hidden');
+                        
+                        window.shop.showToast("Изображение загружено", "Успешно");
+                    } catch (e) {
+                        console.error("Error compressing image:", e);
+                        window.shop.showToast("Ошибка загрузки изображения", "Ошибка");
                     }
-                    reader.readAsDataURL(input.files[0]);
                 }
             },
 
-            handleEditImageSelect: function(input) {
+            handleEditImageSelect: async function(input) {
                 if (input.files && input.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.state.pendingEditImage = e.target.result;
+                    try {
+                        window.shop.showToast("Сжатие изображения...", "Обработка");
+                        
+                        // Сжимаем изображение
+                        const compressedImage = await this.compressImage(input.files[0]);
+                        
+                        this.state.pendingEditImage = compressedImage;
                         const preview = document.getElementById('edit-img-preview-container');
-                        preview.style.backgroundImage = `url(${e.target.result})`;
+                        preview.style.backgroundImage = `url(${compressedImage})`;
                         document.getElementById('edit-img-placeholder').classList.add('hidden');
+                        
+                        window.shop.showToast("Изображение загружено", "Успешно");
+                    } catch (e) {
+                        console.error("Error compressing image:", e);
+                        window.shop.showToast("Ошибка загрузки изображения", "Ошибка");
                     }
-                    reader.readAsDataURL(input.files[0]);
                 }
             },
 
@@ -2544,6 +2760,9 @@
             // --- CHECKOUT LOGIC ---
 
             initCheckout: (total) => {
+                // Сброс состояния перед открытием
+                window.shop.resetCheckoutState();
+                
                 window.shop.state.currentTotal = total;
                 document.getElementById('delivery-modal').classList.remove('hidden');
                 setTimeout(() => {
@@ -2593,6 +2812,33 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
+            // Функция сброса состояния чекаута
+            resetCheckoutState: function() {
+                // Сбрасываем состояние
+                this.state.paymentMethod = null;
+                this.state.isProcessingOrder = false;
+                this.state.currentOrderId = null;
+                this.state.deliveryTime = null;
+                this.state.deliveryInfo = null;
+                
+                // Сбрасываем UI кнопок
+                document.querySelectorAll('.payment-method-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                document.querySelectorAll('.time-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Сбрасываем кнопку оплаты к исходному состоянию
+                const paymentBtn = document.getElementById('payment-action-btn');
+                if (paymentBtn) {
+                    paymentBtn.innerHTML = '<span>ВЫБЕРИТЕ СПОСОБ ОПЛАТЫ</span>';
+                    paymentBtn.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-500');
+                    paymentBtn.classList.add('bg-gradient-to-r', 'from-green-600', 'to-green-500');
+                    paymentBtn.disabled = false;
+                }
+            },
+
             proceedToPayment: () => {
                 const name = document.getElementById('del-name').value;
                 const phone = document.getElementById('del-phone').value;
@@ -2626,21 +2872,37 @@
                 
                 // Show Discount in Checkout
                 if (window.shop.state.activePromo) {
-                     document.getElementById('checkout-discount-row').classList.remove('hidden');
-                     document.getElementById('checkout-discount-val').innerText = `-${Math.round(window.shop.state.currentTotal * window.shop.state.activePromo.percent / (100 - window.shop.state.activePromo.percent))} ₽`;
+                    let discountAmount = 0;
+                    
+                    if (window.shop.state.activePromo.type === 'percent') {
+                        discountAmount = Math.floor((window.shop.state.currentTotal * window.shop.state.activePromo.percent) / 100);
+                    } else if (window.shop.state.activePromo.type === 'fixed') {
+                        const cartItems = Object.entries(window.shop.state.cart);
+                        let itemsProcessed = 0;
+                        
+                        for (const [productId, quantity] of cartItems) {
+                            const product = window.shop.state.products.find(p => p.id === productId);
+                            if (product) {
+                                for (let i = 0; i < quantity; i++) {
+                                    if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
+                                        discountAmount += window.shop.state.activePromo.fixed_discount;
+                                        itemsProcessed++;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            }
+                            if (itemsProcessed >= window.shop.state.activePromo.fixed_quantity) break;
+                        }
+                    }
+                    
+                    document.getElementById('checkout-discount-row').classList.remove('hidden');
+                    document.getElementById('checkout-discount-val').innerText = `-${discountAmount} ₽`;
                 }
 
                 const orderId = "VX-" + Math.floor(100000 + Math.random() * 900000);
                 document.getElementById('order-id-display').innerText = "Код для комментария: " + orderId;
                 window.shop.state.currentOrderId = orderId;
-                
-                // Сброс выбора способа оплаты
-                window.shop.state.paymentMethod = null;
-                document.querySelectorAll('.payment-method-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                document.getElementById('bank-details-section').classList.add('hidden');
-                document.getElementById('payment-action-btn').innerHTML = '<span>ВЫБЕРИТЕ СПОСОБ ОПЛАТЫ</span>';
                 
                 // ИСПРАВЛЕНО: Сбрасываем флаг обработки заказа при открытии модалки
                 window.shop.state.isProcessingOrder = false;
@@ -2654,30 +2916,7 @@
             // Новая функция для закрытия модального окна оплаты
             closeCheckoutModal: function() {
                 document.getElementById('checkout-modal').classList.add('hidden');
-                
-                // Сбрасываем состояние
-                this.state.paymentMethod = null;
-                this.state.isProcessingOrder = false;
-                this.state.currentOrderId = null;
-                this.state.deliveryTime = null;
-                this.state.deliveryInfo = null;
-                
-                // Сбрасываем UI кнопок
-                document.querySelectorAll('.payment-method-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                document.querySelectorAll('.time-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                
-                // Сбрасываем кнопку оплаты к исходному состоянию
-                const paymentBtn = document.getElementById('payment-action-btn');
-                if (paymentBtn) {
-                    paymentBtn.innerHTML = '<span>ВЫБЕРИТЕ СПОСОБ ОПЛАТЫ</span>';
-                    paymentBtn.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-500');
-                    paymentBtn.classList.add('bg-gradient-to-r', 'from-green-600', 'to-green-500');
-                    paymentBtn.disabled = false;
-                }
+                this.resetCheckoutState();
             },
 
             copyBank: () => {
@@ -2765,6 +3004,9 @@
                     }
 
                     // Очищаем корзину
+                    window.shop.state.cart = {};
+                    window.shop.updateCartBadge();
+                    
                     if (uid) {
                         try {
                             const cartRef = getUserCartRef(uid);
@@ -2792,12 +3034,16 @@
                 // ИСПРАВЛЕНО: Полностью сбрасываем состояние модального окна
                 this.closeCheckoutModal();
                 
-                window.shop.state.cart = {};
+                // Сбрасываем промокод
                 window.shop.state.activePromo = null;
-                window.shop.updateCartBadge();
+                if (window.shop.state.activePromoListener) {
+                    window.shop.state.activePromoListener();
+                    window.shop.state.activePromoListener = null;
+                }
+                
+                window.shop.state.isProcessingOrder = false;
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ создан! Оплата при получении", "Успешно");
-                window.shop.state.isProcessingOrder = false;
             },
 
             completeOrder: async () => {
@@ -2860,6 +3106,9 @@
                     }
 
                     // Очищаем корзину
+                    window.shop.state.cart = {};
+                    window.shop.updateCartBadge();
+                    
                     if (uid) {
                         try {
                             const cartRef = getUserCartRef(uid);
@@ -2887,12 +3136,16 @@
                 // ИСПРАВЛЕНО: Полностью сбрасываем состояние модального окна
                 this.closeCheckoutModal();
                 
-                window.shop.state.cart = {};
+                // Сбрасываем промокод
                 window.shop.state.activePromo = null;
-                window.shop.updateCartBadge();
+                if (window.shop.state.activePromoListener) {
+                    window.shop.state.activePromoListener();
+                    window.shop.state.activePromoListener = null;
+                }
+                
+                window.shop.state.isProcessingOrder = false;
                 window.shop.switchView('store');
                 window.shop.showToast("Заказ отправлен! Подтвердите оплату", "Успешно");
-                window.shop.state.isProcessingOrder = false;
             },
 
             testCart: async () => {
