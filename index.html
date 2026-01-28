@@ -2398,7 +2398,10 @@ Sold Out Store
                                 const hasDiscount = discountAmount > 0;
                                 
                                 // !!! ВАЖНО: Если имя промокода не сохранилось, пишем "PROMO"
-                                const promoName = data.promo || "PROMO"; 
+                                // Проверяем: если это объект, берем .code, если строка — берем её, иначе "НЕТ КОДА"
+                                const promoName = (typeof data.promo === 'object' && data.promo !== null) 
+                                    ? (data.promo.code || "PROMO") 
+                                    : (data.promo || "БЕЗ КОДА"); 
             
                                 // 4. Оплата
                                 const isPaid = data.payment_status === 'paid';
@@ -3351,6 +3354,7 @@ Sold Out Store
     </script>
 </body>
 </html>
+
 
 
 
