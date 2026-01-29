@@ -1614,18 +1614,18 @@
                 const qty = window.shop.state.cart[p.id] || 0;
                 
                 if (qty > 0) {
-                    // Стиль: Тележка + красненький/зеленый кружок с числом (как уведомление)
+                    // Изменил позицию: -bottom-2 вместо -top-2
                     return `
                         <button onclick="window.shop.addToCart('${p.id}')" 
                                 class="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500 text-green-500 flex items-center justify-center transition-all btn-press relative group z-20">
                             <i data-lucide="shopping-cart" class="w-4 h-4 icon-fix"></i>
-                            <div class="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111] shadow-lg z-30">
+                            <div class="absolute -bottom-2 -right-2 bg-green-500 text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111] shadow-lg z-30">
                                 ${qty}
                             </div>
                         </button>
                     `;
                 } else {
-                    // Обычная кнопка
+                    // Обычная кнопка (без изменений)
                     return `
                         <button onclick="window.shop.addToCart('${p.id}')" 
                                 class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110"
@@ -1686,7 +1686,7 @@
             
                         const buttonHTML = window.shop.getProductButtonHTML(p);
             
-                        // УБРАЛ overflow-hidden из классов glass-panel, чтобы бейдж торчал красиво
+                        // ВАЖНО: Тут нет класса overflow-hidden, чтобы бейдж снизу торчал красиво
                         gridHTML += `
                         <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle}">
                             ${window.shop.state.isAdmin ? `
@@ -3822,6 +3822,7 @@
     </script>
 </body>
 </html>
+
 
 
 
