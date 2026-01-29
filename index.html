@@ -2978,18 +2978,34 @@
                     
                     const data = docSnap.data();
                     
+                    // Обновляем админскую версию
                     await updateDoc(orderRef, {
                         payment_status: 'paid',
                         updatedAt: new Date().toISOString()
                     });
                     
-                    if (data.linkedUserUid && data.linkedUserOrderId) {
+                    // Обновляем пользовательскую версию
+                    if (data.linkedUserUid) {
                         try {
-                            const userOrderRef = getUserOrderRef(data.linkedUserUid, data.linkedUserOrderId);
-                            await updateDoc(userOrderRef, {
-                                payment_status: 'paid',
-                                updatedAt: new Date().toISOString()
-                            });
+                            let userOrderId = data.linkedUserOrderId;
+
+                            // ВАЖНО: Фолбэк поиск, если нет ID
+                            if (!userOrderId) {
+                                const userOrdersRef = getUserOrdersRef(data.linkedUserUid);
+                                const q = query(userOrdersRef, where("publicOrderId", "==", docId));
+                                const querySnap = await getDocs(q);
+                                if (!querySnap.empty) {
+                                    userOrderId = querySnap.docs[0].id;
+                                }
+                            }
+
+                            if (userOrderId) {
+                                const userOrderRef = getUserOrderRef(data.linkedUserUid, userOrderId);
+                                await updateDoc(userOrderRef, {
+                                    payment_status: 'paid',
+                                    updatedAt: new Date().toISOString()
+                                });
+                            }
                         } catch (e) {
                             console.error("Ошибка обновления приватного заказа:", e);
                         }
@@ -3026,25 +3042,28 @@
                     }
                     const data = docSnap.data();
 
-                    // Обновляем админскую версию
+                    // 1. Обновляем админскую версию
                     await updateDoc(orderRef, {
                         status: status,
                         updatedAt: new Date().toISOString()
                     });
 
-                    // Обновляем пользовательскую версию
+                    // 2. Обновляем пользовательскую версию
                     if (data.linkedUserUid) {
                         try {
                             let userOrderId = data.linkedUserOrderId;
 
-                            // ФОЛЛБЭК: Если ID не сохранен прямо в заказе (для старых заказов), ищем его
+                            // ВАЖНО: Если прямой ссылки нет (старый заказ), ищем заказ поиском
                             if (!userOrderId) {
+                                console.log("Прямая ссылка отсутствует, ищем заказ...");
                                 const userOrdersRef = getUserOrdersRef(data.linkedUserUid);
-                                // Используем query и where, которые мы импортировали в начале
+                                // Ищем документ, у которого поле publicOrderId равно ID этого заказа
                                 const q = query(userOrdersRef, where("publicOrderId", "==", docId));
                                 const querySnap = await getDocs(q);
                                 if (!querySnap.empty) {
                                     userOrderId = querySnap.docs[0].id;
+                                    // Можно заодно "починить" связь на будущее
+                                    await updateDoc(orderRef, { linkedUserOrderId: userOrderId });
                                 }
                             }
 
@@ -3054,9 +3073,9 @@
                                     status: status,
                                     updatedAt: new Date().toISOString()
                                 });
-                                console.log("User order status updated successfully");
+                                console.log("✅ Статус у пользователя обновлен");
                             } else {
-                                console.warn("Could not find linked user order");
+                                console.warn("⚠️ Не удалось найти заказ пользователя");
                             }
                         } catch (privateErr) {
                             console.error("Ошибка обновления приватного статуса:", privateErr);
@@ -3618,7 +3637,6 @@
                     const publicDocRef = await addDoc(publicOrdersCollection, {
                         ...orderBase,
                         linkedUserUid: uid
-                        // linkedUserOrderId добавим чуть ниже после создания личного заказа
                     });
 
                     // 2. Сохраняем в ЛИЧНУЮ базу пользователя
@@ -3626,12 +3644,11 @@
                         const userOrdersCollection = getUserOrdersRef(uid);
                         const userDocRef = await addDoc(userOrdersCollection, {
                             ...orderBase,
-                            publicOrderId: publicDocRef.id // Ссылка на общий заказ
+                            publicOrderId: publicDocRef.id 
                         });
 
-                        // ВАЖНОЕ ИСПРАВЛЕНИЕ:
-                        // Обновляем публичный заказ, добавляя в него ID личного заказа.
-                        // Это создает двустороннюю связь.
+                        // ВАЖНО: Обновляем админский заказ, добавляя ссылку на личный заказ
+                        // Без этого админка "не знает", какой заказ обновлять у юзера
                         await updateDoc(publicDocRef, {
                             linkedUserOrderId: userDocRef.id
                         });
@@ -3703,7 +3720,7 @@
                             publicOrderId: publicDocRef.id
                         });
 
-                        // ВАЖНОЕ ИСПРАВЛЕНИЕ: Создаем двустороннюю связь
+                        // ВАЖНО: Создаем двустороннюю связь
                         await updateDoc(publicDocRef, {
                             linkedUserOrderId: userDocRef.id
                         });
@@ -3759,4 +3776,5 @@
     </script>
 </body>
 </html>
+
 
