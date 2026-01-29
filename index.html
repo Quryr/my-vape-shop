@@ -3593,12 +3593,23 @@
                 };
 
                 try {
+                    // 1. Сохраняем в ОБЩУЮ базу (для Админа)
                     const publicOrdersCollection = getOrdersRef();
-                    await addDoc(publicOrdersCollection, {
+                    const publicDocRef = await addDoc(publicOrdersCollection, {
                         ...orderBase,
                         linkedUserUid: uid
                     });
 
+                    // 2. ИСПРАВЛЕНИЕ: Сохраняем в ЛИЧНУЮ базу пользователя (для вкладки "Заказы")
+                    if (uid) {
+                        const userOrdersCollection = getUserOrdersRef(uid);
+                        await addDoc(userOrdersCollection, {
+                            ...orderBase,
+                            publicOrderId: publicDocRef.id // Ссылка на общий заказ
+                        });
+                    }
+
+                    // Обновляем статистику промокода
                     if (promoIdToUpdate) {
                         const promoRef = getPromoDocRef(promoIdToUpdate);
                         const pSnap = await getDoc(promoRef);
@@ -3609,7 +3620,10 @@
                         }
                     }
 
+                    // 3. ИСПРАВЛЕНИЕ: Очищаем корзину В БАЗЕ ДАННЫХ
                     this.state.cart = {};
+                    await window.shop.saveCartToFirebase(); // <--- Важная строка для фикса бага с возвратом корзины
+
                     this.state.activePromo = null;
                     this.updateCartBadge();
                     
@@ -3649,9 +3663,20 @@
                 };
 
                 try {
+                    // 1. Сохраняем в ОБЩУЮ базу (для Админа)
                     const publicOrdersCollection = getOrdersRef();
-                    await addDoc(publicOrdersCollection, { ...orderBase, linkedUserUid: uid });
+                    const publicDocRef = await addDoc(publicOrdersCollection, { ...orderBase, linkedUserUid: uid });
 
+                    // 2. ИСПРАВЛЕНИЕ: Сохраняем в ЛИЧНУЮ базу пользователя (для вкладки "Заказы")
+                    if (uid) {
+                        const userOrdersCollection = getUserOrdersRef(uid);
+                        await addDoc(userOrdersCollection, {
+                            ...orderBase,
+                            publicOrderId: publicDocRef.id // Ссылка на общий заказ
+                        });
+                    }
+
+                    // Обновляем промокод
                     if (promoIdToUpdate) {
                         const promoRef = getPromoDocRef(promoIdToUpdate);
                         const pSnap = await getDoc(promoRef);
@@ -3662,7 +3687,10 @@
                         }
                     }
 
+                    // 3. ИСПРАВЛЕНИЕ: Очищаем корзину В БАЗЕ ДАННЫХ
                     this.state.cart = {};
+                    await window.shop.saveCartToFirebase(); // <--- Важная строка
+
                     this.state.activePromo = null;
                     this.updateCartBadge();
                     
