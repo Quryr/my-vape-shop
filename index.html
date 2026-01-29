@@ -514,16 +514,20 @@
 
     <!-- Bottom Navigation (Floating Island) -->
     <nav class="fixed bottom-6 left-4 right-4 h-18 glass-nav rounded-2xl flex items-center justify-around z-40 shadow-[0_10px_40px_rgba(0,0,0,0.8)] border border-white/5 py-3">
-        <button onclick="window.shop.switchView('store')" class="nav-btn flex flex-col items-center gap-1.5 text-green-400 btn-press transition-colors w-1/3" data-view="store">
+        <button onclick="window.shop.switchView('store')" class="nav-btn flex flex-col items-center gap-1.5 text-green-400 btn-press transition-colors w-1/4" data-view="store">
             <i data-lucide="store" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">МАГАЗИН</span>
         </button>
-        <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors relative w-1/3" data-view="cart">
+        <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors relative w-1/4" data-view="cart">
             <div id="cart-badge" class="absolute top-0 right-6 w-4 h-4 bg-green-500 text-black text-[9px] font-bold rounded-full flex items-center justify-center opacity-0 transition-all shadow-[0_0_10px_rgba(34,197,94,0.6)]">0</div>
             <i data-lucide="shopping-bag" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">КОРЗИНА</span>
         </button>
-        <button onclick="window.shop.switchView('profile')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/3" data-view="profile">
+        <button onclick="window.shop.switchView('user-orders')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/4" data-view="user-orders">
+            <i data-lucide="package" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold tracking-wide">ЗАКАЗЫ</span>
+        </button>
+        <button onclick="window.shop.switchView('profile')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/4" data-view="profile">
             <i data-lucide="user" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">ПРОФИЛЬ</span>
         </button>
@@ -844,6 +848,17 @@
         </div>
     </div>
 
+    <!-- USER ORDER DETAIL MODAL -->
+    <div id="user-order-detail-modal" class="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="document.getElementById('user-order-detail-modal').classList.add('hidden')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+            
+            <div id="user-order-detail-content">
+                <!-- Content Injected via JS -->
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // ---------------------------------------------------------
         // 1. FIREBASE MODULAR V10 IMPORTS
@@ -977,62 +992,57 @@
                 adminFabRendered: false,
                 paymentMethod: null,
                 paymentStatus: 'pending',
-                promoType: 'percent', // 'percent' или 'fixed'
-                categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника']
+                promoType: 'percent',
+                categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'],
+                // Новые состояния для заказов пользователя
+                userOrders: [],
+                userOrdersListenerUnsubscribe: null,
+                userOrdersSelectionMode: false,
+                selectedUserOrders: new Set()
             },
 
             // --- ИСПРАВЛЕНИЕ БАГА С КЛАВИАТУРОЙ ---
             initKeyboardFix: function() {
-                // Функция для гарантированного показа поля ввода при фокусе
                 const ensureInputVisible = (inputElement) => {
                     if (!inputElement) return;
                     
-                    // Ждем немного, чтобы клавиатура успела появиться (особенно на iOS)
                     setTimeout(() => {
-                        // Используем scrollIntoView с параметрами для плавной прокрутки
                         inputElement.scrollIntoView({ 
                             behavior: 'smooth', 
-                            block: 'center', // Центрируем элемент
+                            block: 'center', 
                             inline: 'nearest'
                         });
                         
-                        // Дополнительный скролл через 50мс для надежности
                         setTimeout(() => {
                             const modalContent = document.getElementById('delivery-modal-content');
                             if (modalContent) {
                                 const inputRect = inputElement.getBoundingClientRect();
                                 const containerRect = modalContent.getBoundingClientRect();
                                 
-                                // Если поле все еще не видно, делаем дополнительную прокрутку
                                 if (inputRect.top < containerRect.top || inputRect.bottom > containerRect.bottom) {
                                     const scrollAmount = inputRect.top - containerRect.top - 100;
                                     modalContent.scrollBy({ top: scrollAmount, behavior: 'smooth' });
                                 }
                             }
                         }, 50);
-                    }, 200); // Даем время клавиатуре появиться
+                    }, 200);
                 };
 
-                // Назначаем обработчики для всех инпутов в модалке доставки
                 const setupDeliveryInputHandlers = () => {
                     const inputs = document.querySelectorAll('#delivery-modal input');
                     inputs.forEach(input => {
-                        // Убираем старые обработчики
                         input.removeEventListener('focus', this.handleInputFocus);
-                        // Добавляем новые
                         input.addEventListener('focus', (e) => {
                             ensureInputVisible(e.target);
                         });
                     });
                 };
 
-                // Инициализируем при открытии модалки
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach((mutation) => {
                         if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                             const target = mutation.target;
                             if (target.id === 'delivery-modal' && !target.classList.contains('hidden')) {
-                                // Модалка открылась - настраиваем обработчики
                                 setTimeout(setupDeliveryInputHandlers, 100);
                             }
                         }
@@ -1136,12 +1146,10 @@
             parseUser: () => {
                 const tg = window.Telegram.WebApp;
                 
-                // 1. Try initDataUnsafe directly (Standard)
                 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                     return { source: 'initDataUnsafe', user: tg.initDataUnsafe.user };
                 }
 
-                // 2. Try parsing URL Hash/Search (Legacy/Web version)
                 try {
                     const hash = window.location.hash.substring(1);
                     const params = new URLSearchParams(hash);
@@ -1161,13 +1169,11 @@
                     }
                 } catch(e) {}
 
-                // 3. Try LocalStorage for Persistent Guest
                 const storedUser = localStorage.getItem('vape_user_identity');
                 if (storedUser) {
                     return { source: 'local_storage', user: JSON.parse(storedUser) };
                 }
 
-                // 4. Generate New Persistent Guest if nothing else works
                 const guestId = Math.floor(Math.random() * 1000000) + 9000000;
                 const newGuest = {
                     id: guestId,
@@ -1321,14 +1327,11 @@
                     phoneInput.addEventListener('input', (e) => {
                         let val = e.target.value.replace(/\D/g, '');
                         
-                        // Force start with 7
                         if (val.length > 0 && val[0] !== '7') {
                              val = '7' + val;
                         }
-                        // Limit length (7 + 10 digits = 11 digits total)
                         if (val.length > 11) val = val.substring(0,11);
 
-                        // Format output
                         if (val.length > 0) {
                             e.target.value = '+' + val;
                         } else {
@@ -1380,7 +1383,6 @@
                             await signInAnonymously(auth);
                         } catch (e) {
                             console.error("❌ Anonymous auth failed:", e);
-                            // Все равно показываем интерфейс
                             const loader = document.getElementById('loader');
                             loader.style.opacity = '0';
                             setTimeout(() => {
@@ -1434,23 +1436,19 @@
                         });
                     });
                     
-                    // Sort by Category Order, then by Date
                     const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
                     
                     dbProducts.sort((a, b) => {
-                        // 1. Сортировка по категориям
                         let indexA = catOrder.indexOf(a.category);
                         let indexB = catOrder.indexOf(b.category);
                     
-                        // Если категории нет в списке, кидаем её в конец
                         if (indexA === -1) indexA = 999;
                         if (indexB === -1) indexB = 999;
                     
                         if (indexA !== indexB) {
-                            return indexA - indexB; // Сначала по порядку в массиве
+                            return indexA - indexB;
                         }
                     
-                        // 2. Внутри одной категории сортируем по новизне (свежие сверху)
                         const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
                         const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
                         return tB - tA;
@@ -1576,11 +1574,18 @@
 
                 window.shop.state.isCartView = (viewName === 'cart');
 
+                // Отписываемся от слушателей заказов при переключении
+                if (viewName !== 'user-orders' && window.shop.state.userOrdersListenerUnsubscribe) {
+                    window.shop.state.userOrdersListenerUnsubscribe();
+                    window.shop.state.userOrdersListenerUnsubscribe = null;
+                }
+
                 setTimeout(() => {
                     if (viewName === 'store') window.shop.renderStore(main);
                     else if (viewName === 'cart') window.shop.renderCart(main);
                     else if (viewName === 'profile') window.shop.renderProfile(main);
                     else if (viewName === 'admin-orders') window.shop.renderAdminOrders(main);
+                    else if (viewName === 'user-orders') window.shop.renderUserOrders(main);
                     
                     main.style.opacity = '1';
                     
@@ -1599,111 +1604,108 @@
             },
 
             renderStore: (container = document.getElementById('main-content')) => {
-                            if (!container) return;
-                            
-                            const categories = ['Все', 'Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
-                            let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-4 pb-2">`;
-                            categories.forEach(cat => {
-                                const isActive = window.shop.state.currentCategory === cat;
-                                const activeClass = isActive 
-                                    ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-105' 
-                                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10';
-                                catHTML += `
-                                    <button onclick="window.shop.filterCategory('${cat}')" 
-                                            class="whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 ${activeClass}">
-                                        ${cat}
-                                    </button>`;
-                            });
-                            catHTML += `</div>`;
-            
-                            let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
-                            
-                            // 1. ФИЛЬТРАЦИЯ: Админ видит всё, Пользователь - только не скрытые
-                            const filtered = window.shop.state.products.filter(p => {
-                                const categoryMatch = window.shop.state.currentCategory === 'Все' || p.category === window.shop.state.currentCategory;
-                                
-                                if (window.shop.state.isAdmin) {
-                                    return categoryMatch; // Админ видит скрытые
-                                } else {
-                                    return categoryMatch && !p.isHidden; // Юзер НЕ видит скрытые
-                                }
-                            });
-            
-                            if (filtered.length === 0) {
-                                 gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
-                                    <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50 icon-fix"></i>
-                                    <p>Товаров пока нет</p>
-                                    ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте товар в меню админа (+)</p>' : ''}
-                                  </div>`;
-                            } else {
-                                filtered.forEach((p, index) => {
-                                    let imageContent;
-                                    if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
-                                        imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
-                                    } else {
-                                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-16 h-16 text-gray-600 group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 icon-fix"></i>`;
-                                    }
-            
-                                    // Стили для скрытого товара (только для админа)
-                                    const hiddenStyle = p.isHidden ? 'opacity-60 grayscale border-red-500/30' : '';
-                                    const hiddenBadge = p.isHidden ? `<div class="absolute top-2 left-2 z-20 bg-black/60 text-red-400 text-[8px] font-bold px-2 py-1 rounded backdrop-blur-sm border border-red-500/20">СКРЫТ</div>` : '';
+                if (!container) return;
+                
+                const categories = ['Все', 'Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-4 pb-2">`;
+                categories.forEach(cat => {
+                    const isActive = window.shop.state.currentCategory === cat;
+                    const activeClass = isActive 
+                        ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-105' 
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10';
+                    catHTML += `
+                        <button onclick="window.shop.filterCategory('${cat}')" 
+                                class="whitespace-nowrap px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all duration-300 ${activeClass}">
+                            ${cat}
+                        </button>`;
+                });
+                catHTML += `</div>`;
+
+                let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
+                
+                const filtered = window.shop.state.products.filter(p => {
+                    const categoryMatch = window.shop.state.currentCategory === 'Все' || p.category === window.shop.state.currentCategory;
+                    
+                    if (window.shop.state.isAdmin) {
+                        return categoryMatch;
+                    } else {
+                        return categoryMatch && !p.isHidden;
+                    }
+                });
+
+                if (filtered.length === 0) {
+                     gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
+                        <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50 icon-fix"></i>
+                        <p>Товаров пока нет</p>
+                        ${window.shop.state.isAdmin ? '<p class="text-xs text-gray-600 mt-2">Добавьте товар в меню админа (+)</p>' : ''}
+                      </div>`;
+                } else {
+                    filtered.forEach((p, index) => {
+                        let imageContent;
+                        if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
+                            imageContent = `<img src="${p.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">`;
+                        } else {
+                            imageContent = `<i data-lucide="${p.image || 'box'}" class="w-16 h-16 text-gray-600 group-hover:text-green-400 group-hover:scale-110 transition-all duration-300 icon-fix"></i>`;
+                        }
+
+                        const hiddenStyle = p.isHidden ? 'opacity-60 grayscale border-red-500/30' : '';
+                        const hiddenBadge = p.isHidden ? `<div class="absolute top-2 left-2 z-20 bg-black/60 text-red-400 text-[8px] font-bold px-2 py-1 rounded backdrop-blur-sm border border-red-500/20">СКРЫТ</div>` : '';
+                        
+                        const visibilityIcon = p.isHidden ? 'eye-off' : 'eye';
+                        const visibilityColor = p.isHidden ? 'text-gray-400 hover:text-white' : 'text-blue-400 hover:text-white';
+
+                        gridHTML += `
+                        <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto ${hiddenStyle}">
+                            ${window.shop.state.isAdmin ? `
+                                ${hiddenBadge}
+                                <div class="absolute top-2 right-2 z-20 flex gap-1">
+                                    <button onclick="window.shop.toggleHiddenProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full ${visibilityColor} hover:bg-blue-600 transition-all backdrop-blur-sm">
+                                        <i data-lucide="${visibilityIcon}" class="w-4 h-4 icon-fix"></i>
+                                    </button>
                                     
-                                    // Иконка для кнопки (если скрыт - перечеркнутый глаз, если виден - глаз)
-                                    const visibilityIcon = p.isHidden ? 'eye-off' : 'eye';
-                                    const visibilityColor = p.isHidden ? 'text-gray-400 hover:text-white' : 'text-blue-400 hover:text-white';
-            
-                                    gridHTML += `
-                                    <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group overflow-hidden h-auto ${hiddenStyle}">
-                                        ${window.shop.state.isAdmin ? `
-                                            ${hiddenBadge}
-                                            <div class="absolute top-2 right-2 z-20 flex gap-1">
-                                                <button onclick="window.shop.toggleHiddenProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full ${visibilityColor} hover:bg-blue-600 transition-all backdrop-blur-sm">
-                                                    <i data-lucide="${visibilityIcon}" class="w-4 h-4 icon-fix"></i>
-                                                </button>
-                                                
-                                                <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
-                                                    <i data-lucide="edit" class="w-4 h-4 icon-fix"></i>
-                                                </button>
-                                                
-                                                <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm">
-                                                    <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
-                                                </button>
-                                            </div>
-                                        ` : ''}
-                                        
-                                        <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
-                                            <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
-                                            ${imageContent}
-                                        </div>
-                                        
-                                        <div class="flex-grow flex flex-col justify-between">
-                                            <div>
-                                                <h3 class="text-xs font-bold text-gray-100 leading-tight mb-1 line-clamp-2 h-[2.5em]">${p.name}</h3>
-                                                <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 border-l-2 border-green-500/50 pl-2">${p.category}</p>
-                                            </div>
-                                            
-                                            <div class="flex items-end justify-between mt-1">
-                                                <div class="flex flex-col">
-                                                    <span class="text-[9px] text-gray-500">Цена</span>
-                                                    <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
-                                                </div>
-                                                <button onclick="window.shop.addToCart('${p.id}')" 
-                                                        class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110"
-                                                        ${p.isHidden ? 'disabled style="opacity:0.5; filter:grayscale(1);"' : ''}>
-                                                    <i data-lucide="plus" class="w-5 h-5 icon-fix"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>`;
-                                });
-                            }
-                            gridHTML += `</div>`;
-                            container.innerHTML = catHTML + gridHTML;
+                                    <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
+                                        <i data-lucide="edit" class="w-4 h-4 icon-fix"></i>
+                                    </button>
+                                    
+                                    <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm">
+                                        <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
+                                    </button>
+                                </div>
+                            ` : ''}
                             
-                            window.shop.setupCategoryScroll();
+                            <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
+                                <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10"></div>
+                                ${imageContent}
+                            </div>
                             
-                            if(window.lucide) window.lucide.createIcons();
-                        },
+                            <div class="flex-grow flex flex-col justify-between">
+                                <div>
+                                    <h3 class="text-xs font-bold text-gray-100 leading-tight mb-1 line-clamp-2 h-[2.5em]">${p.name}</h3>
+                                    <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 border-l-2 border-green-500/50 pl-2">${p.category}</p>
+                                </div>
+                                
+                                <div class="flex items-end justify-between mt-1">
+                                    <div class="flex flex-col">
+                                        <span class="text-[9px] text-gray-500">Цена</span>
+                                        <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
+                                    </div>
+                                    <button onclick="window.shop.addToCart('${p.id}')" 
+                                            class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110"
+                                            ${p.isHidden ? 'disabled style="opacity:0.5; filter:grayscale(1);"' : ''}>
+                                        <i data-lucide="plus" class="w-5 h-5 icon-fix"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                }
+                gridHTML += `</div>`;
+                container.innerHTML = catHTML + gridHTML;
+                
+                window.shop.setupCategoryScroll();
+                
+                if(window.lucide) window.lucide.createIcons();
+            },
 
             renderCart: (container) => {
                 window.shop.state.cartRendering = true;
@@ -1765,17 +1767,14 @@
                     `;
                 });
 
-                // Apply Promo Discount
                 let finalTotal = total;
                 let discountHtml = '';
                 if (window.shop.state.activePromo) {
                     let discountAmount = 0;
                     
                     if (window.shop.state.activePromo.type === 'percent') {
-                        // Процент от всей корзины
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
-                        // Процентная скидка на количество товаров
                         const cartItems = Object.entries(window.shop.state.cart);
                         let itemsProcessed = 0;
                         
@@ -1903,12 +1902,419 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
+            // --- RENDER USER ORDERS (НОВАЯ ФУНКЦИЯ) ---
+            renderUserOrders: function(container) {
+                const isSelectMode = this.state.userOrdersSelectionMode;
+                const selectedCount = this.state.selectedUserOrders.size;
+
+                container.innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white">
+                                <i data-lucide="arrow-left" class="w-5 h-5 icon-fix"></i>
+                            </button>
+                            <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
+                        </div>
+                        <button onclick="window.shop.toggleUserOrdersSelectionMode()" 
+                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                            ${isSelectMode ? 
+                                (selectedCount > 0 ? 
+                                    '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
+                                    '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
+                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ'}
+                        </button>
+                    </div>
+                    <div id="user-orders-list" class="space-y-3 pb-32">
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
+                    </div>
+                `;
+                
+                if (this.state.userOrdersListenerUnsubscribe) {
+                    this.state.userOrdersListenerUnsubscribe();
+                    this.state.userOrdersListenerUnsubscribe = null;
+                }
+
+                const uid = this.state.firebaseUid;
+                if (!uid) {
+                    document.getElementById('user-orders-list').innerHTML = '<div class="text-center py-10 text-gray-500">Авторизуйтесь, чтобы увидеть заказы</div>';
+                    return;
+                }
+
+                const userOrdersCollection = getUserOrdersRef(uid);
+                const q = query(userOrdersCollection);
+                
+                this.state.userOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    this.updateUserOrdersList(snapshot);
+                });
+
+                setTimeout(() => {
+                    this.renderUserOrdersFab();
+                }, 50);
+            },
+
+            // --- UPDATE USER ORDERS LIST ---
+            updateUserOrdersList: function(snapshot = null) {
+                const list = document.getElementById('user-orders-list');
+                if (!list) return;
+                
+                if (snapshot) {
+                    if (snapshot.empty) {
+                        list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
+                        this.state.userOrders = [];
+                        this.renderUserOrdersFab();
+                        return;
+                    }
+
+                    let docs = [];
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        docs.push({ 
+                            firestoreId: docSnap.id, 
+                            ...data,
+                            date: data.date ? 
+                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
+                                new Date()
+                        });
+                    });
+                    
+                    docs.sort((a, b) => b.date - a.date);
+                    
+                    this.state.userOrders = docs;
+                }
+                
+                const docs = this.state.userOrders || [];
+                
+                let html = '';
+                docs.forEach(data => {
+                    const date = new Date(data.date).toLocaleString('ru-RU', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute:'2-digit' 
+                    });
+                    
+                    const isSelected = this.state.selectedUserOrders.has(data.firestoreId);
+                    
+                    let statusClass = 'status-pending';
+                    let statusText = 'ОЖИДАЕТ';
+                    
+                    if (data.status === 'approved') {
+                        statusClass = 'status-approved';
+                        statusText = 'ПРИНЯТ';
+                    } else if (data.status === 'rejected') {
+                        statusClass = 'status-rejected';
+                        statusText = 'ОТКЛОНЕН';
+                    }
+
+                    let paymentBadge = '';
+                    let paymentClass = 'payment-status-pending';
+                    let paymentText = 'ОЖИДАЕТ';
+                    
+                    if (data.payment_method === 'now' && data.payment_status === 'paid') {
+                        paymentClass = 'payment-status-paid';
+                        paymentText = 'ОПЛАЧЕНО';
+                    } else if (data.payment_method === 'now' && data.payment_status === 'pending') {
+                        paymentClass = 'payment-status-pending';
+                        paymentText = 'НЕ ОПЛАЧЕНО';
+                    } else if (data.payment_method === 'on_delivery') {
+                        paymentClass = 'payment-status-waiting';
+                        paymentText = 'ПРИ ПОЛУЧЕНИИ';
+                    }
+                    
+                    paymentBadge = `<div class="${paymentClass} status-badge mt-1 text-[8px]">${paymentText}</div>`;
+
+                    const cardStyle = isSelected 
+                        ? 'border-red-500 bg-red-500/10' 
+                        : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
+
+                    const clickAction = this.state.userOrdersSelectionMode 
+                        ? `window.shop.toggleUserOrderSelection('${data.firestoreId}')`
+                        : `window.shop.openUserOrderDetails('${data.firestoreId}')`;
+
+                    const checkboxHtml = this.state.userOrdersSelectionMode 
+                        ? `<div class="mr-3 pt-1">
+                             <div class="order-checkbox ${isSelected ? 'checked' : ''}">
+                                ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white icon-fix"></i>' : ''}
+                             </div>
+                            </div>` 
+                        : '';
+
+                    html += `
+                        <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} flex mb-2">
+                            ${checkboxHtml}
+                            <div class="flex-grow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
+                                        <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
+                                    </div>
+                                    <div class="flex flex-col items-end">
+                                        <div class="${statusClass} status-badge">
+                                            ${statusText}
+                                        </div>
+                                        ${paymentBadge}
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-end">
+                                    <div class="text-xs text-gray-500">${date}</div>
+                                    <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
+                                </div>
+                                ${data.promo ? `<div class="text-xs text-green-400 mt-1"><i data-lucide="ticket" class="w-3 h-3 inline mr-1 icon-fix"></i>${data.promo}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                list.innerHTML = html;
+                if(window.lucide) window.lucide.createIcons();
+                
+                this.renderUserOrdersFab();
+            },
+
+            // --- USER ORDERS SELECTION LOGIC ---
+            toggleUserOrdersSelectionMode: function() {
+                this.state.userOrdersSelectionMode = !this.state.userOrdersSelectionMode;
+                if (!this.state.userOrdersSelectionMode) {
+                    this.state.selectedUserOrders.clear();
+                }
+                this.updateUserOrdersList();
+                this.updateUserOrdersSelectionButton();
+                this.renderUserOrdersFab();
+            },
+
+            toggleUserOrderSelection: function(docId) {
+                const set = this.state.selectedUserOrders;
+                if (set.has(docId)) {
+                    set.delete(docId);
+                } else {
+                    set.add(docId);
+                }
+                this.updateUserOrdersList();
+                this.updateUserOrdersSelectionButton();
+                this.renderUserOrdersFab();
+            },
+
+            updateUserOrdersSelectionButton: function() {
+                const selectedCount = this.state.selectedUserOrders.size;
+                const button = document.querySelector('button[onclick="window.shop.toggleUserOrdersSelectionMode()"]');
+                if (button) {
+                    button.innerHTML = this.state.userOrdersSelectionMode ? 
+                        (selectedCount > 0 ? 
+                            `<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ` : 
+                            '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
+                        '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ';
+                    
+                    if (this.state.userOrdersSelectionMode && selectedCount > 0) {
+                        button.classList.add('bg-red-500/20');
+                    } else {
+                        button.classList.remove('bg-red-500/20');
+                    }
+                }
+            },
+
+            renderUserOrdersFab: function() {
+                const isSelectMode = this.state.userOrdersSelectionMode;
+                const selectedCount = this.state.selectedUserOrders.size;
+                
+                let fabContainer = document.getElementById('user-orders-fab');
+                if (!fabContainer) {
+                    fabContainer = document.createElement('div');
+                    fabContainer.id = 'user-orders-fab';
+                    fabContainer.className = 'fixed bottom-24 left-4 right-4 z-30';
+                    document.getElementById('main-content').appendChild(fabContainer);
+                }
+                
+                if (isSelectMode && selectedCount > 0) {
+                    fabContainer.innerHTML = `
+                        <button onclick="window.shop.deleteSelectedUserOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all active:scale-95 animate-float-up">
+                            <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
+                            УДАЛИТЬ (${selectedCount})
+                        </button>
+                    `;
+                    fabContainer.classList.remove('hidden');
+                } else {
+                    fabContainer.innerHTML = '';
+                    fabContainer.classList.add('hidden');
+                }
+                
+                if(window.lucide) window.lucide.createIcons();
+            },
+
+            deleteSelectedUserOrders: function() {
+                const count = this.state.selectedUserOrders.size;
+                if (count === 0) return;
+                
+                this.showConfirm(
+                    "УДАЛИТЬ ВЫБРАННЫЕ ЗАКАЗЫ",
+                    `Вы уверены, что хотите удалить выбранные заказы (${count})? Это действие нельзя отменить.`,
+                    async () => {
+                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                        
+                        try {
+                            const uid = this.state.firebaseUid;
+                            const promises = Array.from(this.state.selectedUserOrders).map(id => {
+                                const orderRef = getUserOrderRef(uid, id);
+                                return deleteDoc(orderRef);
+                            });
+                            
+                            await Promise.all(promises);
+                            
+                            this.state.userOrders = this.state.userOrders.filter(order => 
+                                !this.state.selectedUserOrders.has(order.firestoreId)
+                            );
+                            
+                            this.state.selectedUserOrders.clear();
+                            this.state.userOrdersSelectionMode = false;
+                            
+                            this.updateUserOrdersList();
+                            this.renderUserOrdersFab();
+                            this.showToast("Заказы удалены", "Успешно");
+                            
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast("Ошибка удаления", "Сбой");
+                        }
+                    }
+                );
+            },
+
+            // --- OPEN USER ORDER DETAILS ---
+            openUserOrderDetails: async function(docId) {
+                try {
+                    const uid = this.state.firebaseUid;
+                    const orderRef = getUserOrderRef(uid, docId);
+                    const docSnap = await getDoc(orderRef);
+                    if (!docSnap.exists()) return;
+                    
+                    const data = docSnap.data();
+                    const modal = document.getElementById('user-order-detail-modal');
+                    const content = document.getElementById('user-order-detail-content');
+                    
+                    const dateObj = data.date && data.date.toDate ? data.date.toDate() : new Date(data.date);
+                    const dateStr = dateObj.toLocaleString('ru-RU', { 
+                        day: 'numeric', month: 'long', hour: '2-digit', minute:'2-digit' 
+                    });
+
+                    let itemsHtml = '';
+                    let subtotal = 0;
+
+                    if (data.items) {
+                        for (const [key, qty] of Object.entries(data.items)) {
+                             const prod = window.shop.state.products.find(p => p.id === key);
+                             const name = prod ? prod.name : 'Товар удален';
+                             const price = prod ? prod.price : 0;
+                             const itemSum = price * qty;
+                             subtotal += itemSum;
+
+                             itemsHtml += `
+                                <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
+                                    <div class="flex flex-col">
+                                        <span class="text-white">${name}</span>
+                                        <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
+                                    </div>
+                                    <span class="text-gray-300 font-mono">${itemSum} ₽</span>
+                                </div>`;
+                        }
+                    }
+
+                    const realSubtotal = subtotal > 0 ? subtotal : data.total;
+                    const discountAmount = realSubtotal - data.total;
+                    const hasDiscount = discountAmount > 0;
+
+                    let paymentStatusHtml = '';
+                    if (data.payment_method === 'now' && data.payment_status === 'paid') {
+                        paymentStatusHtml = `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО ОНЛАЙН</div>`;
+                    } else if (data.payment_method === 'now' && data.payment_status === 'pending') {
+                        paymentStatusHtml = `<div class="payment-status-pending status-badge w-full text-center mt-2">НЕ ОПЛАЧЕНО</div>`;
+                    } else if (data.payment_method === 'on_delivery') {
+                        paymentStatusHtml = `<div class="payment-status-waiting status-badge w-full text-center mt-2">ОПЛАТА ПРИ ПОЛУЧЕНИИ</div>`;
+                    }
+
+                    let statusBadge = '';
+                    if (data.status === 'approved') {
+                        statusBadge = `<div class="status-approved status-badge w-full text-center mt-2">ЗАКАЗ ПРИНЯТ</div>`;
+                    } else if (data.status === 'rejected') {
+                        statusBadge = `<div class="status-rejected status-badge w-full text-center mt-2">ЗАКАЗ ОТКЛОНЕН</div>`;
+                    } else {
+                        statusBadge = `<div class="status-pending status-badge w-full text-center mt-2">ОЖИДАЕТ ПОДТВЕРЖДЕНИЯ</div>`;
+                    }
+
+                    content.innerHTML = `
+                        <div class="text-center mb-4 relative">
+                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key || '...'}</h3>
+                            <p class="text-xs text-gray-500 capitalize">${dateStr}</p>
+                        </div>
+                        
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3 icon-fix"></i> Ваши данные</p>
+                            <div class="space-y-1">
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Возраст:</span> ${data.delivery?.age || '-'}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-white/5 space-y-1">
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Адрес:</span> ${data.delivery?.place}</p>
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Время:</span> ${data.delivery?.time}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="credit-card" class="w-3 h-3 icon-fix"></i> Оплата</p>
+                            <p class="text-sm text-white mb-2">${data.payment_method === 'now' ? 'Перевод на карту' : 'Наличными при получении'}</p>
+                            ${paymentStatusHtml}
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="shopping-bag" class="w-3 h-3 icon-fix"></i> Товары</p>
+                            ${itemsHtml}
+                            
+                            <div class="mt-3 pt-2 space-y-2">
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Сумма товаров:</span>
+                                    <span>${realSubtotal} ₽</span>
+                                </div>
+                                
+                                ${hasDiscount ? `
+                                <div class="flex justify-between items-center text-xs text-green-400 font-bold bg-green-900/20 p-2 rounded-lg border border-green-500/20">
+                                    <span class="flex items-center gap-2">
+                                        <i data-lucide="ticket" class="w-3 h-3"></i> 
+                                        Скидка (<span class="text-white uppercase font-black">${data.promo || 'PROMO'}</span>):
+                                    </span>
+                                    <span>-${discountAmount} ₽</span>
+                                </div>
+                                ` : ''}
+
+                                <div class="flex justify-between mt-2 pt-2 border-t border-white/10 items-center">
+                                    <span class="text-white font-bold text-sm">К ОПЛАТЕ</span>
+                                    <span class="text-green-400 font-black text-xl neon-text-green">${data.total} ₽</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${statusBadge}
+
+                        <div class="mt-6">
+                            <button onclick="document.getElementById('user-order-detail-modal').classList.add('hidden')" class="w-full py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">
+                                ЗАКРЫТЬ
+                            </button>
+                        </div>
+                    `;
+                    
+                    modal.classList.remove('hidden');
+                    if(window.lucide) window.lucide.createIcons();
+
+                } catch (e) {
+                    console.error(e);
+                    window.shop.showToast('Ошибка загрузки', 'Сбой');
+                }
+            },
+
             // --- PROMO CODE MODALS LOGIC ---
             toggleUserPromoModal: () => {
                 const modal = document.getElementById('user-promo-modal');
                 modal.classList.toggle('hidden');
                 if (!modal.classList.contains('hidden')) {
-                    // Сброс поля при открытии
                     document.getElementById('promo-input').value = '';
                     setTimeout(() => {
                         document.getElementById('promo-input').focus();
@@ -1952,7 +2358,6 @@
                         return;
                     }
 
-                    // Activate
                     window.shop.state.activePromo = {
                         id: promoDocId,
                         code: promoData.code,
@@ -1962,13 +2367,11 @@
                         fixed_quantity: promoData.fixed_quantity || 0
                     };
 
-                    // Подписываемся на изменения промокода
                     window.shop.subscribeToActivePromo(promoDocId);
 
                     window.shop.showToast(`Скидка активирована!`, "Успешно");
                     window.shop.toggleUserPromoModal();
                     
-                    // Update Cart View to show discount
                     if (window.shop.state.isCartView) window.shop.updateCartView();
 
                 } catch (e) {
@@ -1977,7 +2380,6 @@
                 }
             },
 
-            // Подписка на изменения активного промокода
             subscribeToActivePromo: function(promoId) {
                 if (this.state.activePromoListener) {
                     this.state.activePromoListener();
@@ -1987,7 +2389,6 @@
                 
                 this.state.activePromoListener = onSnapshot(promoRef, (docSnap) => {
                     if (!docSnap.exists()) {
-                        // Промокод удален
                         if (this.state.activePromo && this.state.activePromo.id === promoId) {
                             this.state.activePromo = null;
                             this.showToast("Промокод был удален", "Информация");
@@ -2013,14 +2414,12 @@
                 modal.classList.toggle('hidden');
                 
                 if (!modal.classList.contains('hidden')) {
-                    // Сброс полей при открытии
                     document.getElementById('new-promo-code').value = '';
                     document.getElementById('new-promo-percent').value = '';
                     document.getElementById('new-promo-fixed-discount').value = '';
                     document.getElementById('new-promo-fixed-quantity').value = '';
                     document.getElementById('new-promo-limit').value = '';
                     
-                    // Сброс типа промокода к значению по умолчанию
                     window.shop.state.promoType = 'percent';
                     window.shop.selectPromoType('percent');
                     
@@ -2028,7 +2427,6 @@
                         document.getElementById('new-promo-code').focus();
                     }, 100);
                     
-                    // Subscribe to promo list
                     if (!window.shop.state.adminPromoUnsubscribe) {
                         const promosRef = getPromocodesRef();
                         const q = query(promosRef);
@@ -2047,7 +2445,6 @@
                                 docs.push({ id: doc.id, ...doc.data() });
                             });
                             
-                            // Sort in JS instead of Firestore query
                             docs.sort((a, b) => {
                                 const getMs = (d) => d?.createdAt?.toMillis ? d.createdAt.toMillis() : (d?.createdAt || 0);
                                 return getMs(b) - getMs(a);
@@ -2125,7 +2522,6 @@
                     
                     window.shop.showToast("Промокод создан", "Успешно");
                     
-                    // Сброс полей формы
                     document.getElementById('new-promo-code').value = '';
                     document.getElementById('new-promo-percent').value = '';
                     document.getElementById('new-promo-fixed-discount').value = '';
@@ -2147,7 +2543,6 @@
                             await deleteDoc(ref);
                             window.shop.showToast("Промокод удален", "Успешно");
                             
-                            // Сбрасываем активный промокод если он был удален
                             if (window.shop.state.activePromo && window.shop.state.activePromo.id === id) {
                                 window.shop.state.activePromo = null;
                                 if (window.shop.state.isCartView) window.shop.updateCartView();
@@ -2187,7 +2582,6 @@
                     </div>
                 `;
                 
-                // Отписываемся от старого слушателя и создаем новый
                 if (window.shop.state.ordersListenerUnsubscribe) {
                     window.shop.state.ordersListenerUnsubscribe();
                     window.shop.state.ordersListenerUnsubscribe = null;
@@ -2200,7 +2594,6 @@
                     window.shop.updateAdminOrdersList(snapshot);
                 });
 
-                // Сразу рендерим FAB
                 setTimeout(() => {
                     window.shop.renderAdminOrdersFab();
                 }, 50);
@@ -2259,7 +2652,6 @@
                         });
                     });
                     
-                    // Sort in JS instead of Firestore query
                     docs.sort((a, b) => b.date - a.date);
                     
                     this.state.adminOrders = docs;
@@ -2289,7 +2681,6 @@
                         statusText = 'ОТКЛОНЕН';
                     }
 
-                    // Payment status badge
                     let paymentBadge = '';
                     let paymentClass = 'payment-status-pending';
                     let paymentText = 'ОЖИДАЕТ';
@@ -2352,7 +2743,6 @@
                 list.innerHTML = html;
                 if(window.lucide) window.lucide.createIcons();
                 
-                // Обновляем FAB после обновления списка
                 this.renderAdminOrdersFab();
             },
 
@@ -2364,7 +2754,6 @@
                 }
                 this.updateAdminOrdersList();
                 this.updateAdminSelectionButton();
-                // Сразу рендерим FAB при переключении режима
                 this.renderAdminOrdersFab();
             },
 
@@ -2377,7 +2766,6 @@
                 }
                 this.updateAdminOrdersList();
                 this.updateAdminSelectionButton();
-                // Сразу рендерим FAB при выборе элементов
                 this.renderAdminOrdersFab();
             },
 
@@ -2437,158 +2825,149 @@
             },
 
             openOrderDetails: async (docId) => {
-                            try {
-                                const orderRef = getPublicOrderRef(docId);
-                                const docSnap = await getDoc(orderRef);
-                                if (!docSnap.exists()) return;
-                                
-                                const data = docSnap.data();
-                                const modal = document.getElementById('order-detail-modal');
-                                const content = document.getElementById('order-detail-content');
-                                
-                                // 1. Дата
-                                const dateObj = data.date && data.date.toDate ? data.date.toDate() : new Date(data.date);
-                                const dateStr = dateObj.toLocaleString('ru-RU', { 
-                                    day: 'numeric', month: 'long', hour: '2-digit', minute:'2-digit' 
-                                });
-            
-                                // 2. Расчет суммы БЕЗ скидки
-                                let itemsHtml = '';
-                                let subtotal = 0; 
-            
-                                if (data.items) {
-                                    for (const [key, qty] of Object.entries(data.items)) {
-                                         const prod = window.shop.state.products.find(p => p.id === key);
-                                         const name = prod ? prod.name : 'Товар удален';
-                                         const price = prod ? prod.price : 0;
-                                         const itemSum = price * qty;
-                                         subtotal += itemSum; 
-            
-                                         itemsHtml += `
-                                            <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
-                                                <div class="flex flex-col">
-                                                    <span class="text-white">${name}</span>
-                                                    <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
-                                                </div>
-                                                <span class="text-gray-300 font-mono">${itemSum} ₽</span>
-                                            </div>`;
-                                    }
-                                }
-            
-                                // 3. Вычисляем скидку
-                                const realSubtotal = subtotal > 0 ? subtotal : data.total; 
-                                const discountAmount = realSubtotal - data.total;
-                                const hasDiscount = discountAmount > 0;
-                                
-                                // !!! ВАЖНО: Если имя промокода не сохранилось, пишем "PROMO"
-                                // Проверяем: если это объект, берем .code, если строка — берем её, иначе "НЕТ КОДА"
-                                const promoName = (typeof data.promo === 'object' && data.promo !== null) 
-                                    ? (data.promo.code || "PROMO") 
-                                    : (data.promo || "БЕЗ КОДА"); 
-            
-                                // 4. Оплата
-                                const isPaid = data.payment_status === 'paid';
-                                let paymentStatusHtml = '';
-            
-                                if (data.payment_method === 'now') {
-                                    paymentStatusHtml = isPaid
-                                        ? `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО ОНЛАЙН</div>`
-                                        : `<div class="payment-status-pending status-badge w-full text-center mt-2">НЕ ОПЛАЧЕНО</div>`;
-                                } else if (data.payment_method === 'on_delivery') {
-                                    paymentStatusHtml = isPaid
-                                        ? `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО (ВРУЧЕНО)</div>`
-                                        : `<div class="payment-status-waiting status-badge w-full text-center mt-2">ОПЛАТА ПРИ ПОЛУЧЕНИИ</div>`;
-                                }
-            
-                                // 5. Кнопка
-                                let paymentActions = '';
-                                if (!isPaid) {
-                                    paymentActions = `
-                                        <button onclick="window.shop.confirmPayment('${docId}')" 
-                                                class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(59,130,246,0.3)] mt-3 flex items-center justify-center gap-2 transition-transform active:scale-95">
-                                            <i data-lucide="check-circle" class="w-4 h-4 icon-fix"></i>
-                                            ПОДТВЕРДИТЬ ПОЛУЧЕНИЕ ДЕНЕГ
-                                        </button>
-                                    `;
-                                }
-            
-                                // 6. Рендер
-                                content.innerHTML = `
-                                    <div class="text-center mb-4 relative">
-                                        <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key || '...'}</h3>
-                                        <p class="text-xs text-gray-500 capitalize">${dateStr}</p>
-                                    </div>
-                                    
-                                    <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
-                                        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3 icon-fix"></i> Клиент</p>
-                                        <div class="space-y-1">
-                                            <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
-                                            <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Тел:</span> <a href="tel:${data.delivery?.phone}" class="text-blue-400 hover:underline">${data.delivery?.phone}</a></p>
-                                            <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Возраст:</span> ${data.delivery?.age || '-'}</p>
-                                            <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
-                                        </div>
-                                        <div class="mt-2 pt-2 border-t border-white/5 space-y-1">
-                                            <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Адрес:</span> ${data.delivery?.place}</p>
-                                            <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Время:</span> ${data.delivery?.time}</p>
-                                        </div>
-                                    </div>
-            
-                                    <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
-                                        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="credit-card" class="w-3 h-3 icon-fix"></i> Оплата</p>
-                                        <p class="text-sm text-white mb-2">${data.payment_method === 'now' ? 'Перевод на карту' : 'Наличными при получении'}</p>
-                                        ${paymentStatusHtml}
-                                    </div>
-            
-                                    <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
-                                        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="shopping-bag" class="w-3 h-3 icon-fix"></i> Товары</p>
-                                        ${itemsHtml}
-                                        
-                                        <div class="mt-3 pt-2 space-y-2">
-                                            <div class="flex justify-between text-xs text-gray-500">
-                                                <span>Сумма товаров:</span>
-                                                <span>${realSubtotal} ₽</span>
-                                            </div>
-                                            
-                                            ${hasDiscount ? `
-                                            <div class="flex justify-between items-center text-xs text-green-400 font-bold bg-green-900/20 p-2 rounded-lg border border-green-500/20">
-                                                <span class="flex items-center gap-2">
-                                                    <i data-lucide="ticket" class="w-3 h-3"></i> 
-                                                    Скидка (<span class="text-white uppercase font-black">${promoName}</span>):
-                                                </span>
-                                                <span>-${discountAmount} ₽</span>
-                                            </div>
-                                            ` : ''}
-            
-                                            <div class="flex justify-between mt-2 pt-2 border-t border-white/10 items-center">
-                                                <span class="text-white font-bold text-sm">К ОПЛАТЕ</span>
-                                                <span class="text-green-400 font-black text-xl neon-text-green">${data.total} ₽</span>
-                                            </div>
-                                        </div>
-                                    </div>
-            
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" 
-                                                class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-                                            ОДОБРИТЬ
-                                        </button>
-                                        <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" 
-                                                class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-                                            ОТКЛОНИТЬ
-                                        </button>
-                                    </div>
-                                    ${paymentActions}
-                                `;
-                                
-                                modal.classList.remove('hidden');
-                                if(window.lucide) window.lucide.createIcons();
-            
-                            } catch (e) {
-                                console.error(e);
-                                window.shop.showToast('Ошибка загрузки', 'Сбой');
-                            }
-                        },
+                try {
+                    const orderRef = getPublicOrderRef(docId);
+                    const docSnap = await getDoc(orderRef);
+                    if (!docSnap.exists()) return;
+                    
+                    const data = docSnap.data();
+                    const modal = document.getElementById('order-detail-modal');
+                    const content = document.getElementById('order-detail-content');
+                    
+                    const dateObj = data.date && data.date.toDate ? data.date.toDate() : new Date(data.date);
+                    const dateStr = dateObj.toLocaleString('ru-RU', { 
+                        day: 'numeric', month: 'long', hour: '2-digit', minute:'2-digit' 
+                    });
 
-            // --- NEW FUNCTION: Confirm Payment (Admin) ---
+                    let itemsHtml = '';
+                    let subtotal = 0;
+
+                    if (data.items) {
+                        for (const [key, qty] of Object.entries(data.items)) {
+                             const prod = window.shop.state.products.find(p => p.id === key);
+                             const name = prod ? prod.name : 'Товар удален';
+                             const price = prod ? prod.price : 0;
+                             const itemSum = price * qty;
+                             subtotal += itemSum;
+
+                             itemsHtml += `
+                                <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
+                                    <div class="flex flex-col">
+                                        <span class="text-white">${name}</span>
+                                        <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
+                                    </div>
+                                    <span class="text-gray-300 font-mono">${itemSum} ₽</span>
+                                </div>`;
+                        }
+                    }
+
+                    const realSubtotal = subtotal > 0 ? subtotal : data.total;
+                    const discountAmount = realSubtotal - data.total;
+                    const hasDiscount = discountAmount > 0;
+
+                    const promoName = (typeof data.promo === 'object' && data.promo !== null) 
+                        ? (data.promo.code || "PROMO") 
+                        : (data.promo || "БЕЗ КОДА");
+
+                    const isPaid = data.payment_status === 'paid';
+                    let paymentStatusHtml = '';
+
+                    if (data.payment_method === 'now') {
+                        paymentStatusHtml = isPaid
+                            ? `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО ОНЛАЙН</div>`
+                            : `<div class="payment-status-pending status-badge w-full text-center mt-2">НЕ ОПЛАЧЕНО</div>`;
+                    } else if (data.payment_method === 'on_delivery') {
+                        paymentStatusHtml = isPaid
+                            ? `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО (ВРУЧЕНО)</div>`
+                            : `<div class="payment-status-waiting status-badge w-full text-center mt-2">ОПЛАТА ПРИ ПОЛУЧЕНИИ</div>`;
+                    }
+
+                    let paymentActions = '';
+                    if (!isPaid) {
+                        paymentActions = `
+                            <button onclick="window.shop.confirmPayment('${docId}')" 
+                                    class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(59,130,246,0.3)] mt-3 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                                <i data-lucide="check-circle" class="w-4 h-4 icon-fix"></i>
+                                ПОДТВЕРДИТЬ ПОЛУЧЕНИЕ ДЕНЕГ
+                            </button>
+                        `;
+                    }
+
+                    content.innerHTML = `
+                        <div class="text-center mb-4 relative">
+                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key || '...'}</h3>
+                            <p class="text-xs text-gray-500 capitalize">${dateStr}</p>
+                        </div>
+                        
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3 icon-fix"></i> Клиент</p>
+                            <div class="space-y-1">
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Тел:</span> <a href="tel:${data.delivery?.phone}" class="text-blue-400 hover:underline">${data.delivery?.phone}</a></p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Возраст:</span> ${data.delivery?.age || '-'}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-white/5 space-y-1">
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Адрес:</span> ${data.delivery?.place}</p>
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Время:</span> ${data.delivery?.time}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="credit-card" class="w-3 h-3 icon-fix"></i> Оплата</p>
+                            <p class="text-sm text-white mb-2">${data.payment_method === 'now' ? 'Перевод на карту' : 'Наличными при получении'}</p>
+                            ${paymentStatusHtml}
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="shopping-bag" class="w-3 h-3 icon-fix"></i> Товары</p>
+                            ${itemsHtml}
+                            
+                            <div class="mt-3 pt-2 space-y-2">
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Сумма товаров:</span>
+                                    <span>${realSubtotal} ₽</span>
+                                </div>
+                                
+                                ${hasDiscount ? `
+                                <div class="flex justify-between items-center text-xs text-green-400 font-bold bg-green-900/20 p-2 rounded-lg border border-green-500/20">
+                                    <span class="flex items-center gap-2">
+                                        <i data-lucide="ticket" class="w-3 h-3"></i> 
+                                        Скидка (<span class="text-white uppercase font-black">${promoName}</span>):
+                                    </span>
+                                    <span>-${discountAmount} ₽</span>
+                                </div>
+                                ` : ''}
+
+                                <div class="flex justify-between mt-2 pt-2 border-t border-white/10 items-center">
+                                    <span class="text-white font-bold text-sm">К ОПЛАТЕ</span>
+                                    <span class="text-green-400 font-black text-xl neon-text-green">${data.total} ₽</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'approved')" 
+                                    class="bg-green-600 hover:bg-green-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                                ОДОБРИТЬ
+                            </button>
+                            <button onclick="window.shop.updateOrderStatus('${docId}', 'rejected')" 
+                                    class="bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs uppercase shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                                ОТКЛОНИТЬ
+                            </button>
+                        </div>
+                        ${paymentActions}
+                    `;
+                    
+                    modal.classList.remove('hidden');
+                    if(window.lucide) window.lucide.createIcons();
+
+                } catch (e) {
+                    console.error(e);
+                    window.shop.showToast('Ошибка загрузки', 'Сбой');
+                }
+            },
+
             confirmPayment: async function(docId) {
                 try {
                     window.shop.showToast('Подтверждение оплаты...', 'Обработка');
@@ -2599,13 +2978,11 @@
                     
                     const data = docSnap.data();
                     
-                    // Обновляем статус оплаты
                     await updateDoc(orderRef, {
                         payment_status: 'paid',
                         updatedAt: new Date().toISOString()
                     });
                     
-                    // Обновляем приватный заказ пользователя если он существует
                     if (data.linkedUserUid && data.linkedUserOrderId) {
                         try {
                             const userOrderRef = getUserOrderRef(data.linkedUserUid, data.linkedUserOrderId);
@@ -2620,10 +2997,8 @@
                     
                     window.shop.showToast('Оплата подтверждена!', 'Успешно');
                     
-                    // Закрываем модальное окно
                     document.getElementById('order-detail-modal').classList.add('hidden');
                     
-                    // Обновляем список заказов
                     if (window.shop.state.adminOrders) {
                         const orderIndex = window.shop.state.adminOrders.findIndex(o => o.firestoreId === docId);
                         if (orderIndex !== -1) {
@@ -2786,28 +3161,22 @@
             },
 
             updateCartBadge: () => {
-                            // 1. Получаем список ID существующих товаров
-                            const validProductIds = window.shop.state.products.map(p => p.id);
-                            
-                            // 2. Считаем сумму ТОЛЬКО для тех товаров, которые реально есть в магазине
-                            let count = 0;
-                            Object.entries(window.shop.state.cart).forEach(([id, qty]) => {
-                                // Проверяем, существует ли такой товар в базе
-                                if (validProductIds.includes(id)) {
-                                    count += qty;
-                                } else {
-                                    // (Опционально) Можно удалить мусор из памяти, чтобы не копился
-                                    // delete window.shop.state.cart[id]; 
-                                }
-                            });
-            
-                            const badge = document.getElementById('cart-badge');
-                            if (badge) {
-                                badge.innerText = count;
-                                badge.style.opacity = count > 0 ? '1' : '0';
-                                badge.style.transform = count > 0 ? 'scale(1)' : 'scale(0.5)';
-                            }
-                        },
+                const validProductIds = window.shop.state.products.map(p => p.id);
+                
+                let count = 0;
+                Object.entries(window.shop.state.cart).forEach(([id, qty]) => {
+                    if (validProductIds.includes(id)) {
+                        count += qty;
+                    }
+                });
+
+                const badge = document.getElementById('cart-badge');
+                if (badge) {
+                    badge.innerText = count;
+                    badge.style.opacity = count > 0 ? '1' : '0';
+                    badge.style.transform = count > 0 ? 'scale(1)' : 'scale(0.5)';
+                }
+            },
 
             toggleAddModal: () => {
                 const modal = document.getElementById('add-modal');
@@ -2871,7 +3240,6 @@
                     try {
                         window.shop.showToast("Сжатие изображения...", "Обработка");
                         
-                        // Сжимаем изображение
                         const compressedImage = await this.compressImage(input.files[0]);
                         
                         window.shop.state.pendingImage = compressedImage;
@@ -2892,7 +3260,6 @@
                     try {
                         window.shop.showToast("Сжатие изображения...", "Обработка");
                         
-                        // Сжимаем изображение
                         const compressedImage = await this.compressImage(input.files[0]);
                         
                         this.state.pendingEditImage = compressedImage;
@@ -2993,12 +3360,12 @@
                     }
                 );
             },
-            // --- НОВАЯ ФУНКЦИЯ: Скрыть/Показать товар ---
+
             toggleHiddenProduct: async function(id) {
                 const product = this.state.products.find(p => p.id === id);
                 if (!product) return;
 
-                const newStatus = !product.isHidden; // Переключаем статус
+                const newStatus = !product.isHidden;
                 const actionText = newStatus ? "скрыт" : "доступен";
 
                 this.showToast("Обновление статуса...", "Синхронизация");
@@ -3018,21 +3385,16 @@
             // --- CHECKOUT LOGIC ---
 
             initCheckout: (total) => {
-                // Сброс состояния перед открытием
                 window.shop.resetCheckoutState();
-                
-                // Сброс активного промокода при начале нового заказа
                 
                 window.shop.state.currentTotal = total;
                 const modal = document.getElementById('delivery-modal');
                 modal.classList.remove('hidden');
                 
-                // Критическое исправление: фокус с прокруткой
                 setTimeout(() => {
                     const nameInput = document.getElementById('del-name');
                     if (nameInput) {
                         nameInput.focus();
-                        // Гарантируем, что поле будет видно
                         setTimeout(() => {
                             nameInput.scrollIntoView({ 
                                 behavior: 'smooth', 
@@ -3041,7 +3403,7 @@
                             });
                         }, 100);
                     }
-                }, 150); // Даем время модалке открыться
+                }, 150);
             },
 
             selectTime: (time, btn) => {
@@ -3050,16 +3412,13 @@
                 window.shop.state.deliveryTime = time;
             },
 
-            // Выбор способа оплаты
             selectPaymentMethod: function(method) {
                 this.state.paymentMethod = method;
                 
-                // Update UI
                 document.querySelectorAll('.payment-method-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
                 
-                // Find and activate the clicked button
                 const buttons = document.querySelectorAll('.payment-method-btn');
                 buttons.forEach(btn => {
                     if (btn.textContent.includes(method === 'now' ? 'Оплатить сейчас' : 'Оплатить при получении')) {
@@ -3067,7 +3426,6 @@
                     }
                 });
                 
-                // Update payment action button
                 const paymentBtn = document.getElementById('payment-action-btn');
                 const bankSection = document.getElementById('bank-details-section');
                 
@@ -3086,16 +3444,13 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Функция сброса состояния чекаута
             resetCheckoutState: function() {
-                // Сбрасываем состояние
                 this.state.paymentMethod = null;
                 this.state.isProcessingOrder = false;
                 this.state.currentOrderId = null;
                 this.state.deliveryTime = null;
                 this.state.deliveryInfo = null;
                 
-                // Сбрасываем UI кнопок
                 document.querySelectorAll('.payment-method-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -3103,7 +3458,6 @@
                     btn.classList.remove('active');
                 });
                 
-                // Сбрасываем кнопку оплаты к исходному состоянию
                 const paymentBtn = document.getElementById('payment-action-btn');
                 if (paymentBtn) {
                     paymentBtn.innerHTML = '<span>ВЫБЕРИТЕ СПОСОБ ОПЛАТЫ</span>';
@@ -3131,7 +3485,6 @@
                     return;
                 }
 
-                // Проверка возраста
                 if (parseInt(age) < 18) {
                     window.shop.showToast("Возраст должен быть 18+", "Ошибка");
                     document.getElementById('del-age').focus();
@@ -3144,7 +3497,6 @@
                 
                 document.getElementById('checkout-total').innerText = window.shop.state.currentTotal + " ₽";
                 
-                // Show Discount in Checkout (только если есть активный промокод)
                 if (window.shop.state.activePromo) {
                     let discountAmount = 0;
                     
@@ -3180,16 +3532,13 @@
                 document.getElementById('order-id-display').innerText = "Код для комментария: " + orderId;
                 window.shop.state.currentOrderId = orderId;
                 
-                // ИСПРАВЛЕНО: Сбрасываем флаг обработки заказа при открытии модалки
                 window.shop.state.isProcessingOrder = false;
                 
                 document.getElementById('checkout-modal').classList.remove('hidden');
                 
-                // Обновляем иконки
                 if(window.lucide) window.lucide.createIcons();
             },
 
-            // Новая функция для закрытия модального окна оплаты
             closeCheckoutModal: function() {
                 document.getElementById('checkout-modal').classList.add('hidden');
                 this.resetCheckoutState();
@@ -3201,7 +3550,6 @@
                 });
             },
 
-            // Обработчик нажатия на кнопку оплаты
             handlePaymentAction: function() {
                 if (!this.state.paymentMethod) {
                     this.showToast("Выберите способ оплаты", "Ошибка");
@@ -3220,29 +3568,26 @@
                 }
             },
 
-// --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Оплата при получении ---
             createOrderOnDelivery: async function() {
                 if (window.shop.state.isProcessingOrder) return;
                 window.shop.state.isProcessingOrder = true;
                 
-                const paymentBtn = document.getElementById('payment-action-btn');
                 const now = new Date();
-                const uid = window.shop.state.firebaseUid;
+                const uid = this.state.firebaseUid;
                 
-                // Сохраняем промокод в локальную переменную, чтобы он не потерялся
-                const promoToSave = window.shop.state.activePromo ? window.shop.state.activePromo.code : null;
-                const promoIdToUpdate = window.shop.state.activePromo ? window.shop.state.activePromo.id : null;
+                const promoToSave = this.state.activePromo ? this.state.activePromo.code : null;
+                const promoIdToUpdate = this.state.activePromo ? this.state.activePromo.id : null;
 
                 const orderBase = {
-                    order_key: window.shop.state.currentOrderId,
-                    total: window.shop.state.currentTotal,
-                    items: window.shop.state.cart,
+                    order_key: this.state.currentOrderId,
+                    total: this.state.currentTotal,
+                    items: this.state.cart,
                     date: now,
-                    user: window.shop.state.user,
-                    delivery: window.shop.state.deliveryInfo,
+                    user: this.state.user,
+                    delivery: this.state.deliveryInfo,
                     status: 'pending',
                     createdAt: now,
-                    promo: promoToSave, // Используем сохраненную переменную
+                    promo: promoToSave,
                     payment_method: 'on_delivery',
                     payment_status: 'waiting'
                 };
@@ -3254,7 +3599,6 @@
                         linkedUserUid: uid
                     });
 
-                    // ОБНОВЛЕНИЕ СЧЕТЧИКА ПО ID (Надежный способ)
                     if (promoIdToUpdate) {
                         const promoRef = getPromoDocRef(promoIdToUpdate);
                         const pSnap = await getDoc(promoRef);
@@ -3265,41 +3609,38 @@
                         }
                     }
 
-                    // Только теперь очищаем всё
-                    window.shop.state.cart = {};
-                    window.shop.state.activePromo = null; 
-                    window.shop.updateCartBadge();
+                    this.state.cart = {};
+                    this.state.activePromo = null;
+                    this.updateCartBadge();
                     
                     this.closeCheckoutModal();
-                    window.shop.switchView('store');
-                    window.shop.showToast("Заказ создан!", "Успешно");
+                    this.switchView('store');
+                    this.showToast("Заказ создан!", "Успешно");
                         
                 } catch(e) { 
                     console.error(e); 
-                    window.shop.state.isProcessingOrder = false;
-                    window.shop.showToast("Ошибка базы", "Внимание");
+                    this.state.isProcessingOrder = false;
+                    this.showToast("Ошибка базы", "Внимание");
                 }
             },
 
-            // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Оплата сейчас ---
             completeOrder: async function() {
                 if (window.shop.state.isProcessingOrder) return;
                 window.shop.state.isProcessingOrder = true;
                 
                 const now = new Date();
-                const uid = window.shop.state.firebaseUid;
+                const uid = this.state.firebaseUid;
                 
-                // Сохраняем данные промокода заранее
-                const promoToSave = window.shop.state.activePromo ? window.shop.state.activePromo.code : null;
-                const promoIdToUpdate = window.shop.state.activePromo ? window.shop.state.activePromo.id : null;
+                const promoToSave = this.state.activePromo ? this.state.activePromo.code : null;
+                const promoIdToUpdate = this.state.activePromo ? this.state.activePromo.id : null;
 
                 const orderBase = {
-                    order_key: window.shop.state.currentOrderId,
-                    total: window.shop.state.currentTotal,
-                    items: window.shop.state.cart,
+                    order_key: this.state.currentOrderId,
+                    total: this.state.currentTotal,
+                    items: this.state.cart,
                     date: now,
-                    user: window.shop.state.user,
-                    delivery: window.shop.state.deliveryInfo,
+                    user: this.state.user,
+                    delivery: this.state.deliveryInfo,
                     status: 'pending',
                     createdAt: now,
                     promo: promoToSave,
@@ -3311,7 +3652,6 @@
                     const publicOrdersCollection = getOrdersRef();
                     await addDoc(publicOrdersCollection, { ...orderBase, linkedUserUid: uid });
 
-                    // ОБНОВЛЕНИЕ СЧЕТЧИКА ПО ID
                     if (promoIdToUpdate) {
                         const promoRef = getPromoDocRef(promoIdToUpdate);
                         const pSnap = await getDoc(promoRef);
@@ -3322,17 +3662,17 @@
                         }
                     }
 
-                    window.shop.state.cart = {};
-                    window.shop.state.activePromo = null;
-                    window.shop.updateCartBadge();
+                    this.state.cart = {};
+                    this.state.activePromo = null;
+                    this.updateCartBadge();
                     
                     this.closeCheckoutModal();
-                    window.shop.switchView('store');
-                    window.shop.showToast("Заказ отправлен!", "Успешно");
+                    this.switchView('store');
+                    this.showToast("Заказ отправлен!", "Успешно");
                         
                 } catch(e) { 
                     console.error(e); 
-                    window.shop.state.isProcessingOrder = false;
+                    this.state.isProcessingOrder = false;
                 }
             },
 
