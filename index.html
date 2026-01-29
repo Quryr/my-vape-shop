@@ -3026,18 +3026,38 @@
                     }
                     const data = docSnap.data();
 
+                    // Обновляем админскую версию
                     await updateDoc(orderRef, {
                         status: status,
                         updatedAt: new Date().toISOString()
                     });
 
-                    if (data.linkedUserUid && data.linkedUserOrderId) {
+                    // Обновляем пользовательскую версию
+                    if (data.linkedUserUid) {
                         try {
-                            const userOrderRef = getUserOrderRef(data.linkedUserUid, data.linkedUserOrderId);
-                            await updateDoc(userOrderRef, {
-                                status: status,
-                                updatedAt: new Date().toISOString()
-                            });
+                            let userOrderId = data.linkedUserOrderId;
+
+                            // ФОЛЛБЭК: Если ID не сохранен прямо в заказе (для старых заказов), ищем его
+                            if (!userOrderId) {
+                                const userOrdersRef = getUserOrdersRef(data.linkedUserUid);
+                                // Используем query и where, которые мы импортировали в начале
+                                const q = query(userOrdersRef, where("publicOrderId", "==", docId));
+                                const querySnap = await getDocs(q);
+                                if (!querySnap.empty) {
+                                    userOrderId = querySnap.docs[0].id;
+                                }
+                            }
+
+                            if (userOrderId) {
+                                const userOrderRef = getUserOrderRef(data.linkedUserUid, userOrderId);
+                                await updateDoc(userOrderRef, {
+                                    status: status,
+                                    updatedAt: new Date().toISOString()
+                                });
+                                console.log("User order status updated successfully");
+                            } else {
+                                console.warn("Could not find linked user order");
+                            }
                         } catch (privateErr) {
                             console.error("Ошибка обновления приватного статуса:", privateErr);
                         }
@@ -3598,14 +3618,22 @@
                     const publicDocRef = await addDoc(publicOrdersCollection, {
                         ...orderBase,
                         linkedUserUid: uid
+                        // linkedUserOrderId добавим чуть ниже после создания личного заказа
                     });
 
-                    // 2. ИСПРАВЛЕНИЕ: Сохраняем в ЛИЧНУЮ базу пользователя (для вкладки "Заказы")
+                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя
                     if (uid) {
                         const userOrdersCollection = getUserOrdersRef(uid);
-                        await addDoc(userOrdersCollection, {
+                        const userDocRef = await addDoc(userOrdersCollection, {
                             ...orderBase,
                             publicOrderId: publicDocRef.id // Ссылка на общий заказ
+                        });
+
+                        // ВАЖНОЕ ИСПРАВЛЕНИЕ:
+                        // Обновляем публичный заказ, добавляя в него ID личного заказа.
+                        // Это создает двустороннюю связь.
+                        await updateDoc(publicDocRef, {
+                            linkedUserOrderId: userDocRef.id
                         });
                     }
 
@@ -3620,9 +3648,9 @@
                         }
                     }
 
-                    // 3. ИСПРАВЛЕНИЕ: Очищаем корзину В БАЗЕ ДАННЫХ
+                    // Очищаем корзину
                     this.state.cart = {};
-                    await window.shop.saveCartToFirebase(); // <--- Важная строка для фикса бага с возвратом корзины
+                    await window.shop.saveCartToFirebase();
 
                     this.state.activePromo = null;
                     this.updateCartBadge();
@@ -3667,12 +3695,17 @@
                     const publicOrdersCollection = getOrdersRef();
                     const publicDocRef = await addDoc(publicOrdersCollection, { ...orderBase, linkedUserUid: uid });
 
-                    // 2. ИСПРАВЛЕНИЕ: Сохраняем в ЛИЧНУЮ базу пользователя (для вкладки "Заказы")
+                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя
                     if (uid) {
                         const userOrdersCollection = getUserOrdersRef(uid);
-                        await addDoc(userOrdersCollection, {
+                        const userDocRef = await addDoc(userOrdersCollection, {
                             ...orderBase,
-                            publicOrderId: publicDocRef.id // Ссылка на общий заказ
+                            publicOrderId: publicDocRef.id
+                        });
+
+                        // ВАЖНОЕ ИСПРАВЛЕНИЕ: Создаем двустороннюю связь
+                        await updateDoc(publicDocRef, {
+                            linkedUserOrderId: userDocRef.id
                         });
                     }
 
@@ -3687,9 +3720,9 @@
                         }
                     }
 
-                    // 3. ИСПРАВЛЕНИЕ: Очищаем корзину В БАЗЕ ДАННЫХ
+                    // Очищаем корзину
                     this.state.cart = {};
-                    await window.shop.saveCartToFirebase(); // <--- Важная строка
+                    await window.shop.saveCartToFirebase();
 
                     this.state.activePromo = null;
                     this.updateCartBadge();
@@ -3726,3 +3759,4 @@
     </script>
 </body>
 </html>
+
