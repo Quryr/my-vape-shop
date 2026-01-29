@@ -3554,7 +3554,9 @@
                 const bankSection = document.getElementById('bank-details-section');
                 
                 if (method === 'now') {
-                    paymentBtn.innerHTML = '<span>Я ОПЛАТИЛ</span><i data-lucide="check-circle" class="w-5 h-5 icon-fix"></i>';
+                    // УБРАЛ ТЕГ <i> С ИКОНКОЙ, ОСТАВИЛ ТОЛЬКО ТЕКСТ
+                    paymentBtn.innerHTML = '<span>Я ОПЛАТИЛ</span>';
+                    
                     paymentBtn.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-500');
                     paymentBtn.classList.add('bg-gradient-to-r', 'from-green-600', 'to-green-500');
                     bankSection.classList.remove('hidden');
@@ -3861,6 +3863,7 @@
     </script>
 </body>
 </html>
+
 
 
 
