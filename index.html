@@ -2170,25 +2170,51 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
+            // Замени старую функцию deleteSelectedUserOrders на эту
             deleteSelectedUserOrders: function() {
                 const count = this.state.selectedUserOrders.size;
                 if (count === 0) return;
                 
                 this.showConfirm(
                     "УДАЛИТЬ ВЫБРАННЫЕ ЗАКАЗЫ",
-                    `Вы уверены, что хотите удалить выбранные заказы (${count})? Это действие нельзя отменить.`,
+                    `Вы уверены, что хотите удалить эти заказы (${count})?`,
                     async () => {
-                        this.showToast(`Удаление ${count} заказов...`, "Обработка");
+                        this.showToast(`Обработка ${count} заказов...`, "Синхронизация");
                         
                         try {
                             const uid = this.state.firebaseUid;
-                            const promises = Array.from(this.state.selectedUserOrders).map(id => {
-                                const orderRef = getUserOrderRef(uid, id);
-                                return deleteDoc(orderRef);
+                            
+                            // Перебираем все выбранные ID
+                            const promises = Array.from(this.state.selectedUserOrders).map(async (id) => {
+                                const userOrderRef = getUserOrderRef(uid, id);
+                                
+                                // 1. Сначала читаем заказ, чтобы найти связь с админским заказом
+                                const docSnap = await getDoc(userOrderRef);
+                                
+                                if (docSnap.exists()) {
+                                    const data = docSnap.data();
+                                    
+                                    // 2. Если есть ссылка на публичный заказ (publicOrderId), обновляем его статус
+                                    if (data.publicOrderId) {
+                                        try {
+                                            const publicOrderRef = getPublicOrderRef(data.publicOrderId);
+                                            await updateDoc(publicOrderRef, {
+                                                status: 'deleted_by_client', // Новый статус
+                                                updatedAt: new Date().toISOString()
+                                            });
+                                        } catch (err) {
+                                            console.warn("Не удалось обновить статус у админа (возможно заказ уже удален там):", err);
+                                        }
+                                    }
+                                }
+                                
+                                // 3. Удаляем заказ у пользователя окончательно
+                                return deleteDoc(userOrderRef);
                             });
                             
                             await Promise.all(promises);
                             
+                            // Чистим локальный стейт
                             this.state.userOrders = this.state.userOrders.filter(order => 
                                 !this.state.selectedUserOrders.has(order.firestoreId)
                             );
@@ -2658,6 +2684,7 @@
                 if(window.lucide) window.lucide.createIcons();
             },
 
+            // Замени старую функцию updateAdminOrdersList на эту
             updateAdminOrdersList: function(snapshot = null) {
                 const list = document.getElementById('admin-orders-list');
                 if (!list) return;
@@ -2669,7 +2696,7 @@
                         this.renderAdminOrdersFab();
                         return;
                     }
-
+            
                     let docs = [];
                     snapshot.forEach(docSnap => {
                         const data = docSnap.data();
@@ -2700,17 +2727,26 @@
                     
                     const isSelected = this.state.selectedAdminOrders.has(data.firestoreId);
                     
+                    // --- ЛОГИКА СТАТУСОВ ---
                     let statusClass = 'status-pending';
                     let statusText = 'ОЖИДАЕТ';
+                    let borderClass = 'border-l-yellow-500'; // Цвет полоски слева
                     
                     if (data.status === 'approved') {
                         statusClass = 'status-approved';
                         statusText = 'ПРИНЯТ';
+                        borderClass = 'border-l-green-500';
                     } else if (data.status === 'rejected') {
                         statusClass = 'status-rejected';
                         statusText = 'ОТКЛОНЕН';
+                        borderClass = 'border-l-red-500';
+                    } else if (data.status === 'deleted_by_client') {
+                        // Новый статус для удаленных заказов
+                        statusClass = 'bg-gray-500/20 text-gray-400 border border-gray-500/30'; 
+                        statusText = 'ЗАКАЗ УДАЛЁН';
+                        borderClass = 'border-l-gray-500';
                     }
-
+            
                     let paymentBadge = '';
                     let paymentClass = 'payment-status-pending';
                     let paymentText = 'ОЖИДАЕТ';
@@ -2727,15 +2763,18 @@
                     }
                     
                     paymentBadge = `<div class="${paymentClass} status-badge mt-1 text-[8px]">${paymentText}</div>`;
-
+            
+                    // Если заказ удален клиентом, делаем карточку более тусклой
+                    const opacityClass = data.status === 'deleted_by_client' ? 'opacity-60 grayscale-[0.5]' : '';
+            
                     const cardStyle = isSelected 
                         ? 'border-red-500 bg-red-500/10' 
-                        : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
-
+                        : `hover:bg-white/5 border-l-4 ${borderClass}`;
+            
                     const clickAction = this.state.adminSelectionMode 
                         ? `window.shop.toggleOrderSelection('${data.firestoreId}')`
                         : `window.shop.openOrderDetails('${data.firestoreId}')`;
-
+            
                     const checkboxHtml = this.state.adminSelectionMode 
                         ? `<div class="mr-3 pt-1">
                              <div class="order-checkbox ${isSelected ? 'checked' : ''}">
@@ -2743,9 +2782,9 @@
                              </div>
                             </div>` 
                         : '';
-
+            
                     html += `
-                        <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} flex mb-2">
+                        <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} ${opacityClass} flex mb-2">
                             ${checkboxHtml}
                             <div class="flex-grow">
                                 <div class="flex justify-between items-start mb-2">
@@ -3822,6 +3861,7 @@
     </script>
 </body>
 </html>
+
 
 
 
