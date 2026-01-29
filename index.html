@@ -1,12 +1,3 @@
-<!--
-███████╗ ██████╗ ██╗     ██████╗      ██████╗ ██╗   ██╗████████╗
-██╔════╝██╔═══██╗██║     ██╔══██╗    ██╔═══██╗██║   ██║╚══██╔══╝
-███████╗██║   ██║██║     ██║  ██║    ██║   ██║██║   ██║   ██║
-╚════██║██║   ██║██║     ██║  ██║    ██║   ██║██║   ██║   ██║
-███████║╚██████╔╝███████╗██████╔╝    ╚██████╔╝╚██████╔╝   ██║
-╚══════╝ ╚═════╝ ╚══════╝╚═════╝      ╚═════╝  ╚═════╝    ╚═╝
-Sold Out Store
--->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -84,7 +75,6 @@ Sold Out Store
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <style>
-        
         /* Base Styles */
         body {
             background-color: #050505;
@@ -347,15 +337,6 @@ Sold Out Store
             vertical-align: middle;
         }
         
-        /* FIX для автоматического открытия файлового инпута */
-        .no-auto-focus {
-            pointer-events: none;
-        }
-        
-        .no-auto-focus input {
-            pointer-events: auto;
-        }
-        
         /* Payment method buttons */
         .payment-method-btn {
             transition: all 0.3s ease;
@@ -388,6 +369,32 @@ Sold Out Store
             border-color: #22c55e;
             color: #22c55e;
             box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+        }
+
+        /* КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Для модалки доставки */
+        #delivery-modal .modal-content {
+            max-height: 85vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        /* Гарантируем, что инпуты всегда видны при фокусе */
+        #delivery-modal input:focus {
+            scroll-margin-top: 100px;
+        }
+
+        /* Адаптивные отступы для мобильных устройств */
+        @media (max-height: 700px) {
+            #delivery-modal .modal-content {
+                max-height: 75vh;
+            }
+        }
+
+        /* Гарантия видимости поля при фокусе */
+        .input-focus-fix:focus {
+            position: relative;
+            z-index: 10000;
         }
     </style>
 </head>
@@ -701,60 +708,65 @@ Sold Out Store
         </div>
     </div>
 
-    <!-- DELIVERY INFO MODAL (Step 1) -->
+    <!-- ИСПРАВЛЕННАЯ DELIVERY INFO MODAL (Step 1) -->
     <div id="delivery-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
-        <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t border-green-500/30 animate-float-up shadow-[0_-10px_50px_rgba(0,0,0,0.8)] pb-10">
-            
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-black italic text-white">ДАННЫЕ <span class="text-green-500">ДОСТАВКИ</span></h2>
-                <button onclick="document.getElementById('delivery-modal').classList.add('hidden')" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
-            </div>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше ФИО</label>
-                    <input type="text" id="del-name" placeholder="Фамилия Имя Отчество" 
-                           class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700" 
-                           oninput="this.value = this.value.replace(/[0-9]/g, '')"
-                           onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
+        <div class="glass-panel w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-t border-green-500/30 animate-float-up shadow-[0_-10px_50px_rgba(0,0,0,0.8)]">
+            <!-- Критически важный контейнер с прокруткой -->
+            <div class="modal-content max-h-[85vh] overflow-y-auto -webkit-overflow-scrolling-touch scroll-behavior-smooth" id="delivery-modal-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-black italic text-white">ДАННЫЕ <span class="text-green-500">ДОСТАВКИ</span></h2>
+                    <button onclick="document.getElementById('delivery-modal').classList.add('hidden')" class="text-gray-500 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
                 </div>
-                
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="col-span-2">
-                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Номер телефона</label>
-                        <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
-                    </div>
+
+                <div class="space-y-4 pb-10">
                     <div>
-                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Возраст</label>
-                        <input type="number" id="del-age" placeholder="18+" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99">
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше ФИО</label>
+                        <input type="text" id="del-name" placeholder="Фамилия Имя Отчество" 
+                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                               oninput="this.value = this.value.replace(/[0-9]/g, '')">
                     </div>
-                </div>
-
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
-                    <input type="text" id="del-contact" placeholder="Например: @username" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
-                </div>
-
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">📍 Место встречи</label>
-                    <input type="text" id="del-place" placeholder="Адрес или ориентир" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
-                </div>
-
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 block">⏰ Время встречи</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="window.shop.selectTime('6:00 - 12:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
-                            6:00 - 12:00
-                        </button>
-                        <button onclick="window.shop.selectTime('14:00 - 20:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
-                            14:00 - 20:00
-                        </button>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-2">
+                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Номер телефона</label>
+                            <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" 
+                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Возраст</label>
+                            <input type="number" id="del-age" placeholder="18+" 
+                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99">
+                        </div>
                     </div>
-                </div>
 
-                <button onclick="window.shop.proceedToPayment()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-4 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2">
-                    К ОПЛАТЕ <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
+                        <input type="text" id="del-contact" placeholder="Например: @username" 
+                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">📍 Место встречи</label>
+                        <input type="text" id="del-place" placeholder="Адрес или ориентир" 
+                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 block">⏰ Время встречи</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="window.shop.selectTime('6:00 - 12:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
+                                6:00 - 12:00
+                            </button>
+                            <button onclick="window.shop.selectTime('14:00 - 20:00', this)" class="time-btn w-full bg-white/5 border border-white/10 py-3 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-all">
+                                14:00 - 20:00
+                            </button>
+                        </div>
+                    </div>
+
+                    <button onclick="window.shop.proceedToPayment()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-4 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2">
+                        К ОПЛАТЕ <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -967,6 +979,70 @@ Sold Out Store
                 paymentStatus: 'pending',
                 promoType: 'percent', // 'percent' или 'fixed'
                 categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника']
+            },
+
+            // --- ИСПРАВЛЕНИЕ БАГА С КЛАВИАТУРОЙ ---
+            initKeyboardFix: function() {
+                // Функция для гарантированного показа поля ввода при фокусе
+                const ensureInputVisible = (inputElement) => {
+                    if (!inputElement) return;
+                    
+                    // Ждем немного, чтобы клавиатура успела появиться (особенно на iOS)
+                    setTimeout(() => {
+                        // Используем scrollIntoView с параметрами для плавной прокрутки
+                        inputElement.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center', // Центрируем элемент
+                            inline: 'nearest'
+                        });
+                        
+                        // Дополнительный скролл через 50мс для надежности
+                        setTimeout(() => {
+                            const modalContent = document.getElementById('delivery-modal-content');
+                            if (modalContent) {
+                                const inputRect = inputElement.getBoundingClientRect();
+                                const containerRect = modalContent.getBoundingClientRect();
+                                
+                                // Если поле все еще не видно, делаем дополнительную прокрутку
+                                if (inputRect.top < containerRect.top || inputRect.bottom > containerRect.bottom) {
+                                    const scrollAmount = inputRect.top - containerRect.top - 100;
+                                    modalContent.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                                }
+                            }
+                        }, 50);
+                    }, 200); // Даем время клавиатуре появиться
+                };
+
+                // Назначаем обработчики для всех инпутов в модалке доставки
+                const setupDeliveryInputHandlers = () => {
+                    const inputs = document.querySelectorAll('#delivery-modal input');
+                    inputs.forEach(input => {
+                        // Убираем старые обработчики
+                        input.removeEventListener('focus', this.handleInputFocus);
+                        // Добавляем новые
+                        input.addEventListener('focus', (e) => {
+                            ensureInputVisible(e.target);
+                        });
+                    });
+                };
+
+                // Инициализируем при открытии модалки
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            const target = mutation.target;
+                            if (target.id === 'delivery-modal' && !target.classList.contains('hidden')) {
+                                // Модалка открылась - настраиваем обработчики
+                                setTimeout(setupDeliveryInputHandlers, 100);
+                            }
+                        }
+                    });
+                });
+
+                const deliveryModal = document.getElementById('delivery-modal');
+                if (deliveryModal) {
+                    observer.observe(deliveryModal, { attributes: true });
+                }
             },
 
             // --- Инициализация фикса для полей ввода ---
@@ -1222,27 +1298,6 @@ Sold Out Store
                 window.shop.state.isAdmin = (String(tgUser.id) === ADMIN_ID);
                 console.log("Is admin?", window.shop.state.isAdmin);
 
-                // Внутри метода init, после настройки аватара:
-                const nameInput = document.getElementById('del-name');
-                const deliveryModal = document.querySelector('#delivery-modal .glass-panel');
-
-                if (nameInput && deliveryModal) {
-                    nameInput.addEventListener('focus', () => {
-                        // 1. Сразу прокручиваем
-                        setTimeout(() => {
-                            nameInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }, 100);
-
-                        // 2. Повторно через 300мс (когда клавиатура точно выехала)
-                        setTimeout(() => {
-                            // Прокручиваем именно контейнер модалки
-                            deliveryModal.scrollTo({
-                                top: nameInput.offsetTop - 20,
-                                behavior: 'smooth'
-                            });
-                        }, 300);
-                    });
-                }
                 // Setup Avatar
                 const avatarUrl = tgUser.photo_url || `https://ui-avatars.com/api/?name=${tgUser.first_name}&background=22c55e&color=000&bold=true`;
                 document.getElementById('user-avatar').src = avatarUrl;
@@ -1256,6 +1311,9 @@ Sold Out Store
                 
                 // Инициализация фикса для полей ввода
                 window.shop.initModalInputFix();
+                
+                // Инициализация фикса для клавиатуры (ВАЖНО!)
+                window.shop.initKeyboardFix();
                 
                 // Phone Input Masking Listener
                 const phoneInput = document.getElementById('del-phone');
@@ -2966,10 +3024,24 @@ Sold Out Store
                 // Сброс активного промокода при начале нового заказа
                 
                 window.shop.state.currentTotal = total;
-                document.getElementById('delivery-modal').classList.remove('hidden');
+                const modal = document.getElementById('delivery-modal');
+                modal.classList.remove('hidden');
+                
+                // Критическое исправление: фокус с прокруткой
                 setTimeout(() => {
-                    document.getElementById('del-name').focus();
-                }, 100);
+                    const nameInput = document.getElementById('del-name');
+                    if (nameInput) {
+                        nameInput.focus();
+                        // Гарантируем, что поле будет видно
+                        setTimeout(() => {
+                            nameInput.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center',
+                                inline: 'nearest'
+                            });
+                        }, 100);
+                    }
+                }, 150); // Даем время модалке открыться
             },
 
             selectTime: (time, btn) => {
@@ -3286,20 +3358,3 @@ Sold Out Store
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
