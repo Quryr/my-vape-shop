@@ -1658,12 +1658,36 @@
             
                 let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
                 
-                const filtered = window.shop.state.products.filter(p => {
+                // 1. Фильтрация
+                let filtered = window.shop.state.products.filter(p => {
                     const categoryMatch = window.shop.state.currentCategory === 'Все' || p.category === window.shop.state.currentCategory;
                     if (window.shop.state.isAdmin) return categoryMatch;
                     return categoryMatch && !p.isHidden;
                 });
             
+                // 2. СОРТИРОВКА (ПРАВКА ДЛЯ АДМИНА)
+                const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                
+                filtered.sort((a, b) => {
+                    // А. Скрытые товары всегда вниз списка (1 = a ниже b, -1 = a выше b)
+                    if (a.isHidden && !b.isHidden) return 1;
+                    if (!a.isHidden && b.isHidden) return -1;
+            
+                    // Б. Если статус скрытия одинаковый, сортируем по порядку категорий
+                    let indexA = catOrder.indexOf(a.category);
+                    let indexB = catOrder.indexOf(b.category);
+                    if (indexA === -1) indexA = 999;
+                    if (indexB === -1) indexB = 999;
+                    
+                    if (indexA !== indexB) return indexA - indexB;
+            
+                    // В. Внутри категории сортируем по времени (новые сверху)
+                    const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+                    const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+                    return tB - tA;
+                });
+            
+                // 3. Отрисовка
                 if (filtered.length === 0) {
                         gridHTML += `<div class="col-span-2 text-center text-gray-500 py-10">
                         <i data-lucide="package-open" class="w-12 h-12 mx-auto mb-2 opacity-50 icon-fix"></i>
@@ -1681,12 +1705,13 @@
             
                         const hiddenStyle = p.isHidden ? 'opacity-60 grayscale border-red-500/30' : '';
                         const hiddenBadge = p.isHidden ? `<div class="absolute top-2 left-2 z-20 bg-black/60 text-red-400 text-[8px] font-bold px-2 py-1 rounded backdrop-blur-sm border border-red-500/20">СКРЫТ</div>` : '';
+                        
                         const visibilityIcon = p.isHidden ? 'eye-off' : 'eye';
                         const visibilityColor = p.isHidden ? 'text-gray-400 hover:text-white' : 'text-blue-400 hover:text-white';
             
+                        // Генерируем кнопку (с сохранением твоих прошлых правок: тележка + счетчик снизу)
                         const buttonHTML = window.shop.getProductButtonHTML(p);
             
-                        // ВАЖНО: Тут нет класса overflow-hidden, чтобы бейдж снизу торчал красиво
                         gridHTML += `
                         <div class="glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle}">
                             ${window.shop.state.isAdmin ? `
@@ -1695,17 +1720,19 @@
                                     <button onclick="window.shop.toggleHiddenProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full ${visibilityColor} hover:bg-blue-600 transition-all backdrop-blur-sm">
                                         <i data-lucide="${visibilityIcon}" class="w-4 h-4 icon-fix"></i>
                                     </button>
+                                    
                                     <button onclick="window.shop.editProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-green-500 hover:bg-green-500 hover:text-white transition-all backdrop-blur-sm">
                                         <i data-lucide="edit" class="w-4 h-4 icon-fix"></i>
                                     </button>
+                                    
                                     <button onclick="window.shop.deleteProduct('${p.id}')" class="w-8 h-8 flex items-center justify-center bg-black/50 rounded-full text-red-500 hover:bg-red-500 hover:text-white transition-all backdrop-blur-sm">
                                         <i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i>
                                     </button>
                                 </div>
                             ` : ''}
                             
-                            <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden group-hover:bg-white/10 transition-colors w-full">
-                                <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10 rounded-xl"></div>
+                            <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative group-hover:bg-white/10 transition-colors w-full">
+                                 <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10 rounded-xl"></div>
                                 ${imageContent}
                             </div>
                             
@@ -1720,7 +1747,6 @@
                                         <span class="text-[9px] text-gray-500">Цена</span>
                                         <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
                                     </div>
-                                    
                                     <div id="btn-wrap-${p.id}">
                                         ${buttonHTML}
                                     </div>
@@ -3863,6 +3889,7 @@
     </script>
 </body>
 </html>
+
 
 
 
