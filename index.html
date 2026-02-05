@@ -961,9 +961,9 @@
         
         const getUserProfileRef = (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'profile', 'data');
         const getUserCartRef = (uid) => doc(db, 'artifacts', APP_ID, 'users', uid, 'cart', 'current');
-        // Используем telegramId для заказов - синхронизация между устройствами
-        const getUserOrdersRef = (telegramId) => collection(db, 'artifacts', APP_ID, 'userOrders', String(telegramId), 'orders');
-        const getUserOrderRef = (telegramId, orderId) => doc(db, 'artifacts', APP_ID, 'userOrders', String(telegramId), 'orders', orderId);
+        // Используем firebaseUid для заказов - стабильная схема
+        const getUserOrdersRef = (uid) => collection(db, 'artifacts', APP_ID, 'users', uid, 'orders');
+        const getUserOrderRef = (uid, orderId) => doc(db, 'artifacts', APP_ID, 'users', uid, 'orders', orderId);
         const getPublicOrderRef = (orderId) => doc(db, 'artifacts', APP_ID, 'public', 'data', 'orders', orderId);
         
         // Функции для получения ссылок на документы
@@ -1797,7 +1797,30 @@
 
             changeModalQuantity: function(delta) {
                 const newQty = this.state.modalQuantity + delta;
-                if (newQty >= 1) {
+                
+                // Проверяем, есть ли товар в корзине
+                const pid = this.state.currentProductId;
+                const variant = this.state.selectedVariant;
+                const cartKey = (variant && variant !== 'default') ? `${pid}__${variant}` : `${pid}__default`;
+                const isInCart = this.state.cart[cartKey] && this.state.cart[cartKey] > 0;
+                
+                if (newQty < 1 && isInCart) {
+                    // Товар в корзине и хотят уменьшить до 0 - подтверждение удаления
+                    this.showConfirm(
+                        'УДАЛИТЬ ТОВАР',
+                        'Вы уверены, что хотите удалить этот товар из корзины?',
+                        () => {
+                            delete this.state.cart[cartKey];
+                            this.updateCartBadge();
+                            this.saveCartToFirebase();
+                            this.closeProductModal();
+                            this.showToast('Товар удалён из корзины', 'Корзина');
+                            
+                            if (!this.state.isCartView) this.renderStore();
+                            else this.renderCart(document.getElementById('main-content'));
+                        }
+                    );
+                } else if (newQty >= 1) {
                     this.state.modalQuantity = newQty;
                     document.getElementById('modal-qty').innerText = newQty;
                 }
@@ -2229,7 +2252,7 @@
                     this.state.userOrdersListenerUnsubscribe = null;
                 }
 
-                const uid = this.state.telegramId;
+                const uid = this.state.firebaseUid;
                 if (!uid) {
                     document.getElementById('user-orders-list').innerHTML = '<div class="text-center py-10 text-gray-500">Авторизуйтесь, чтобы увидеть заказы</div>';
                     return;
@@ -2447,7 +2470,7 @@
                         this.showToast(`Обработка ${count} заказов...`, "Синхронизация");
                         
                         try {
-                            const uid = this.state.telegramId;
+                            const uid = this.state.firebaseUid;
                             
                             // Перебираем все выбранные ID
                             const promises = Array.from(this.state.selectedUserOrders).map(async (id) => {
@@ -2502,7 +2525,7 @@
             // --- OPEN USER ORDER DETAILS ---
             openUserOrderDetails: async function(docId) {
                 try {
-                    const uid = this.state.telegramId;
+                    const uid = this.state.firebaseUid;
                     const orderRef = getUserOrderRef(uid, docId);
                     const docSnap = await getDoc(orderRef);
                     if (!docSnap.exists()) return;
@@ -3323,14 +3346,14 @@
                     });
                     
                     // Обновляем пользовательскую версию
-                    if (data.linkedTelegramId || data.linkedUserUid) {
+                    if (data.linkedUserUid) {
                         try {
-                            const telegramId = data.linkedTelegramId || data.linkedUserUid;
+                            const userUid = data.linkedUserUid;
                             let userOrderId = data.linkedUserOrderId;
 
                             // ВАЖНО: Ищем по order_key, если нет ID
                             if (!userOrderId && data.order_key) {
-                                const userOrdersRef = getUserOrdersRef(telegramId);
+                                const userOrdersRef = getUserOrdersRef(userUid);
                                 const q = query(userOrdersRef, where("order_key", "==", data.order_key));
                                 const querySnap = await getDocs(q);
                                 if (!querySnap.empty) {
@@ -3341,7 +3364,7 @@
                             }
 
                             if (userOrderId) {
-                                const userOrderRef = getUserOrderRef(telegramId, userOrderId);
+                                const userOrderRef = getUserOrderRef(userUid, userOrderId);
                                 await updateDoc(userOrderRef, {
                                     payment_status: 'paid',
                                     updatedAt: new Date().toISOString()
@@ -3390,16 +3413,16 @@
                     });
 
                     // 2. Обновляем пользовательскую версию
-                    if (data.linkedTelegramId || data.linkedUserUid) {
+                    if (data.linkedUserUid) {
                         try {
-                            const telegramId = data.linkedTelegramId || data.linkedUserUid;
+                            const userUid = data.linkedUserUid;
                             let userOrderId = data.linkedUserOrderId;
 
                             // ВАЖНО: Если прямой ссылки нет, ищем по КЛЮЧУ ЗАКАЗА (order_key)
                             // Это работает для всех заказов, включая старые
                             if (!userOrderId && data.order_key) {
                                 console.log(`Ищем заказ пользователя по ключу: ${data.order_key}`);
-                                const userOrdersRef = getUserOrdersRef(telegramId);
+                                const userOrdersRef = getUserOrdersRef(userUid);
                                 const q = query(userOrdersRef, where("order_key", "==", data.order_key));
                                 const querySnap = await getDocs(q);
                                 if (!querySnap.empty) {
@@ -3410,7 +3433,7 @@
                             }
 
                             if (userOrderId) {
-                                const userOrderRef = getUserOrderRef(telegramId, userOrderId);
+                                const userOrderRef = getUserOrderRef(userUid, userOrderId);
                                 await updateDoc(userOrderRef, {
                                     status: status,
                                     updatedAt: new Date().toISOString()
@@ -4056,16 +4079,14 @@
                 try {
                     // 1. Сохраняем в ОБЩУЮ базу (для Админа)
                     const publicOrdersCollection = getOrdersRef();
-                    const telegramId = this.state.telegramId;
                     const publicDocRef = await addDoc(publicOrdersCollection, {
                         ...orderBase,
-                        linkedUserUid: uid,
-                        linkedTelegramId: telegramId
+                        linkedUserUid: uid
                     });
 
-                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя (по telegramId)
-                    if (telegramId) {
-                        const userOrdersCollection = getUserOrdersRef(telegramId);
+                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя
+                    if (uid) {
+                        const userOrdersCollection = getUserOrdersRef(uid);
                         const userDocRef = await addDoc(userOrdersCollection, {
                             ...orderBase,
                             publicOrderId: publicDocRef.id 
@@ -4134,16 +4155,14 @@
                 try {
                     // 1. Сохраняем в ОБЩУЮ базу (для Админа)
                     const publicOrdersCollection = getOrdersRef();
-                    const telegramId = this.state.telegramId;
                     const publicDocRef = await addDoc(publicOrdersCollection, { 
                         ...orderBase, 
-                        linkedUserUid: uid,
-                        linkedTelegramId: telegramId 
+                        linkedUserUid: uid
                     });
 
-                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя (по telegramId)
-                    if (telegramId) {
-                        const userOrdersCollection = getUserOrdersRef(telegramId);
+                    // 2. Сохраняем в ЛИЧНУЮ базу пользователя
+                    if (uid) {
+                        const userOrdersCollection = getUserOrdersRef(uid);
                         const userDocRef = await addDoc(userOrdersCollection, {
                             ...orderBase,
                             publicOrderId: publicDocRef.id
