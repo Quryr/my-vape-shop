@@ -557,6 +557,55 @@ Sold Out Store
 
     <!-- Modals -->
 
+    <!-- PRODUCT DETAIL MODAL (для просмотра товара и выбора вариантов) -->
+    <div id="product-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md hidden flex items-end sm:items-center justify-center">
+        <div class="glass-panel w-full sm:max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl border-t border-green-500/30 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col">
+            
+            <!-- Product Image -->
+            <div id="product-modal-image" class="w-full h-48 bg-white/5 flex items-center justify-center relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+            </div>
+            
+            <!-- Content -->
+            <div class="p-6 flex-1 overflow-y-auto">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 id="product-modal-name" class="text-xl font-black italic text-white mb-1"></h2>
+                        <p id="product-modal-category" class="text-[10px] text-gray-500 uppercase tracking-widest border-l-2 border-green-500/50 pl-2"></p>
+                    </div>
+                    <button onclick="window.shop.closeProductModal()" class="text-gray-500 hover:text-white p-2 -mt-2 -mr-2">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                
+                <p id="product-modal-price" class="text-2xl font-black text-green-400 neon-text-green mb-4"></p>
+                
+                <!-- Description -->
+                <div id="product-modal-description" class="text-sm text-gray-400 mb-4 leading-relaxed"></div>
+                
+                <!-- Variants Section (вкусы, размеры и т.д.) -->
+                <div id="product-modal-variants" class="hidden mb-4">
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 block">Выберите вариант</label>
+                    <div id="product-modal-variants-list" class="flex flex-wrap gap-2"></div>
+                </div>
+                
+                <!-- Selected variant display -->
+                <div id="product-modal-selected" class="hidden mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+                    <span class="text-xs text-gray-400">Выбрано: </span>
+                    <span id="product-modal-selected-text" class="text-sm text-green-400 font-bold"></span>
+                </div>
+            </div>
+            
+            <!-- Add to cart button -->
+            <div class="p-6 pt-0">
+                <button id="product-modal-add-btn" onclick="window.shop.addToCartFromModal()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2">
+                    <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+                    ДОБАВИТЬ В КОРЗИНУ
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- USER PROMO CODE MODAL -->
     <div id="user-promo-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-sm rounded-3xl p-6 relative border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.1)]">
@@ -683,6 +732,15 @@ Sold Out Store
                         <option value="Электроника">Электроника</option>
                     </select>
                 </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Описание</label>
+                    <textarea id="new-description" rows="3" placeholder="Описание товара..." class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-600 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Варианты (вкусы/размеры)</label>
+                    <input type="text" id="new-variants" placeholder="Вишня, Манго, Клубника" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-600">
+                    <p class="text-[9px] text-gray-600 mt-1">Через запятую. Оставьте пустым если вариантов нет.</p>
+                </div>
                 <button onclick="window.shop.addProduct()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-2 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
                     ДОБАВИТЬ
                 </button>
@@ -727,6 +785,15 @@ Sold Out Store
                         <option value="Электроника">Электроника</option>
                     </select>
                 </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Описание</label>
+                    <textarea id="edit-description" rows="3" placeholder="Описание товара..." class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-600 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Варианты (вкусы/размеры)</label>
+                    <input type="text" id="edit-variants" placeholder="Вишня, Манго, Клубника" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-600">
+                    <p class="text-[9px] text-gray-600 mt-1">Через запятую. Оставьте пустым если вариантов нет.</p>
+                </div>
                 <button onclick="window.shop.updateProduct()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-4 rounded-xl mt-2 transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)]">
                     СОХРАНИТЬ ИЗМЕНЕНИЯ
                 </button>
@@ -755,22 +822,26 @@ Sold Out Store
                 <div class="grid grid-cols-3 gap-3">
                     <div class="col-span-2">
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Номер телефона</label>
-                        <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                        <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                               onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
                     </div>
                     <div>
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Возраст</label>
-                        <input type="number" id="del-age" placeholder="18+" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99">
+                        <input type="number" id="del-age" placeholder="18+" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99"
+                               onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
                     </div>
                 </div>
 
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
-                    <input type="text" id="del-contact" placeholder="Например: @username" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    <input type="text" id="del-contact" placeholder="Например: @username" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                           onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
                 </div>
 
                 <div>
                     <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">📍 Место встречи</label>
-                    <input type="text" id="del-place" placeholder="Адрес или ориентир" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                    <input type="text" id="del-place" placeholder="Адрес или ориентир" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                           onfocus="this.scrollIntoView({ behavior: 'smooth', block: 'center' })">
                 </div>
 
                 <div>
@@ -1002,7 +1073,10 @@ Sold Out Store
                 categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'],
                 // Performance optimization
                 iconsTimeout: null,
-                lastIconsUpdate: 0
+                lastIconsUpdate: 0,
+                // Product modal
+                currentProductId: null,
+                selectedVariant: null
             },
 
             // --- PERFORMANCE: Debounced icons update ---
@@ -1020,6 +1094,113 @@ Sold Out Store
                 }
                 this.state.lastIconsUpdate = now;
                 if (window.lucide) window.lucide.createIcons();
+            },
+
+            // --- PRODUCT MODAL METHODS ---
+            openProductModal: function(productId) {
+                const product = this.state.products.find(p => p.id === productId);
+                if (!product) return;
+                
+                this.state.currentProductId = productId;
+                this.state.selectedVariant = null;
+                
+                const modal = document.getElementById('product-modal');
+                const imageContainer = document.getElementById('product-modal-image');
+                const nameEl = document.getElementById('product-modal-name');
+                const categoryEl = document.getElementById('product-modal-category');
+                const priceEl = document.getElementById('product-modal-price');
+                const descriptionEl = document.getElementById('product-modal-description');
+                const variantsContainer = document.getElementById('product-modal-variants');
+                const variantsList = document.getElementById('product-modal-variants-list');
+                const selectedContainer = document.getElementById('product-modal-selected');
+                
+                // Set image
+                if (product.image && (product.image.startsWith('data:image') || product.image.includes('http'))) {
+                    imageContainer.innerHTML = `
+                        <img src="${product.image}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+                    `;
+                } else {
+                    imageContainer.innerHTML = `
+                        <i data-lucide="${product.image || 'box'}" class="w-20 h-20 text-gray-600"></i>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+                    `;
+                }
+                
+                nameEl.textContent = product.name;
+                categoryEl.textContent = product.category;
+                priceEl.textContent = product.price + ' ₽';
+                descriptionEl.textContent = product.description || 'Описание товара отсутствует';
+                
+                // Handle variants (вкусы, размеры)
+                if (product.variants && product.variants.length > 0) {
+                    variantsContainer.classList.remove('hidden');
+                    variantsList.innerHTML = '';
+                    
+                    product.variants.forEach((variant, idx) => {
+                        variantsList.innerHTML += `
+                            <button onclick="window.shop.selectVariant('${variant}', this)" 
+                                    class="variant-btn px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:border-green-500 transition-all">
+                                ${variant}
+                            </button>
+                        `;
+                    });
+                    
+                    selectedContainer.classList.add('hidden');
+                } else {
+                    variantsContainer.classList.add('hidden');
+                    selectedContainer.classList.add('hidden');
+                }
+                
+                modal.classList.remove('hidden');
+                this.updateIcons();
+            },
+            
+            closeProductModal: function() {
+                document.getElementById('product-modal').classList.add('hidden');
+                this.state.currentProductId = null;
+                this.state.selectedVariant = null;
+            },
+            
+            selectVariant: function(variant, btn) {
+                this.state.selectedVariant = variant;
+                
+                // Update button styles
+                document.querySelectorAll('.variant-btn').forEach(b => {
+                    b.classList.remove('bg-green-500/20', 'border-green-500', 'text-green-400');
+                    b.classList.add('bg-white/5', 'border-white/10', 'text-gray-400');
+                });
+                btn.classList.remove('bg-white/5', 'border-white/10', 'text-gray-400');
+                btn.classList.add('bg-green-500/20', 'border-green-500', 'text-green-400');
+                
+                // Show selected
+                document.getElementById('product-modal-selected').classList.remove('hidden');
+                document.getElementById('product-modal-selected-text').textContent = variant;
+            },
+            
+            addToCartFromModal: function() {
+                const productId = this.state.currentProductId;
+                const product = this.state.products.find(p => p.id === productId);
+                if (!product) return;
+                
+                // Check if variants required
+                if (product.variants && product.variants.length > 0 && !this.state.selectedVariant) {
+                    this.showToast('Выберите вариант', 'Внимание');
+                    return;
+                }
+                
+                // Add to cart with variant info
+                const cartKey = this.state.selectedVariant ? `${productId}__${this.state.selectedVariant}` : productId;
+                
+                if (!this.state.cart[cartKey]) {
+                    this.state.cart[cartKey] = 0;
+                }
+                this.state.cart[cartKey]++;
+                
+                this.updateCartBadge();
+                this.saveCartToFirebase();
+                this.showToast(`${product.name}${this.state.selectedVariant ? ' (' + this.state.selectedVariant + ')' : ''} добавлен`, 'В корзину');
+                this.closeProductModal();
             },
 
             // --- Инициализация фикса для полей ввода ---
@@ -1640,7 +1821,7 @@ Sold Out Store
                             });
                             catHTML += `</div>`;
             
-                            let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-24">`;
+                            let gridHTML = `<div id="store-view" class="grid grid-cols-2 gap-3 pb-20">`;
                             
                             // 1. ФИЛЬТРАЦИЯ: Админ видит всё, Пользователь - только не скрытые
                             const filtered = window.shop.state.products.filter(p => {
@@ -1695,12 +1876,12 @@ Sold Out Store
                                             </div>
                                         ` : ''}
                                         
-                                        <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden w-full group-hover:bg-white/10 transition-colors">
+                                        <div onclick="window.shop.openProductModal('${p.id}')" class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative overflow-hidden w-full group-hover:bg-white/10 transition-colors cursor-pointer">
                                             ${imageContent}
                                         </div>
                                         
                                         <div class="flex-grow flex flex-col justify-between">
-                                            <div>
+                                            <div onclick="window.shop.openProductModal('${p.id}')" class="cursor-pointer">
                                                 <h3 class="text-xs font-bold text-gray-100 leading-tight mb-1 line-clamp-2 h-[2.5em]">${p.name}</h3>
                                                 <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 border-l-2 border-green-500/50 pl-2">${p.category}</p>
                                             </div>
@@ -1710,7 +1891,7 @@ Sold Out Store
                                                     <span class="text-[9px] text-gray-500">Цена</span>
                                                     <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
                                                 </div>
-                                                <button onclick="window.shop.addToCart('${p.id}')" 
+                                                <button onclick="event.stopPropagation(); window.shop.openProductModal('${p.id}')" 
                                                         class="w-8 h-8 rounded-lg bg-green-500 text-black flex items-center justify-center transition-all btn-press shadow-[0_0_10px_rgba(34,197,94,0.4)] hover:scale-110"
                                                         ${p.isHidden ? 'disabled style="opacity:0.5; filter:grayscale(1);"' : ''}>
                                                     <i data-lucide="plus" class="w-5 h-5 icon-fix"></i>
@@ -1731,11 +1912,11 @@ Sold Out Store
             renderCart: (container) => {
                 window.shop.state.cartRendering = true;
                 
-                const cartIds = Object.keys(window.shop.state.cart);
-                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                const cartEntries = Object.entries(window.shop.state.cart);
                 let total = 0;
 
-                if (products.length === 0) {
+                // If cart is empty
+                if (cartEntries.length === 0) {
                     container.innerHTML = `
                         <div class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
                             <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 shadow-inner shadow-black/50">
@@ -1751,37 +1932,45 @@ Sold Out Store
                     return;
                 }
 
-                let html = `<div class="space-y-3 pb-36 px-1" id="cart-items-container">`;
+                let html = `<div class="space-y-3 pb-44 px-1" id="cart-items-container">`;
                 
-                products.forEach((p, idx) => {
-                    const qty = window.shop.state.cart[p.id];
+                cartEntries.forEach(([cartKey, qty]) => {
+                    // Parse cartKey - can be 'productId' or 'productId__variant'
+                    const [productId, variant] = cartKey.includes('__') ? cartKey.split('__') : [cartKey, null];
+                    const p = window.shop.state.products.find(prod => prod.id === productId);
+                    
+                    if (!p) return; // Product not found, skip
+                    
                     total += p.price * qty;
                     
                     let imageContent;
                     if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
                         imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
                     } else {
-                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400 icon-fix"></i>`;
+                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-8 h-8 text-gray-400 icon-fix"></i>`;
                     }
+                    
+                    const displayName = variant ? `${p.name} (${variant})` : p.name;
+                    const escapedCartKey = cartKey.replace(/'/g, "\\'");
 
                     html += `
-                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4" data-product-id="${p.id}" id="cart-item-${p.id}">
-                            <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
+                        <div class="cart-item glass-panel rounded-2xl p-4 flex items-center gap-4" data-product-id="${cartKey}" id="cart-item-${cartKey.replace('__', '-')}">
+                            <div class="w-16 h-16 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden flex-shrink-0">
                                 ${imageContent}
                             </div>
-                            <div class="flex-grow">
-                                <h3 class="text-sm font-bold text-white">${p.name}</h3>
+                            <div class="flex-grow min-w-0">
+                                <h3 class="text-sm font-bold text-white truncate">${displayName}</h3>
                                 <div class="flex items-center gap-2 mt-1">
-                                    <p class="text-xs text-green-400 font-mono">${p.price} ₽</p>
+                                    <p class="text-sm text-green-400 font-bold">${p.price} ₽</p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5">
-                                <button onclick="window.shop.updateQty('${p.id}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
-                                    <i data-lucide="minus" class="w-3 h-3 icon-fix"></i>
+                            <div class="flex items-center gap-1 bg-black/40 rounded-xl p-1.5 border border-white/5 flex-shrink-0">
+                                <button onclick="window.shop.updateQty('${escapedCartKey}', -1)" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
+                                    <i data-lucide="minus" class="w-4 h-4 icon-fix"></i>
                                 </button>
-                                <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
-                                <button onclick="window.shop.updateQty('${p.id}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
-                                    <i data-lucide="plus" class="w-3 h-3 icon-fix"></i>
+                                <span class="text-base font-bold w-8 text-center text-white cart-item-qty">${qty}</span>
+                                <button onclick="window.shop.updateQty('${escapedCartKey}', 1)" class="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                                    <i data-lucide="plus" class="w-4 h-4 icon-fix"></i>
                                 </button>
                             </div>
                         </div>
@@ -1799,10 +1988,10 @@ Sold Out Store
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
                         // Процентная скидка на количество товаров
-                        const cartItems = Object.entries(window.shop.state.cart);
                         let itemsProcessed = 0;
                         
-                        for (const [productId, quantity] of cartItems) {
+                        for (const [cartKey, quantity] of cartEntries) {
+                            const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                             const product = window.shop.state.products.find(p => p.id === productId);
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
@@ -1830,7 +2019,7 @@ Sold Out Store
                 html += `</div>`;
                 
                 html += `
-                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-5 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
+                    <div class="fixed bottom-[100px] left-4 right-4 glass-panel p-5 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         ${discountHtml}
                         <div class="flex items-center justify-between">
                             <div>
@@ -2724,18 +2913,23 @@ Sold Out Store
                 }
             },
 
-            updateQty: async (productId, change) => {
-                if (!window.shop.state.cart[productId]) return;
+            updateQty: async (cartKey, change) => {
+                if (!window.shop.state.cart[cartKey]) return;
                 
+                // Parse cartKey to get productId
+                const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                 const product = window.shop.state.products.find(p => p.id === productId);
                 if (!product) return;
                 
-                window.shop.state.cart[productId] += change;
+                window.shop.state.cart[cartKey] += change;
                 
-                if (window.shop.state.cart[productId] <= 0) {
-                    delete window.shop.state.cart[productId];
+                // Escape cartKey for CSS selector
+                const escapedKey = cartKey.replace('__', '-');
+                
+                if (window.shop.state.cart[cartKey] <= 0) {
+                    delete window.shop.state.cart[cartKey];
                     
-                    const cartItem = document.querySelector(`#cart-item-${productId}`);
+                    const cartItem = document.querySelector(`#cart-item-${CSS.escape(escapedKey)}`);
                     if (cartItem) {
                         cartItem.classList.add('cart-item-removing');
                         setTimeout(() => {
@@ -2746,9 +2940,9 @@ Sold Out Store
                         }, 300);
                     }
                 } else {
-                    const qtyElement = document.querySelector(`#cart-item-${productId} .cart-item-qty`);
+                    const qtyElement = document.querySelector(`#cart-item-${CSS.escape(escapedKey)} .cart-item-qty`);
                     if (qtyElement) {
-                        qtyElement.textContent = window.shop.state.cart[productId];
+                        qtyElement.textContent = window.shop.state.cart[cartKey];
                     }
                     window.shop.updateCartTotal();
                 }
@@ -2766,12 +2960,15 @@ Sold Out Store
             updateCartTotal: () => {
                 if (!window.shop.state.isCartView) return;
                 
-                const cartIds = Object.keys(window.shop.state.cart);
-                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                const cartEntries = Object.entries(window.shop.state.cart);
                 let total = 0;
                 
-                products.forEach(p => {
-                    total += p.price * window.shop.state.cart[p.id];
+                cartEntries.forEach(([cartKey, qty]) => {
+                    const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
+                    const p = window.shop.state.products.find(prod => prod.id === productId);
+                    if (p) {
+                        total += p.price * qty;
+                    }
                 });
 
                 if (window.shop.state.activePromo) {
@@ -2780,10 +2977,10 @@ Sold Out Store
                     if (window.shop.state.activePromo.type === 'percent') {
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
-                        const cartItems = Object.entries(window.shop.state.cart);
                         let itemsProcessed = 0;
                         
-                        for (const [productId, quantity] of cartItems) {
+                        for (const [cartKey, quantity] of cartEntries) {
+                            const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                             const product = window.shop.state.products.find(p => p.id === productId);
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
@@ -2814,13 +3011,13 @@ Sold Out Store
                             
                             // 2. Считаем сумму ТОЛЬКО для тех товаров, которые реально есть в магазине
                             let count = 0;
-                            Object.entries(window.shop.state.cart).forEach(([id, qty]) => {
+                            Object.entries(window.shop.state.cart).forEach(([cartKey, qty]) => {
+                                // Parse cartKey - can be 'productId' or 'productId__variant'
+                                const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
+                                
                                 // Проверяем, существует ли такой товар в базе
-                                if (validProductIds.includes(id)) {
+                                if (validProductIds.includes(productId)) {
                                     count += qty;
-                                } else {
-                                    // (Опционально) Можно удалить мусор из памяти, чтобы не копился
-                                    // delete window.shop.state.cart[id]; 
                                 }
                             });
             
@@ -2838,6 +3035,8 @@ Sold Out Store
                 if (!modal.classList.contains('hidden')) {
                     document.getElementById('new-name').value = '';
                     document.getElementById('new-price').value = '';
+                    document.getElementById('new-description').value = '';
+                    document.getElementById('new-variants').value = '';
                     document.getElementById('new-image-input').value = '';
                     window.shop.state.pendingImage = null;
                     document.getElementById('img-preview-container').style.backgroundImage = 'none';
@@ -2857,6 +3056,8 @@ Sold Out Store
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
                 document.getElementById('edit-cat').value = product.category;
+                document.getElementById('edit-description').value = product.description || '';
+                document.getElementById('edit-variants').value = (product.variants || []).join(', ');
 
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
@@ -2935,7 +3136,12 @@ Sold Out Store
                 const name = document.getElementById('new-name').value;
                 const price = Number(document.getElementById('new-price').value);
                 const cat = document.getElementById('new-cat').value;
+                const description = document.getElementById('new-description').value.trim();
+                const variantsRaw = document.getElementById('new-variants').value.trim();
                 const image = window.shop.state.pendingImage || 'box';
+                
+                // Parse variants
+                const variants = variantsRaw ? variantsRaw.split(',').map(v => v.trim()).filter(v => v) : [];
 
                 if (!name || !price) {
                     window.shop.showToast("Заполните все обязательные поля", "Ошибка");
@@ -2946,7 +3152,9 @@ Sold Out Store
                     name, 
                     price, 
                     category: cat, 
-                    image, 
+                    image,
+                    description: description || '',
+                    variants: variants,
                     createdAt: serverTimestamp()
                 };
 
@@ -2956,6 +3164,14 @@ Sold Out Store
                 try {
                     const productsCollection = getProductsRef();
                     await addDoc(productsCollection, newProduct);
+                    
+                    // Clear form
+                    document.getElementById('new-name').value = '';
+                    document.getElementById('new-price').value = '';
+                    document.getElementById('new-description').value = '';
+                    document.getElementById('new-variants').value = '';
+                    window.shop.state.pendingImage = null;
+                    
                     window.shop.showToast("Товар добавлен", "Успешно");
                 } catch (e) {
                     console.error("Save failed", e);
@@ -2970,7 +3186,12 @@ Sold Out Store
                 const name = document.getElementById('edit-name').value;
                 const price = Number(document.getElementById('edit-price').value);
                 const cat = document.getElementById('edit-cat').value;
+                const description = document.getElementById('edit-description').value.trim();
+                const variantsRaw = document.getElementById('edit-variants').value.trim();
                 const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
+                
+                // Parse variants
+                const variants = variantsRaw ? variantsRaw.split(',').map(v => v.trim()).filter(v => v) : [];
 
                 if (!name || !price) {
                     this.showToast("Заполните все обязательные поля", "Ошибка");
@@ -2982,6 +3203,8 @@ Sold Out Store
                     price,
                     category: cat,
                     image,
+                    description: description || '',
+                    variants: variants
                 };
 
                 this.toggleEditModal();
