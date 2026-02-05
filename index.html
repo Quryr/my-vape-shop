@@ -1159,6 +1159,60 @@ Sold Out Store
                 this.state.selectedVariant = null;
             },
             
+            // Show cart item details (full name, variant, etc.)
+            showCartItemDetails: function(cartKey) {
+                const [productId, variant] = cartKey.includes('__') ? cartKey.split('__') : [cartKey, null];
+                const product = this.state.products.find(p => p.id === productId);
+                if (!product) return;
+                
+                const qty = this.state.cart[cartKey] || 0;
+                const displayName = variant ? `${product.name}` : product.name;
+                const variantText = variant ? variant : 'Без варианта';
+                
+                // Use simple alert-style modal
+                const modal = document.getElementById('product-modal');
+                const imageContainer = document.getElementById('product-modal-image');
+                const nameEl = document.getElementById('product-modal-name');
+                const categoryEl = document.getElementById('product-modal-category');
+                const priceEl = document.getElementById('product-modal-price');
+                const descriptionEl = document.getElementById('product-modal-description');
+                const variantsContainer = document.getElementById('product-modal-variants');
+                const selectedContainer = document.getElementById('product-modal-selected');
+                const selectedText = document.getElementById('product-modal-selected-text');
+                const addBtn = document.getElementById('product-modal-add-btn');
+                
+                // Set image
+                if (product.image && (product.image.startsWith('data:image') || product.image.includes('http'))) {
+                    imageContainer.innerHTML = `<img src="${product.image}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>`;
+                } else {
+                    imageContainer.innerHTML = `<i data-lucide="${product.image || 'box'}" class="w-24 h-24 text-gray-600"></i><div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>`;
+                }
+                
+                nameEl.textContent = displayName;
+                categoryEl.textContent = product.category;
+                priceEl.textContent = `${product.price} ₽`;
+                descriptionEl.textContent = product.description || '';
+                
+                // Hide variants selection (showing what's selected)
+                variantsContainer.classList.add('hidden');
+                
+                // Show selected variant
+                if (variant) {
+                    selectedContainer.classList.remove('hidden');
+                    selectedText.textContent = `${variantText} • В корзине: ${qty} шт.`;
+                } else {
+                    selectedContainer.classList.remove('hidden');
+                    selectedText.textContent = `В корзине: ${qty} шт.`;
+                }
+                
+                // Change button to "Закрыть"
+                addBtn.innerHTML = `<i data-lucide="x" class="w-5 h-5"></i> ЗАКРЫТЬ`;
+                addBtn.onclick = () => this.closeProductModal();
+                
+                modal.classList.remove('hidden');
+                this.updateIcons();
+            },
+            
             selectVariant: function(variant, btn) {
                 this.state.selectedVariant = variant;
                 
@@ -1929,7 +1983,7 @@ Sold Out Store
                     return;
                 }
 
-                let html = `<div class="space-y-3 pb-40 px-1" id="cart-items-container">`;
+                let html = `<div class="space-y-3 pb-36 px-1" id="cart-items-container">`;
                 
                 cartEntries.forEach(([cartKey, qty]) => {
                     // Parse cartKey - can be 'productId' or 'productId__variant'
@@ -1944,28 +1998,30 @@ Sold Out Store
                     if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
                         imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
                     } else {
-                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-8 h-8 text-gray-400 icon-fix"></i>`;
+                        imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400 icon-fix"></i>`;
                     }
                     
                     const displayName = variant ? `${p.name} (${variant})` : p.name;
                     const escapedCartKey = cartKey.replace(/'/g, "\\'");
 
                     html += `
-                        <div class="cart-item glass-panel rounded-2xl p-3 flex items-center gap-3" data-product-id="${cartKey}" id="cart-item-${cartKey.replace('__', '-')}">
-                            <div class="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden flex-shrink-0">
+                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4" data-product-id="${cartKey}" id="cart-item-${cartKey.replace('__', '-')}" onclick="window.shop.showCartItemDetails('${escapedCartKey}')">
+                            <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
                                 ${imageContent}
                             </div>
-                            <div class="flex-grow min-w-0 overflow-hidden">
+                            <div class="flex-grow min-w-0">
                                 <h3 class="text-sm font-bold text-white truncate">${displayName}</h3>
-                                <p class="text-sm text-green-400 font-bold">${p.price} ₽</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <p class="text-xs text-green-400 font-mono">${p.price} ₽</p>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-0.5 bg-black/40 rounded-xl p-1 border border-white/5 flex-shrink-0">
-                                <button onclick="window.shop.updateQty('${escapedCartKey}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg ${qty <= 1 ? 'opacity-30' : ''}">
-                                    <i data-lucide="minus" class="w-4 h-4 icon-fix"></i>
+                            <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5" onclick="event.stopPropagation()">
+                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
+                                    <i data-lucide="minus" class="w-3 h-3 icon-fix"></i>
                                 </button>
-                                <span class="text-sm font-bold w-7 text-center text-white cart-item-qty">${qty}</span>
-                                <button onclick="window.shop.updateQty('${escapedCartKey}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg">
-                                    <i data-lucide="plus" class="w-4 h-4 icon-fix"></i>
+                                <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
+                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                    <i data-lucide="plus" class="w-3 h-3 icon-fix"></i>
                                 </button>
                             </div>
                         </div>
@@ -2014,14 +2070,14 @@ Sold Out Store
                 html += `</div>`;
                 
                 html += `
-                    <div class="fixed bottom-[100px] left-4 right-4 glass-panel p-4 rounded-2xl flex flex-col gap-1 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
+                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-5 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         ${discountHtml}
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-[10px] text-gray-400 uppercase tracking-widest">Итого</p>
-                                <p class="text-xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-xs align-top text-gray-500 font-normal">₽</span></p>
+                                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Итого</p>
+                                <p class="text-2xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
                             </div>
-                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-5 py-3 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
+                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-6 py-4 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
                                 ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-4 h-4 icon-fix"></i>
                             </button>
                         </div>
