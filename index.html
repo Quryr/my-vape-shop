@@ -108,21 +108,19 @@
 
         /* Glassmorphism - Optimized for Performance */
         .glass-panel {
-            background: rgba(15, 15, 15, 0.9);
-            /* Reduced blur for better FPS */
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
+            background: rgba(15, 15, 15, 0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-            /* Hardware acceleration hint */
-            transform: translateZ(0); 
-            will-change: backdrop-filter;
+            transform: translateZ(0);
+            will-change: transform;
         }
 
         .glass-nav {
             background: rgba(10, 10, 10, 0.95);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-top: 1px solid rgba(255, 255, 255, 0.05);
             transform: translateZ(0);
         }
@@ -871,6 +869,18 @@
         </div>
     </div>
 
+    <!-- PRODUCT DETAIL MODAL -->
+    <div id="product-modal" class="fixed inset-0 z-50 bg-black/95 hidden flex flex-col overflow-y-auto">
+        <button onclick="window.shop.closeProductModal()" class="fixed top-4 right-4 z-50 text-white/70 hover:text-white p-3 bg-black/60 rounded-full">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <div id="product-modal-image" class="w-full h-[50vh] bg-white/5 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+        </div>
+        <div id="product-modal-content" class="flex-grow bg-black relative z-20">
+        </div>
+    </div>
+
     <script type="module">
         // ---------------------------------------------------------
         // 1. FIREBASE MODULAR V10 IMPORTS
@@ -1010,7 +1020,11 @@
                 userOrders: [],
                 userOrdersListenerUnsubscribe: null,
                 userOrdersSelectionMode: false,
-                selectedUserOrders: new Set()
+                selectedUserOrders: new Set(),
+                // Product modal states
+                currentProductId: null,
+                selectedVariant: null,
+                modalQuantity: 1
             },
 
             // --- ИСПРАВЛЕНИЕ БАГА С КЛАВИАТУРОЙ ---
@@ -1614,24 +1628,22 @@
                     });
                 }
             },
-            // --- PRODUCT MODAL & VARIANTS LOGIC ---
 
-            modalQuantity: 1,
-
+            // --- PRODUCT MODAL LOGIC ---
+            
             openProductModal: function(productId, initialVariant = null) {
                 const p = this.state.products.find(prod => prod.id === productId);
                 if (!p) return;
 
                 this.state.currentProductId = productId;
                 this.state.selectedVariant = initialVariant;
-                this.modalQuantity = 1;
+                this.state.modalQuantity = 1;
 
-                // Populate Modal Data
                 const modal = document.getElementById('product-modal');
                 const imgContainer = document.getElementById('product-modal-image');
                 const contentContainer = document.getElementById('product-modal-content');
 
-                // 1. Image
+                // Image
                 if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
                     imgContainer.innerHTML = `
                         <img src="${p.image}" class="w-full h-full object-cover">
@@ -1646,12 +1658,12 @@
                     `;
                 }
 
-                // 2. Variants Generation
+                // Variants
                 let variantsHtml = '';
                 if (Array.isArray(p.variants) && p.variants.length > 0) {
                     variantsHtml = `
                         <div class="mb-6">
-                            <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Выберите Вариант</p>
+                            <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Выберите вариант</p>
                             <div class="flex flex-wrap gap-2">
                                 ${p.variants.map(v => `
                                     <button onclick="window.shop.selectVariant('${v}')" 
@@ -1663,7 +1675,6 @@
                             </div>
                         </div>
                     `;
-                    // Auto-select first variant if not selected
                     if (!this.state.selectedVariant) {
                         setTimeout(() => this.selectVariant(p.variants[0]), 0);
                     } else {
@@ -1673,13 +1684,6 @@
                     this.state.selectedVariant = 'default'; 
                 }
 
-                // 3. Content
-                // Ensure content container exists
-                if (!contentContainer) {
-                   console.error("Modal content container missing");
-                   return;
-                }
-                
                 contentContainer.innerHTML = `
                     <div class="relative -mt-12 px-6 pb-24">
                         <div class="flex justify-between items-start mb-4">
@@ -1695,7 +1699,6 @@
 
                         ${variantsHtml}
 
-                        <!-- Quantity Selector In Modal -->
                         <div class="mb-6">
                             <p class="text-xs text-gray-500 uppercase tracking-widest mb-3">Количество</p>
                             <div class="flex items-center gap-4 bg-white/5 rounded-xl p-2 w-max border border-white/10">
@@ -1709,7 +1712,6 @@
                             </div>
                         </div>
 
-                        <!-- Add Button -->
                         <button onclick="window.shop.addToCartFromModal()" class="w-full bg-green-500 text-black font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2 active:scale-95 transition-transform">
                             В КОРЗИНУ <i data-lucide="shopping-bag" class="w-5 h-5"></i>
                         </button>
@@ -1738,9 +1740,9 @@
             },
 
             changeModalQuantity: function(delta) {
-                const newQty = this.modalQuantity + delta;
+                const newQty = this.state.modalQuantity + delta;
                 if (newQty >= 1) {
-                    this.modalQuantity = newQty;
+                    this.state.modalQuantity = newQty;
                     document.getElementById('modal-qty').innerText = newQty;
                 }
             },
@@ -1759,7 +1761,7 @@
                 const cartKey = (variant && variant !== 'default') ? `${pid}__${variant}` : pid;
                 
                 if (!this.state.cart[cartKey]) this.state.cart[cartKey] = 0;
-                this.state.cart[cartKey] += this.modalQuantity;
+                this.state.cart[cartKey] += this.state.modalQuantity;
 
                 this.updateCartBadge();
                 this.saveCartToFirebase();
@@ -1768,8 +1770,8 @@
                 if(window.Telegram.WebApp.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
                 this.showToast('Товар добавлен', 'В корзине');
                 
-                if (this.state.currentCategory !== 'profile' && !this.state.isCartView) this.renderStore();
-                else if (this.state.isCartView) this.renderCart(document.getElementById('main-content'));
+                if (!this.state.isCartView) this.renderStore();
+                else this.renderCart(document.getElementById('main-content'));
             },
 
             getProductTotalQuantity: function(productId) {
@@ -1884,7 +1886,7 @@
                         const buttonHTML = window.shop.getProductButtonHTML(p);
             
                         gridHTML += `
-                        <div onclick="window.shop.openProductModal('${p.id}')" class="glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle} cursor-pointer active:scale-95 transition-transform duration-200">
+                        <div onclick="window.shop.openProductModal('${p.id}')" class="glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle} cursor-pointer active:scale-[0.98] transition-transform duration-200">
                             ${window.shop.state.isAdmin ? `
                                 ${hiddenBadge}
                                 <div onclick="event.stopPropagation()" class="absolute top-2 right-2 z-20 flex gap-1">
@@ -1959,12 +1961,11 @@
                 let html = `<div class="space-y-3 pb-36 px-1" id="cart-items-container">`;
                 
                 cartEntries.forEach(([cartKey, qty]) => {
-                    // Extract productId from key (which might be 'id__variant')
                     const [productId, variant] = cartKey.includes('__') ? cartKey.split('__') : [cartKey, null];
                     const p = window.shop.state.products.find(prod => prod.id === productId);
-
+                    
                     if (!p) return;
-
+                    
                     total += p.price * qty;
                     
                     let imageContent;
@@ -1973,13 +1974,13 @@
                     } else {
                         imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400 icon-fix"></i>`;
                     }
-
+                    
                     const displayName = variant ? `${p.name} (${variant})` : p.name;
                     const keyForCall = cartKey.replace(/'/g, "\\'");
                     const variantArg = variant ? `'${variant}'` : 'null';
 
                     html += `
-                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4 cursor-pointer active:scale-95 transition-transform duration-200" 
+                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform duration-200" 
                              data-product-id="${productId}" 
                              id="cart-item-${cartKey.replace('__', '-')}"
                              onclick="window.shop.openProductModal('${productId}', ${variantArg})">
@@ -2464,13 +2465,10 @@
 
                     if (data.items) {
                         for (const [key, qty] of Object.entries(data.items)) {
-                             // Parse variant
-                             const [pid, variant] = key.includes('__') ? key.split('__') : [key, null];
-                             const prod = window.shop.state.products.find(p => p.id === pid);
-                             
-                             let name = prod ? prod.name : 'Товар удален';
-                             if (variant && prod) name += ` (${variant})`;
-
+                             const [productId, variant] = key.includes('__') ? key.split('__') : [key, null];
+                             const prod = window.shop.state.products.find(p => p.id === productId);
+                             const baseName = prod ? prod.name : 'Товар удален';
+                             const displayName = variant ? `${baseName} (${variant})` : baseName;
                              const price = prod ? prod.price : 0;
                              const itemSum = price * qty;
                              subtotal += itemSum;
@@ -2478,7 +2476,7 @@
                              itemsHtml += `
                                 <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
                                     <div class="flex flex-col">
-                                        <span class="text-white">${name}</span>
+                                        <span class="text-white">${displayName}</span>
                                         <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
                                     </div>
                                     <span class="text-gray-300 font-mono">${itemSum} ₽</span>
@@ -3126,13 +3124,10 @@
 
                     if (data.items) {
                         for (const [key, qty] of Object.entries(data.items)) {
-                             // Parse variant
-                             const [pid, variant] = key.includes('__') ? key.split('__') : [key, null];
-                             const prod = window.shop.state.products.find(p => p.id === pid);
-                             
-                             let name = prod ? prod.name : 'Товар удален';
-                             if (variant && prod) name += ` (${variant})`;
-
+                             const [productId, variant] = key.includes('__') ? key.split('__') : [key, null];
+                             const prod = window.shop.state.products.find(p => p.id === productId);
+                             const baseName = prod ? prod.name : 'Товар удален';
+                             const displayName = variant ? `${baseName} (${variant})` : baseName;
                              const price = prod ? prod.price : 0;
                              const itemSum = price * qty;
                              subtotal += itemSum;
@@ -3140,7 +3135,7 @@
                              itemsHtml += `
                                 <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
                                     <div class="flex flex-col">
-                                        <span class="text-white">${name}</span>
+                                        <span class="text-white">${displayName}</span>
                                         <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
                                     </div>
                                     <span class="text-gray-300 font-mono">${itemSum} ₽</span>
@@ -3418,18 +3413,21 @@
                 // window.shop.showToast(`В корзине: ${window.shop.state.cart[productId]} шт.`, "Добавлено");
             },
 
-            updateQty: async (productId, change) => {
-                if (!window.shop.state.cart[productId]) return;
+            updateQty: async (cartKey, change) => {
+                if (!window.shop.state.cart[cartKey]) return;
                 
+                const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                 const product = window.shop.state.products.find(p => p.id === productId);
                 if (!product) return;
                 
-                window.shop.state.cart[productId] += change;
+                window.shop.state.cart[cartKey] += change;
                 
-                if (window.shop.state.cart[productId] <= 0) {
-                    delete window.shop.state.cart[productId];
+                const itemId = cartKey.replace('__', '-');
+                
+                if (window.shop.state.cart[cartKey] <= 0) {
+                    delete window.shop.state.cart[cartKey];
                     
-                    const cartItem = document.querySelector(`#cart-item-${productId}`);
+                    const cartItem = document.querySelector(`#cart-item-${itemId}`);
                     if (cartItem) {
                         cartItem.classList.add('cart-item-removing');
                         setTimeout(() => {
@@ -3440,9 +3438,9 @@
                         }, 300);
                     }
                 } else {
-                    const qtyElement = document.querySelector(`#cart-item-${productId} .cart-item-qty`);
+                    const qtyElement = document.querySelector(`#cart-item-${itemId} .cart-item-qty`);
                     if (qtyElement) {
-                        qtyElement.textContent = window.shop.state.cart[productId];
+                        qtyElement.textContent = window.shop.state.cart[cartKey];
                     }
                     window.shop.updateCartTotal();
                 }
@@ -3460,12 +3458,15 @@
             updateCartTotal: () => {
                 if (!window.shop.state.isCartView) return;
                 
-                const cartIds = Object.keys(window.shop.state.cart);
-                const products = window.shop.state.products.filter(p => cartIds.includes(p.id));
+                const cartEntries = Object.entries(window.shop.state.cart);
                 let total = 0;
                 
-                products.forEach(p => {
-                    total += p.price * window.shop.state.cart[p.id];
+                cartEntries.forEach(([cartKey, qty]) => {
+                    const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
+                    const p = window.shop.state.products.find(prod => prod.id === productId);
+                    if (p) {
+                        total += p.price * qty;
+                    }
                 });
 
                 if (window.shop.state.activePromo) {
@@ -3474,10 +3475,10 @@
                     if (window.shop.state.activePromo.type === 'percent') {
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
-                        const cartItems = Object.entries(window.shop.state.cart);
                         let itemsProcessed = 0;
                         
-                        for (const [productId, quantity] of cartItems) {
+                        for (const [cartKey, quantity] of cartEntries) {
+                            const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                             const product = window.shop.state.products.find(p => p.id === productId);
                             if (product) {
                                 for (let i = 0; i < quantity; i++) {
@@ -3506,8 +3507,9 @@
                 const validProductIds = window.shop.state.products.map(p => p.id);
                 
                 let count = 0;
-                Object.entries(window.shop.state.cart).forEach(([id, qty]) => {
-                    if (validProductIds.includes(id)) {
+                Object.entries(window.shop.state.cart).forEach(([cartKey, qty]) => {
+                    const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
+                    if (validProductIds.includes(productId)) {
                         count += qty;
                     }
                 });
