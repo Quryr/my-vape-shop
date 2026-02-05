@@ -1016,6 +1016,7 @@
                 deliveryTime: null,
                 ordersListenerUnsubscribe: null,
                 editingProductId: null,
+                editingVariants: [],
                 cartListenerUnsubscribe: null,
                 isCartView: false,
                 cartRendering: false,
@@ -3600,6 +3601,7 @@
                 if (!product) return;
 
                 this.state.editingProductId = id;
+                this.state.editingVariants = Array.isArray(product.variants) ? [...product.variants] : [];
 
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
@@ -3620,7 +3622,59 @@
                      tempImg.src = product.image;
                 }
 
+                // Рендерим варианты
+                this.renderEditVariants();
+
                 this.toggleEditModal();
+            },
+            
+            renderEditVariants: function() {
+                const container = document.getElementById('edit-variants-container');
+                if (!container) return;
+                
+                const variants = this.state.editingVariants || [];
+                
+                if (variants.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-600 italic">Нет вариантов</p>';
+                } else {
+                    container.innerHTML = variants.map((v, i) => `
+                        <div class="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+                            <span class="flex-1 text-sm text-white">${v}</span>
+                            <button onclick="window.shop.removeEditVariant(${i})" class="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                
+                if (window.lucide) window.lucide.createIcons();
+            },
+            
+            addEditVariant: function() {
+                const input = document.getElementById('edit-new-variant');
+                const value = input.value.trim();
+                
+                if (!value) {
+                    this.showToast('Введите название варианта', 'Ошибка');
+                    return;
+                }
+                
+                if (!this.state.editingVariants) this.state.editingVariants = [];
+                
+                if (this.state.editingVariants.includes(value)) {
+                    this.showToast('Такой вариант уже есть', 'Ошибка');
+                    return;
+                }
+                
+                this.state.editingVariants.push(value);
+                input.value = '';
+                this.renderEditVariants();
+            },
+            
+            removeEditVariant: function(index) {
+                if (!this.state.editingVariants) return;
+                this.state.editingVariants.splice(index, 1);
+                this.renderEditVariants();
             },
 
             toggleEditModal: function() {
@@ -3628,6 +3682,7 @@
                 modal.classList.toggle('hidden');
                 if (modal.classList.contains('hidden')) {
                     this.state.editingProductId = null;
+                    this.state.editingVariants = [];
                     this.state.pendingEditImage = null;
                 } else {
                     setTimeout(() => {
@@ -3716,6 +3771,7 @@
                 const price = Number(document.getElementById('edit-price').value);
                 const cat = document.getElementById('edit-cat').value;
                 const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
+                const variants = this.state.editingVariants || [];
 
                 if (!name || !price) {
                     this.showToast("Заполните все обязательные поля", "Ошибка");
@@ -3727,6 +3783,7 @@
                     price,
                     category: cat,
                     image,
+                    variants: variants,
                 };
 
                 this.toggleEditModal();
@@ -3736,6 +3793,7 @@
                     const productRef = getProductDocRef(id);
                     await updateDoc(productRef, updatedProduct);
                     this.state.pendingEditImage = null;
+                    this.state.editingVariants = [];
                     this.showToast("Товар обновлен", "Успешно");
                 } catch (e) {
                     console.error("Update failed", e);
