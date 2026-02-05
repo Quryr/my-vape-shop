@@ -2005,23 +2005,23 @@ Sold Out Store
                     const escapedCartKey = cartKey.replace(/'/g, "\\'");
 
                     html += `
-                        <div class="cart-item glass-panel rounded-xl p-3 flex items-center gap-4" data-product-id="${cartKey}" id="cart-item-${cartKey.replace('__', '-')}" onclick="window.shop.showCartItemDetails('${escapedCartKey}')">
-                            <div class="w-14 h-14 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
+                        <div class="cart-item glass-panel rounded-xl p-4 flex items-center gap-4" data-product-id="${cartKey}" id="cart-item-${cartKey.replace('__', '-')}" onclick="window.shop.showCartItemDetails('${escapedCartKey}')">
+                            <div class="w-16 h-16 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
                                 ${imageContent}
                             </div>
                             <div class="flex-grow min-w-0">
-                                <h3 class="text-sm font-bold text-white truncate">${displayName}</h3>
+                                <h3 class="text-base font-bold text-white truncate">${displayName}</h3>
                                 <div class="flex items-center gap-2 mt-1">
-                                    <p class="text-xs text-green-400 font-mono">${p.price} ₽</p>
+                                    <p class="text-sm text-green-400 font-mono">${p.price} ₽</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/5" onclick="event.stopPropagation()">
-                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', -1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
-                                    <i data-lucide="minus" class="w-3 h-3 icon-fix"></i>
+                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', -1)" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors ${qty <= 1 ? 'opacity-30' : ''}">
+                                    <i data-lucide="minus" class="w-4 h-4 icon-fix"></i>
                                 </button>
-                                <span class="text-sm font-bold w-6 text-center text-white cart-item-qty">${qty}</span>
-                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', 1)" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
-                                    <i data-lucide="plus" class="w-3 h-3 icon-fix"></i>
+                                <span class="text-base font-bold w-8 text-center text-white cart-item-qty">${qty}</span>
+                                <button onclick="event.stopPropagation(); window.shop.updateQty('${escapedCartKey}', 1)" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                    <i data-lucide="plus" class="w-4 h-4 icon-fix"></i>
                                 </button>
                             </div>
                         </div>
@@ -2070,15 +2070,15 @@ Sold Out Store
                 html += `</div>`;
                 
                 html += `
-                    <div class="fixed bottom-4 left-2 right-2 glass-panel p-4 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
+                    <div class="fixed bottom-2 left-1 right-1 glass-panel p-5 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         ${discountHtml}
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Итого</p>
-                                <p class="text-2xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
+                                <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Итого</p>
+                                <p class="text-3xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-base align-top text-gray-500 font-normal">RUB</span></p>
                             </div>
-                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-6 py-4 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
-                                ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-4 h-4 icon-fix"></i>
+                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-8 py-5 rounded-xl font-black italic text-base shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
+                                ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-5 h-5 icon-fix"></i>
                             </button>
                         </div>
                     </div>
