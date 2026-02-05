@@ -540,16 +540,20 @@ Sold Out Store
 
     <!-- Bottom Navigation (Floating Island) -->
     <nav class="fixed bottom-6 left-4 right-4 h-18 glass-nav rounded-2xl flex items-center justify-around z-40 shadow-[0_10px_40px_rgba(0,0,0,0.8)] border border-white/5 py-3">
-        <button onclick="window.shop.switchView('store')" class="nav-btn flex flex-col items-center gap-1.5 text-green-400 btn-press transition-colors w-1/3" data-view="store">
+        <button onclick="window.shop.switchView('store')" class="nav-btn flex flex-col items-center gap-1.5 text-green-400 btn-press transition-colors w-1/4" data-view="store">
             <i data-lucide="store" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">МАГАЗИН</span>
         </button>
-        <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors relative w-1/3" data-view="cart">
+        <button onclick="window.shop.switchView('cart')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors relative w-1/4" data-view="cart">
             <div id="cart-badge" class="absolute top-0 right-6 w-4 h-4 bg-green-500 text-black text-[9px] font-bold rounded-full flex items-center justify-center opacity-0 transition-all shadow-[0_0_10px_rgba(34,197,94,0.6)]">0</div>
             <i data-lucide="shopping-bag" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">КОРЗИНА</span>
         </button>
-        <button onclick="window.shop.switchView('profile')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/3" data-view="profile">
+        <button onclick="window.shop.switchView('user-orders')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/4" data-view="user-orders">
+            <i data-lucide="package" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold tracking-wide">ЗАКАЗЫ</span>
+        </button>
+        <button onclick="window.shop.switchView('profile')" class="nav-btn flex flex-col items-center gap-1.5 text-gray-500 btn-press transition-colors w-1/4" data-view="profile">
             <i data-lucide="user" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold tracking-wide">ПРОФИЛЬ</span>
         </button>
@@ -593,6 +597,20 @@ Sold Out Store
                 <span id="product-modal-selected-text" class="text-base text-green-400 font-bold"></span>
             </div>
             
+            <!-- Quantity Control -->
+            <div class="flex items-center justify-between mb-4 bg-white/5 p-3 rounded-2xl border border-white/5">
+                <span class="text-sm font-bold text-gray-300 pl-2">Количество:</span>
+                <div class="flex items-center gap-3 bg-black/40 rounded-xl p-1">
+                    <button onclick="window.shop.changeModalQuantity(-1)" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                        <i data-lucide="minus" class="w-5 h-5"></i>
+                    </button>
+                    <span id="product-modal-quantity" class="text-xl font-bold w-8 text-center text-white font-mono">1</span>
+                    <button onclick="window.shop.changeModalQuantity(1)" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
             <!-- Add to cart button -->
             <button id="product-modal-add-btn" onclick="window.shop.addToCartFromModal()" class="w-full bg-green-500 hover:bg-green-400 text-black font-black italic uppercase tracking-wider py-5 rounded-2xl transition-all shadow-[0_0_30px_rgba(34,197,94,0.4)] flex items-center justify-center gap-3 text-lg mb-8">
                 <i data-lucide="shopping-bag" class="w-6 h-6"></i>
@@ -1094,12 +1112,30 @@ Sold Out Store
             },
 
             // --- PRODUCT MODAL METHODS ---
+            
+            modalQuantity: 1,
+
+            changeModalQuantity: function(diff) {
+                this.modalQuantity += diff;
+                if (this.modalQuantity < 1) this.modalQuantity = 1;
+                // Max limit optional (99 for example)
+                if (this.modalQuantity > 99) this.modalQuantity = 99;
+                
+                const el = document.getElementById('product-modal-quantity');
+                if (el) el.innerText = this.modalQuantity;
+            },
+
             openProductModal: function(productId) {
                 const product = this.state.products.find(p => p.id === productId);
                 if (!product) return;
                 
                 this.state.currentProductId = productId;
                 this.state.selectedVariant = null;
+                // Reset quantity
+                this.modalQuantity = 1;
+                
+                const qtyEl = document.getElementById('product-modal-quantity');
+                if (qtyEl) qtyEl.innerText = "1";
                 
                 const modal = document.getElementById('product-modal');
                 const imageContainer = document.getElementById('product-modal-image');
@@ -1111,6 +1147,15 @@ Sold Out Store
                 const variantsList = document.getElementById('product-modal-variants-list');
                 const selectedContainer = document.getElementById('product-modal-selected');
                 
+                // Show Add Button and Hide "In Cart" info if any (using same modal for both store and cart items can be tricky, but assuming this is for Store)
+                const addBtn = document.getElementById('product-modal-add-btn');
+                if(addBtn) {
+                     addBtn.classList.remove('hidden');
+                     addBtn.onclick = () => window.shop.addToCartFromModal();
+                     // Reset button text
+                     addBtn.innerHTML = `<i data-lucide="shopping-bag" class="w-6 h-6"></i> ДОБАВИТЬ В КОРЗИНУ`;
+                }
+
                 // Set image
                 if (product.image && (product.image.startsWith('data:image') || product.image.includes('http'))) {
                     imageContainer.innerHTML = `
@@ -1157,6 +1202,7 @@ Sold Out Store
                 document.getElementById('product-modal').classList.add('hidden');
                 this.state.currentProductId = null;
                 this.state.selectedVariant = null;
+                this.modalQuantity = 1;
             },
             
             // Show cart item details (full name, variant, etc.)
@@ -1246,11 +1292,13 @@ Sold Out Store
                 if (!this.state.cart[cartKey]) {
                     this.state.cart[cartKey] = 0;
                 }
-                this.state.cart[cartKey]++;
+                // USE modalQuantity
+                const qtyToAdd = this.modalQuantity || 1;
+                this.state.cart[cartKey] += qtyToAdd;
                 
                 this.updateCartBadge();
                 this.saveCartToFirebase();
-                this.showToast(`${product.name}${this.state.selectedVariant ? ' (' + this.state.selectedVariant + ')' : ''} добавлен`, 'В корзину');
+                this.showToast(`${product.name} (+${qtyToAdd})`, 'В корзину');
                 this.closeProductModal();
             },
 
@@ -1733,6 +1781,427 @@ Sold Out Store
                 });
             },
 
+            // --- RENDER USER ORDERS (НОВАЯ ФУНКЦИЯ) ---
+            renderUserOrders: function(container) {
+                const isSelectMode = this.state.userOrdersSelectionMode;
+                const selectedCount = this.state.selectedUserOrders.size;
+
+                container.innerHTML = `
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.shop.switchView('profile')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-gray-400 hover:text-white">
+                                <i data-lucide="arrow-left" class="w-5 h-5 icon-fix"></i>
+                            </button>
+                            <h2 class="text-xl font-black italic text-white">МОИ <span class="text-green-500">ЗАКАЗЫ</span></h2>
+                        </div>
+                        <button onclick="window.shop.toggleUserOrdersSelectionMode()" 
+                                class="px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border border-red-500/30 hover:bg-red-500/20 text-red-400 flex items-center gap-2 ${isSelectMode && selectedCount > 0 ? 'bg-red-500/20' : ''}">
+                            ${isSelectMode ? 
+                                (selectedCount > 0 ? 
+                                    '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ' : 
+                                    '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
+                                '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ'}
+                        </button>
+                    </div>
+                    <div id="user-orders-list" class="space-y-3 pb-32">
+                        <div class="text-center py-10 text-gray-500 animate-pulse">Загрузка заказов...</div>
+                    </div>
+                `;
+                
+                if (window.shop.state.userOrdersListenerUnsubscribe) {
+                    window.shop.state.userOrdersListenerUnsubscribe();
+                    window.shop.state.userOrdersListenerUnsubscribe = null;
+                }
+
+                const uid = window.shop.state.firebaseUid;
+                if (!uid) {
+                    document.getElementById('user-orders-list').innerHTML = '<div class="text-center py-10 text-gray-500">Авторизуйтесь, чтобы увидеть заказы</div>';
+                    return;
+                }
+
+                const userOrdersCollection = getUserOrdersRef(uid);
+                const q = query(userOrdersCollection);
+                
+                window.shop.state.userOrdersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                    window.shop.updateUserOrdersList(snapshot);
+                });
+
+                setTimeout(() => {
+                    window.shop.renderUserOrdersFab();
+                }, 50);
+            },
+
+            // --- UPDATE USER ORDERS LIST ---
+            updateUserOrdersList: function(snapshot = null) {
+                const list = document.getElementById('user-orders-list');
+                if (!list) return;
+                
+                if (snapshot) {
+                    if (snapshot.empty) {
+                        list.innerHTML = `<div class="text-center py-10 text-gray-500">Заказов пока нет</div>`;
+                        window.shop.state.userOrders = [];
+                        window.shop.renderUserOrdersFab();
+                        return;
+                    }
+
+                    let docs = [];
+                    snapshot.forEach(docSnap => {
+                        const data = docSnap.data();
+                        docs.push({ 
+                            firestoreId: docSnap.id, 
+                            ...data,
+                            date: data.date ? 
+                                (data.date.toDate ? data.date.toDate() : new Date(data.date)) : 
+                                new Date()
+                        });
+                    });
+                    
+                    docs.sort((a, b) => b.date - a.date);
+                    
+                    window.shop.state.userOrders = docs;
+                }
+                
+                const docs = window.shop.state.userOrders || [];
+                
+                let html = '';
+                docs.forEach(data => {
+                    const date = new Date(data.date).toLocaleString('ru-RU', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute:'2-digit' 
+                    });
+                    
+                    const isSelected = window.shop.state.selectedUserOrders.has(data.firestoreId);
+                    
+                    let statusClass = 'status-pending';
+                    let statusText = 'ОЖИДАЕТ';
+                    
+                    if (data.status === 'approved') {
+                        statusClass = 'status-approved';
+                        statusText = 'ПРИНЯТ';
+                    } else if (data.status === 'rejected') {
+                        statusClass = 'status-rejected';
+                        statusText = 'ОТКЛОНЕН';
+                    }
+
+                    let paymentBadge = '';
+                    let paymentClass = 'payment-status-pending';
+                    let paymentText = 'ОЖИДАЕТ';
+                    
+                    if (data.payment_method === 'now' && data.payment_status === 'paid') {
+                        paymentClass = 'payment-status-paid';
+                        paymentText = 'ОПЛАЧЕНО';
+                    } else if (data.payment_method === 'now' && data.payment_status === 'pending') {
+                        paymentClass = 'payment-status-pending';
+                        paymentText = 'НЕ ОПЛАЧЕНО';
+                    } else if (data.payment_method === 'on_delivery') {
+                        paymentClass = 'payment-status-waiting';
+                        paymentText = 'ПРИ ПОЛУЧЕНИИ';
+                    }
+                    
+                    paymentBadge = `<div class="${paymentClass} status-badge mt-1 text-[8px]">${paymentText}</div>`;
+
+                    const cardStyle = isSelected 
+                        ? 'border-red-500 bg-red-500/10' 
+                        : `hover:bg-white/5 border-l-4 ${data.status === 'approved' ? 'border-l-green-500' : (data.status === 'rejected' ? 'border-l-red-500' : 'border-l-yellow-500')}`;
+
+                    const clickAction = window.shop.state.userOrdersSelectionMode 
+                        ? `window.shop.toggleUserOrderSelection('${data.firestoreId}')`
+                        : `window.shop.openUserOrderDetails('${data.firestoreId}')`;
+
+                    const checkboxHtml = window.shop.state.userOrdersSelectionMode 
+                        ? `<div class="mr-3 pt-1">
+                             <div class="order-checkbox ${isSelected ? 'checked' : ''}">
+                                ${isSelected ? '<i data-lucide="check" class="w-3 h-3 text-white icon-fix"></i>' : ''}
+                             </div>
+                            </div>` 
+                        : '';
+
+                    html += `
+                        <div onclick="${clickAction}" class="glass-panel rounded-xl p-4 cursor-pointer transition-all duration-200 ${cardStyle} flex mb-2">
+                            ${checkboxHtml}
+                            <div class="flex-grow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex flex-col">
+                                        <span class="text-[10px] text-gray-500 font-mono tracking-widest">${data.order_key || 'NO-ID'}</span>
+                                        <span class="text-sm font-bold text-white">${data.delivery?.name || 'Клиент'}</span>
+                                    </div>
+                                    <div class="flex flex-col items-end">
+                                        <div class="${statusClass} status-badge">
+                                            ${statusText}
+                                        </div>
+                                        ${paymentBadge}
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-end">
+                                    <div class="text-xs text-gray-500">${date}</div>
+                                    <div class="text-green-400 font-bold font-mono">${data.total} ₽</div>
+                                </div>
+                                ${data.promo ? `<div class="text-xs text-green-400 mt-1"><i data-lucide="ticket" class="w-3 h-3 inline mr-1 icon-fix"></i>${data.promo}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                list.innerHTML = html;
+                window.shop.updateIcons();
+                window.shop.renderUserOrdersFab();
+            },
+
+            toggleUserOrdersSelectionMode: function() {
+                this.state.userOrdersSelectionMode = !this.state.userOrdersSelectionMode;
+                if (!this.state.userOrdersSelectionMode) {
+                    this.state.selectedUserOrders.clear();
+                }
+                this.updateUserOrdersList();
+                this.updateUserOrdersSelectionButton();
+                this.renderUserOrdersFab();
+            },
+
+            toggleUserOrderSelection: function(docId) {
+                const set = this.state.selectedUserOrders;
+                if (set.has(docId)) {
+                    set.delete(docId);
+                } else {
+                    set.add(docId);
+                }
+                this.updateUserOrdersList();
+                this.updateUserOrdersSelectionButton();
+                this.renderUserOrdersFab();
+            },
+
+            updateUserOrdersSelectionButton: function() {
+                const selectedCount = this.state.selectedUserOrders.size;
+                const button = document.querySelector('button[onclick="window.shop.toggleUserOrdersSelectionMode()"]');
+                if (button) {
+                    button.innerHTML = this.state.userOrdersSelectionMode ? 
+                        (selectedCount > 0 ? 
+                            `<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> УДАЛИТЬ` : 
+                            '<i data-lucide="x" class="w-4 h-4 icon-fix"></i> ОТМЕНА') : 
+                        '<i data-lucide="trash-2" class="w-4 h-4 icon-fix"></i> ВЫБРАТЬ';
+                    
+                    if (this.state.userOrdersSelectionMode && selectedCount > 0) {
+                        button.classList.add('bg-red-500/20');
+                    } else {
+                        button.classList.remove('bg-red-500/20');
+                    }
+                }
+                window.shop.updateIcons();
+            },
+
+            renderUserOrdersFab: function() {
+                const isSelectMode = this.state.userOrdersSelectionMode;
+                const selectedCount = this.state.selectedUserOrders.size;
+                
+                let fabContainer = document.getElementById('user-orders-fab');
+                if (!fabContainer) {
+                    fabContainer = document.createElement('div');
+                    fabContainer.id = 'user-orders-fab';
+                    fabContainer.className = 'fixed bottom-24 left-4 right-4 z-30';
+                    document.getElementById('main-content').appendChild(fabContainer);
+                }
+                
+                if (isSelectMode && selectedCount > 0) {
+                    fabContainer.innerHTML = `
+                        <button onclick="window.shop.deleteSelectedUserOrders()" class="w-full bg-red-600 hover:bg-red-500 text-white font-black italic uppercase tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2 transition-all active:scale-95 animate-float-up">
+                            <i data-lucide="trash-2" class="w-5 h-5 icon-fix"></i>
+                            УДАЛИТЬ (${selectedCount})
+                        </button>
+                    `;
+                    fabContainer.classList.remove('hidden');
+                } else {
+                    fabContainer.innerHTML = '';
+                    fabContainer.classList.add('hidden');
+                }
+                
+                window.shop.updateIcons();
+            },
+
+            deleteSelectedUserOrders: function() {
+                const count = this.state.selectedUserOrders.size;
+                if (count === 0) return;
+                
+                this.showConfirm(
+                    "УДАЛИТЬ ВЫБРАННЫЕ ЗАКАЗЫ",
+                    `Вы уверены, что хотите удалить эти заказы (${count})?`,
+                    async () => {
+                        this.showToast(`Обработка ${count} заказов...`, "Синхронизация");
+                        
+                        try {
+                            const uid = this.state.firebaseUid;
+                            const promises = Array.from(this.state.selectedUserOrders).map(async (id) => {
+                                const userOrderRef = getUserOrderRef(uid, id);
+                                const docSnap = await getDoc(userOrderRef);
+                                
+                                if (docSnap.exists()) {
+                                    const data = docSnap.data();
+                                    if (data.publicOrderId) {
+                                        try {
+                                            const publicOrderRef = getPublicOrderRef(data.publicOrderId);
+                                            await updateDoc(publicOrderRef, {
+                                                status: 'deleted_by_client',
+                                                updatedAt: new Date().toISOString()
+                                            });
+                                        } catch (err) { }
+                                    }
+                                }
+                                return deleteDoc(userOrderRef);
+                            });
+                            
+                            await Promise.all(promises);
+                            
+                            this.state.userOrders = this.state.userOrders.filter(order => 
+                                !this.state.selectedUserOrders.has(order.firestoreId)
+                            );
+                            
+                            this.state.selectedUserOrders.clear();
+                            this.state.userOrdersSelectionMode = false;
+                            
+                            this.updateUserOrdersList();
+                            this.renderUserOrdersFab();
+                            this.showToast("Заказы удалены", "Успешно");
+                            
+                        } catch (e) {
+                            console.error(e);
+                            this.showToast("Ошибка удаления", "Сбой");
+                        }
+                    }
+                );
+            },
+
+            openUserOrderDetails: async function(docId) {
+                try {
+                    const uid = this.state.firebaseUid;
+                    const orderRef = getUserOrderRef(uid, docId);
+                    const docSnap = await getDoc(orderRef);
+                    if (!docSnap.exists()) return;
+                    
+                    const data = docSnap.data();
+                    const modal = document.getElementById('user-order-detail-modal');
+                    const content = document.getElementById('user-order-detail-content');
+                    
+                    const dateObj = data.date && data.date.toDate ? data.date.toDate() : new Date(data.date);
+                    const dateStr = dateObj.toLocaleString('ru-RU', { 
+                        day: 'numeric', month: 'long', hour: '2-digit', minute:'2-digit' 
+                    });
+
+                    let itemsHtml = '';
+                    let subtotal = 0;
+
+                    if (data.items) {
+                        for (const [key, qty] of Object.entries(data.items)) {
+                             const realKey = key.includes('__') ? key.split('__')[0] : key;
+                             const prod = window.shop.state.products.find(p => p.id === realKey);
+                             const name = prod ? prod.name : 'Товар удален';
+                             const price = prod ? prod.price : 0;
+                             const itemSum = price * qty;
+                             subtotal += itemSum;
+
+                             itemsHtml += `
+                                <div class="flex justify-between text-xs py-2 border-b border-white/5 items-center">
+                                    <div class="flex flex-col">
+                                        <span class="text-white">${name}</span>
+                                        <span class="text-[9px] text-gray-500">${price} ₽ x ${qty} шт.</span>
+                                    </div>
+                                    <span class="text-gray-300 font-mono">${itemSum} ₽</span>
+                                </div>`;
+                        }
+                    }
+
+                    const realSubtotal = subtotal > 0 ? subtotal : data.total;
+                    const discountAmount = realSubtotal - data.total;
+                    const hasDiscount = discountAmount > 0;
+
+                    let paymentStatusHtml = '';
+                    if (data.payment_method === 'now' && data.payment_status === 'paid') {
+                        paymentStatusHtml = `<div class="payment-status-paid status-badge w-full text-center mt-2">ОПЛАЧЕНО ОНЛАЙН</div>`;
+                    } else if (data.payment_method === 'now' && data.payment_status === 'pending') {
+                        paymentStatusHtml = `<div class="payment-status-pending status-badge w-full text-center mt-2">НЕ ОПЛАЧЕНО</div>`;
+                    } else if (data.payment_method === 'on_delivery') {
+                        paymentStatusHtml = `<div class="payment-status-waiting status-badge w-full text-center mt-2">ОПЛАТА ПРИ ПОЛУЧЕНИИ</div>`;
+                    }
+
+                    let statusBadge = '';
+                    if (data.status === 'approved') {
+                        statusBadge = `<div class="status-approved status-badge w-full text-center mt-2">ЗАКАЗ ПРИНЯТ</div>`;
+                    } else if (data.status === 'rejected') {
+                        statusBadge = `<div class="status-rejected status-badge w-full text-center mt-2">ЗАКАЗ ОТКЛОНЕН</div>`;
+                    } else {
+                        statusBadge = `<div class="status-pending status-badge w-full text-center mt-2">ОЖИДАЕТ ПОДТВЕРЖДЕНИЯ</div>`;
+                    }
+
+                    content.innerHTML = `
+                        <div class="text-center mb-4 relative">
+                            <h3 class="text-lg font-black italic text-white">ЗАКАЗ ${data.order_key || '...'}</h3>
+                            <p class="text-xs text-gray-500 capitalize">${dateStr}</p>
+                        </div>
+                        
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3 icon-fix"></i> Ваши данные</p>
+                            <div class="space-y-1">
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Имя:</span> ${data.delivery?.name}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Тел:</span> ${data.delivery?.phone}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Возраст:</span> ${data.delivery?.age || '-'}</p>
+                                <p class="text-sm text-white flex justify-between"><span class="text-gray-500">Ник:</span> ${data.delivery?.contact}</p>
+                            </div>
+                            <div class="mt-2 pt-2 border-t border-white/5 space-y-1">
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Адрес:</span> ${data.delivery?.place}</p>
+                                <p class="text-sm text-white"><span class="text-gray-500 block text-[10px] uppercase">Время:</span> ${data.delivery?.time}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-4 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="credit-card" class="w-3 h-3 icon-fix"></i> Оплата</p>
+                            <p class="text-sm text-white mb-2">${data.payment_method === 'now' ? 'Перевод на карту' : 'Наличными при получении'}</p>
+                            ${paymentStatusHtml}
+                        </div>
+
+                        <div class="bg-black/40 rounded-xl p-3 mb-6 border border-white/10">
+                            <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="shopping-bag" class="w-3 h-3 icon-fix"></i> Товары</p>
+                            ${itemsHtml}
+                            
+                            <div class="mt-3 pt-2 space-y-2">
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>Сумма товаров:</span>
+                                    <span>${realSubtotal} ₽</span>
+                                </div>
+                                
+                                ${hasDiscount ? `
+                                <div class="flex justify-between items-center text-xs text-green-400 font-bold bg-green-900/20 p-2 rounded-lg border border-green-500/20">
+                                    <span class="flex items-center gap-2">
+                                        <i data-lucide="ticket" class="w-3 h-3"></i> 
+                                        Скидка (<span class="text-white uppercase font-black">${data.promo || 'PROMO'}</span>):
+                                    </span>
+                                    <span>-${discountAmount} ₽</span>
+                                </div>
+                                ` : ''}
+
+                                <div class="flex justify-between mt-2 pt-2 border-t border-white/10 items-center">
+                                    <span class="text-white font-bold text-sm">К ОПЛАТЕ</span>
+                                    <span class="text-green-400 font-black text-xl neon-text-green">${data.total} ₽</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${statusBadge}
+
+                        <div class="mt-6">
+                            <button onclick="document.getElementById('user-order-detail-modal').classList.add('hidden')" class="w-full py-3 bg-white/5 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors">
+                                ЗАКРЫТЬ
+                            </button>
+                        </div>
+                    `;
+                    
+                    modal.classList.remove('hidden');
+                    window.shop.updateIcons();
+
+                } catch (e) {
+                    console.error(e);
+                    window.shop.showToast('Ошибка загрузки', 'Сбой');
+                }
+            },
+
             seedDatabase: async () => {
                 try {
                     window.shop.showConfirm(
@@ -1832,11 +2301,18 @@ Sold Out Store
 
                 window.shop.state.isCartView = (viewName === 'cart');
 
+                // Clean up listeners
+                if (window.shop.state.userOrdersListenerUnsubscribe) {
+                    window.shop.state.userOrdersListenerUnsubscribe();
+                    window.shop.state.userOrdersListenerUnsubscribe = null;
+                }
+
                 setTimeout(() => {
                     if (viewName === 'store') window.shop.renderStore(main);
                     else if (viewName === 'cart') window.shop.renderCart(main);
                     else if (viewName === 'profile') window.shop.renderProfile(main);
                     else if (viewName === 'admin-orders') window.shop.renderAdminOrders(main);
+                    else if (viewName === 'user-orders') window.shop.renderUserOrders(main);
                     
                     main.style.opacity = '1';
                     
@@ -1996,7 +2472,8 @@ Sold Out Store
                     
                     let imageContent;
                     if (p.image && (p.image.startsWith('data:image') || p.image.includes('http'))) {
-                        imageContent = `<img src="${p.image}" class="w-full h-full object-cover rounded-lg">`;
+                        // FIX: object-contain to prevent distortion, bg-white/5 for letterbox effect
+                        imageContent = `<img src="${p.image}" class="w-full h-full object-contain bg-white/5 rounded-lg">`;
                     } else {
                         imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400 icon-fix"></i>`;
                     }
@@ -2035,12 +2512,9 @@ Sold Out Store
                     let discountAmount = 0;
                     
                     if (window.shop.state.activePromo.type === 'percent') {
-                        // Процент от всей корзины
                         discountAmount = Math.floor((total * window.shop.state.activePromo.percent) / 100);
                     } else if (window.shop.state.activePromo.type === 'fixed') {
-                        // Процентная скидка на количество товаров
                         let itemsProcessed = 0;
-                        
                         for (const [cartKey, quantity] of cartEntries) {
                             const [productId] = cartKey.includes('__') ? cartKey.split('__') : [cartKey];
                             const product = window.shop.state.products.find(p => p.id === productId);
@@ -2049,9 +2523,7 @@ Sold Out Store
                                     if (itemsProcessed < window.shop.state.activePromo.fixed_quantity) {
                                         discountAmount += (product.price * window.shop.state.activePromo.fixed_discount) / 100;
                                         itemsProcessed++;
-                                    } else {
-                                        break;
-                                    }
+                                    } else { break; }
                                 }
                             }
                             if (itemsProcessed >= window.shop.state.activePromo.fixed_quantity) break;
@@ -2061,7 +2533,7 @@ Sold Out Store
                     finalTotal = total - discountAmount;
                     discountHtml = `
                         <div class="flex justify-between items-center text-green-400 text-xs mt-1">
-                            <span class="uppercase tracking-widest">ПРОМОКОД: ${window.shop.state.activePromo.code}</span>
+                            <span class="uppercase tracking-widest">ПРОМО: ${window.shop.state.activePromo.code}</span>
                             <span>-${discountAmount} ₽</span>
                         </div>
                     `;
@@ -2069,16 +2541,17 @@ Sold Out Store
 
                 html += `</div>`;
                 
+                // FIX: Smaller checkout button and footer
                 html += `
-                    <div class="fixed bottom-2 left-1 right-1 glass-panel p-5 rounded-3xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
+                    <div class="fixed bottom-24 left-4 right-4 glass-panel p-3 rounded-2xl flex flex-col gap-2 border-t border-green-500/20 shadow-[0_0_40px_rgba(0,0,0,0.8)] z-30">
                         ${discountHtml}
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Итого</p>
-                                <p class="text-3xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-base align-top text-gray-500 font-normal">RUB</span></p>
+                                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Итого</p>
+                                <p class="text-xl font-black text-white neon-text-green" id="cart-total">${finalTotal} <span class="text-sm align-top text-gray-500 font-normal">RUB</span></p>
                             </div>
-                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-8 py-5 rounded-xl font-black italic text-base shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
-                                ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-5 h-5 icon-fix"></i>
+                            <button onclick="window.shop.initCheckout(${finalTotal})" class="bg-green-500 text-black px-6 py-3 rounded-xl font-black italic text-sm shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-95 transition-transform flex items-center gap-2">
+                                ОПЛАТИТЬ <i data-lucide="arrow-right" class="w-4 h-4 icon-fix"></i>
                             </button>
                         </div>
                     </div>
