@@ -769,7 +769,8 @@
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
                         <input type="text" id="del-contact" placeholder="Например: @username" 
                                class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
-                               onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
+                               onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)"
+                               oninput="let v = this.value; if (!v.startsWith('@')) v = '@' + v.replace(/@/g, ''); v = '@' + v.slice(1).replace(/[^a-zA-Z0-9_]/g, ''); this.value = v;">
                     </div>
 
                     <div>
@@ -2054,7 +2055,7 @@
                         imageContent = `<i data-lucide="${p.image || 'box'}" class="w-6 h-6 text-gray-400 icon-fix"></i>`;
                     }
                     
-                    const displayName = variant ? `${p.name} (${variant})` : p.name;
+                    const displayName = (variant && variant !== 'default') ? `${p.name} (${variant})` : p.name;
                     const keyForCall = cartKey.replace(/'/g, "\\'");
                     const variantArg = variant ? `'${variant}'` : 'null';
 
@@ -2547,7 +2548,7 @@
                              const [productId, variant] = key.includes('__') ? key.split('__') : [key, null];
                              const prod = window.shop.state.products.find(p => p.id === productId);
                              const baseName = prod ? prod.name : 'Товар удален';
-                             const displayName = variant ? `${baseName} (${variant})` : baseName;
+                             const displayName = (variant && variant !== 'default') ? `${baseName} (${variant})` : baseName;
                              const price = prod ? prod.price : 0;
                              const itemSum = price * qty;
                              subtotal += itemSum;
@@ -3206,7 +3207,7 @@
                              const [productId, variant] = key.includes('__') ? key.split('__') : [key, null];
                              const prod = window.shop.state.products.find(p => p.id === productId);
                              const baseName = prod ? prod.name : 'Товар удален';
-                             const displayName = variant ? `${baseName} (${variant})` : baseName;
+                             const displayName = (variant && variant !== 'default') ? `${baseName} (${variant})` : baseName;
                              const price = prod ? prod.price : 0;
                              const itemSum = price * qty;
                              subtotal += itemSum;
