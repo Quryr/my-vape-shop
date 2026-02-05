@@ -1,3 +1,12 @@
+<!--
+███████╗ ██████╗ ██╗     ██████╗      ██████╗ ██╗   ██╗████████╗
+██╔════╝██╔═══██╗██║     ██╔══██╗    ██╔═══██╗██║   ██║╚══██╔══╝
+███████╗██║   ██║██║     ██║  ██║    ██║   ██║██║   ██║   ██║
+╚════██║██║   ██║██║     ██║  ██║    ██║   ██║██║   ██║   ██║
+███████║╚██████╔╝███████╗██████╔╝    ╚██████╔╝╚██████╔╝   ██║
+╚══════╝ ╚═════╝ ╚══════╝╚═════╝      ╚═════╝  ╚═════╝    ╚═╝
+Sold Out Store
+-->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -709,6 +718,11 @@
                         <option value="Комплектующие">Комплектующие</option>
                         <option value="Электроника">Электроника</option>
                     </select>
+                </div>
+                
+                <div>
+                    <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Описание</label>
+                    <textarea id="edit-description" rows="3" class="fixed-input w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.2)] outline-none transition-all text-white placeholder-gray-600 resize-none" placeholder="Опишите товар..."></textarea>
                 </div>
                 
                 <!-- Варианты/Подкатегории -->
@@ -1995,8 +2009,8 @@
                                     <p class="text-[9px] text-gray-500 uppercase tracking-widest mb-2 border-l-2 border-green-500/50 pl-2">${p.category}</p>
                                 </div>
                                 
-                                <div class="flex items-end justify-between mt-1 relative z-20">
-                                    <div class="flex flex-col">
+                                <div class="flex flex-col items-center mt-1 relative z-20">
+                                    <div class="flex flex-col items-center mb-2">
                                         <span class="text-[9px] text-gray-500">Цена</span>
                                         <span class="text-green-400 font-bold text-sm tracking-wide neon-text-green">${p.price} ₽</span>
                                     </div>
@@ -3630,6 +3644,7 @@
                 document.getElementById('edit-name').value = product.name;
                 document.getElementById('edit-price').value = product.price;
                 document.getElementById('edit-cat').value = product.category;
+                document.getElementById('edit-description').value = product.description || '';
 
                 const preview = document.getElementById('edit-img-preview-container');
                 const placeholder = document.getElementById('edit-img-placeholder');
@@ -3794,6 +3809,7 @@
                 const name = document.getElementById('edit-name').value;
                 const price = Number(document.getElementById('edit-price').value);
                 const cat = document.getElementById('edit-cat').value;
+                const description = document.getElementById('edit-description').value;
                 const image = this.state.pendingEditImage || this.state.products.find(p => p.id === id).image;
                 const variants = this.state.editingVariants || [];
 
@@ -3806,6 +3822,7 @@
                     name,
                     price,
                     category: cat,
+                    description,
                     image,
                     variants: variants,
                 };
