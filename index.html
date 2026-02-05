@@ -106,23 +106,24 @@
             animation: float 10s infinite ease-in-out;
         }
 
-        /* Glassmorphism - Optimized for Performance */
+        /* Glassmorphism - Maximum Performance (no blur) */
         .glass-panel {
-            background: rgba(15, 15, 15, 0.92);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: rgba(15, 15, 15, 0.98);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-            transform: translateZ(0);
-            will-change: transform;
+            contain: layout paint;
         }
 
         .glass-nav {
-            background: rgba(10, 10, 10, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(10, 10, 10, 0.99);
             border-top: 1px solid rgba(255, 255, 255, 0.05);
-            transform: translateZ(0);
+            contain: layout;
+        }
+        
+        /* Product cards performance */
+        .product-card {
+            contain: layout style paint;
+            content-visibility: auto;
         }
 
         /* Neon Glows */
@@ -731,32 +732,37 @@
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваше ФИО</label>
                         <input type="text" id="del-name" placeholder="Фамилия Имя Отчество" 
                                class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
-                               oninput="this.value = this.value.replace(/[0-9]/g, '')">
+                               oninput="this.value = this.value.replace(/[0-9]/g, '')"
+                               onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
                     </div>
                     
                     <div class="grid grid-cols-3 gap-3">
                         <div class="col-span-2">
                             <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Номер телефона</label>
                             <input type="tel" id="del-phone" placeholder="+7 999 000 00 00" maxlength="12" 
-                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                                   onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
                         </div>
                         <div>
                             <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Возраст</label>
                             <input type="number" id="del-age" placeholder="18+" 
-                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99">
+                                   class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700 text-center" min="18" max="99"
+                                   onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
                         </div>
                     </div>
 
                     <div>
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">Ваш Telegram (@username)</label>
                         <input type="text" id="del-contact" placeholder="Например: @username" 
-                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                               onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
                     </div>
 
                     <div>
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 block">📍 Место встречи</label>
                         <input type="text" id="del-place" placeholder="Адрес или ориентир" 
-                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700">
+                               class="fixed-input input-focus-fix w-full bg-black/60 border border-white/10 rounded-xl p-3 text-sm focus:border-green-500 outline-none transition-all text-white placeholder-gray-700"
+                               onfocus="setTimeout(() => this.scrollIntoView({behavior:'smooth',block:'center'}), 300)">
                     </div>
 
                     <div>
@@ -1637,7 +1643,31 @@
 
                 this.state.currentProductId = productId;
                 this.state.selectedVariant = initialVariant;
-                this.state.modalQuantity = 1;
+                
+                // Получаем текущее количество из корзины
+                let currentQty = 1;
+                if (initialVariant && initialVariant !== 'default') {
+                    const cartKey = productId + '__' + initialVariant;
+                    if (this.state.cart[cartKey]) {
+                        currentQty = this.state.cart[cartKey];
+                    }
+                } else if (!initialVariant) {
+                    // Если нет варианта, проверяем первый вариант или default
+                    if (Array.isArray(p.variants) && p.variants.length > 0) {
+                        const firstVariant = p.variants[0];
+                        const cartKey = productId + '__' + firstVariant;
+                        if (this.state.cart[cartKey]) {
+                            currentQty = this.state.cart[cartKey];
+                        }
+                    } else {
+                        // Без вариантов, проверяем default
+                        const cartKey = productId + '__default';
+                        if (this.state.cart[cartKey]) {
+                            currentQty = this.state.cart[cartKey];
+                        }
+                    }
+                }
+                this.state.modalQuantity = currentQty;
 
                 const modal = document.getElementById('product-modal');
                 const imgContainer = document.getElementById('product-modal-image');
@@ -1705,7 +1735,7 @@
                                 <button onclick="window.shop.changeModalQuantity(-1)" class="w-10 h-10 rounded-lg bg-black/40 flex items-center justify-center text-white hover:bg-white/10 transition-colors">
                                     <i data-lucide="minus" class="w-5 h-5"></i>
                                 </button>
-                                <span class="text-xl font-bold w-8 text-center" id="modal-qty">1</span>
+                                <span class="text-xl font-bold w-8 text-center" id="modal-qty">${this.state.modalQuantity}</span>
                                 <button onclick="window.shop.changeModalQuantity(1)" class="w-10 h-10 rounded-lg bg-black/40 flex items-center justify-center text-white hover:bg-white/10 transition-colors">
                                     <i data-lucide="plus" class="w-5 h-5"></i>
                                 </button>
@@ -1737,6 +1767,14 @@
                         btn.classList.add('text-gray-400');
                     }
                 });
+                
+                // Обновляем количество из корзины при смене варианта
+                const pid = this.state.currentProductId;
+                const cartKey = (variant && variant !== 'default') ? `${pid}__${variant}` : `${pid}__default`;
+                const qtyFromCart = this.state.cart[cartKey] || 1;
+                this.state.modalQuantity = qtyFromCart;
+                const qtyEl = document.getElementById('modal-qty');
+                if (qtyEl) qtyEl.innerText = qtyFromCart;
             },
 
             changeModalQuantity: function(delta) {
@@ -1758,10 +1796,10 @@
                     return;
                 }
 
-                const cartKey = (variant && variant !== 'default') ? `${pid}__${variant}` : pid;
+                const cartKey = (variant && variant !== 'default') ? `${pid}__${variant}` : `${pid}__default`;
                 
-                if (!this.state.cart[cartKey]) this.state.cart[cartKey] = 0;
-                this.state.cart[cartKey] += this.state.modalQuantity;
+                // Устанавливаем количество (не прибавляем, т.к. modalQuantity уже содержит итоговое значение)
+                this.state.cart[cartKey] = this.state.modalQuantity;
 
                 this.updateCartBadge();
                 this.saveCartToFirebase();
@@ -1886,7 +1924,7 @@
                         const buttonHTML = window.shop.getProductButtonHTML(p);
             
                         gridHTML += `
-                        <div onclick="window.shop.openProductModal('${p.id}')" class="glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle} cursor-pointer active:scale-[0.98] transition-transform duration-200">
+                        <div onclick="window.shop.openProductModal('${p.id}')" class="product-card glass-panel rounded-2xl p-2.5 flex flex-col relative group h-auto ${hiddenStyle} cursor-pointer active:scale-[0.98] transition-transform duration-200">
                             ${window.shop.state.isAdmin ? `
                                 ${hiddenBadge}
                                 <div onclick="event.stopPropagation()" class="absolute top-2 right-2 z-20 flex gap-1">
@@ -1904,7 +1942,7 @@
                                 </div>
                             ` : ''}
                             
-                            <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative group-hover:bg-white/10 transition-colors w-full">
+                            <div class="aspect-[3/4] bg-white/5 rounded-xl mb-3 flex items-center justify-center relative group-hover:bg-white/10 transition-colors w-full overflow-hidden">
                                  <div class="absolute inset-0 bg-gradient-to-tr from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10 rounded-xl"></div>
                                 ${imageContent}
                             </div>
