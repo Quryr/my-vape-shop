@@ -165,6 +165,7 @@ Sold Out Store
             .category-scroll {
                 margin-left: 0 !important;
                 margin-right: 0 !important;
+                scroll-behavior: smooth;
                 scrollbar-width: thin;
                 -ms-overflow-style: auto;
                 padding-bottom: 10px; 
@@ -671,6 +672,7 @@ Sold Out Store
                         <option value="Одноразки">Одноразки</option>
                         <option value="Pod-устройства">Pod-устройства</option>
                         <option value="Жидкости">Жидкости</option>
+                        <option value="Снюс">Снюс</option>
                         <option value="Комплектующие">Комплектующие</option>
                         <option value="Электроника">Электроника</option>
                     </select>
@@ -715,6 +717,7 @@ Sold Out Store
                         <option value="Одноразки">Одноразки</option>
                         <option value="Pod-устройства">Pod-устройства</option>
                         <option value="Жидкости">Жидкости</option>
+                        <option value="Снюс">Снюс</option>
                         <option value="Комплектующие">Комплектующие</option>
                         <option value="Электроника">Электроника</option>
                     </select>
@@ -1053,7 +1056,7 @@ Sold Out Store
                 paymentMethod: null,
                 paymentStatus: 'pending',
                 promoType: 'percent',
-                categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'],
+                categoryOrder: ['Одноразки', 'Pod-устройства', 'Жидкости', 'Снюс', 'Комплектующие', 'Электроника'],
                 // Новые состояния для заказов пользователя
                 userOrders: [],
                 userOrdersListenerUnsubscribe: null,
@@ -1501,7 +1504,7 @@ Sold Out Store
                         });
                     });
                     
-                    const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                    const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Снюс', 'Комплектующие', 'Электроника'];
                     
                     dbProducts.sort((a, b) => {
                         let indexA = catOrder.indexOf(a.category);
@@ -1908,7 +1911,7 @@ Sold Out Store
             renderStore: (container = document.getElementById('main-content')) => {
                 if (!container) return;
                 
-                const categories = ['Все', 'Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                const categories = ['Все', 'Одноразки', 'Pod-устройства', 'Жидкости', 'Снюс', 'Комплектующие', 'Электроника'];
                 let catHTML = `<div class="category-scroll flex gap-3 overflow-x-auto mx-[-1rem] px-4 mb-4 pb-2">`;
                 categories.forEach(cat => {
                     const isActive = window.shop.state.currentCategory === cat;
@@ -1933,7 +1936,7 @@ Sold Out Store
                 });
             
                 // 2. СОРТИРОВКА (ПРАВКА ДЛЯ АДМИНА)
-                const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Комплектующие', 'Электроника'];
+                const catOrder = ['Одноразки', 'Pod-устройства', 'Жидкости', 'Снюс', 'Комплектующие', 'Электроника'];
                 
                 filtered.sort((a, b) => {
                     // А. Скрытые товары всегда вниз списка (1 = a ниже b, -1 = a выше b)
@@ -4242,14 +4245,3 @@ Sold Out Store
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
